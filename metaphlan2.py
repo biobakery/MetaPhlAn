@@ -18,8 +18,6 @@ __date__ = '1 April 2014'
 
 
 import sys
-import textwrap
-import shutil
 import os
 
 try:
@@ -81,7 +79,7 @@ def read_params(args):
             "cat file.sam | cut -f 1,3 | grep -v \"*\" > file.bowtie2out.txt\n\n"
             "* The metagenome can also be passed from the standard input but \n"
             "  it is necessary to specify the input format explicitly:\n"
-            "tar xjz metagenome.tar.bz2 --to-stdout | metaphlan.py --mpa_pkl mpa.pkl --input_type multifastq --blastdb blastdb/mpa\n\n"
+            "tar xjf metagenome.tar.bz2 --to-stdout | metaphlan.py --mpa_pkl mpa.pkl --input_type multifastq --blastdb blastdb/mpa\n\n"
             "* Also the pre-computed BowTie2 output can be provided with a pipe (again \n"
             "  specifying the input type): \n"
             "metaphlan.py --input_type bowtie2out --mpa_pkl mpa.pkl < metagenome.bowtie2out.txt > profiling_output.txt\n\n"
@@ -353,8 +351,8 @@ class TaxClade:
         rat, nrawreads, loc_ab = float(sum(rat_v)) or -1.0, sum(nreads_v), 0.0
         quant = int(self.quantile*len(rat_nreads))
         ql,qr,qn = (quant,-quant,quant) if quant else (None,None,0)
-      
-        if self.name[0] == 't': #  and len(self.children) > 1:
+     
+        if self.name[0] == 't' and (len(self.father.children) > 1 or "_sp" in self.father.name or "k__Viruses" in self.get_full_name()):
             non_zeros = float(len([n for r,n in rat_nreads if n > 0])) 
             nreads = float(len(rat_nreads))
             if nreads == 0.0 or non_zeros / nreads < 0.7:
@@ -384,7 +382,7 @@ class TaxClade:
             loc_ab = np.mean(wnreads) 
         elif self.stat == 'med':
             loc_ab = np.median(sorted([float(n)/r for r,n in rat_nreads])[ql:qr]) 
-
+        
         self.abundance = loc_ab
         if rat < self.min_cu_len and self.children:
             self.abundance = sum_ab
@@ -482,7 +480,7 @@ class TaxTree:
             prof = v.get_normalized_counts()
             if len(prof) < 1 or not sum([p[1] for p in prof]) > 0.0:
                 continue
-            cl2pr[k] = prof
+            cl2pr[v.get_full_name()] = prof
         return cl2pr
             
     def relative_abundances( self, tax_lev  ):
