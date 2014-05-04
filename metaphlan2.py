@@ -320,7 +320,7 @@ class TaxClade:
             misidentified = False
 
             if not self.avoid_disqm:
-              for e in self.markers2exts[m]:
+                for e in self.markers2exts[m]:
                     toclade = self.taxa2clades[e]
                     m2nr = toclade.markers2nreads
                     tocladetmp = toclade
@@ -336,12 +336,12 @@ class TaxClade:
                             break
             if not misidentified:
                 rat_nreads.append( (self.markers2lens[m],n) ) 
-        
+       
         if not self.avoid_disqm and len(removed):
             n_rat_nreads = float(len(rat_nreads))
             n_removed = float(len(removed))
             n_tot = n_rat_nreads + n_removed
-            if n_rat_nreads < 10 and n_tot > n_rat_nreads:
+            if n_rat_nreads < 10 and n_tot > n_rat_nreads and "k__Viruses" not in self.get_full_name():
                 rat_nreads += removed[:10-int(n_rat_nreads)]
 
         
