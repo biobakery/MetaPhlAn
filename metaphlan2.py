@@ -106,7 +106,8 @@ def read_params(args):
                "abundances \n"
                "[stdout if not present]")
 
-    arg( '-v','--version', action='store_true', help="Prints the current MetaPhlAn version and exit\n" )
+    arg( '-v','--version', action='version', version="MetaPhlAn version "+__version__+"\t("+__date__+")",
+         help="Prints the current MetaPhlAn version and exit\n" )
 
     arg( '--mpa_pkl', metavar="", default=None, type=str, # !!!!
          help = "the metadata pickled MetaPhlAn file")
@@ -601,10 +602,6 @@ def generate_biom_file(pars):
 
 if __name__ == '__main__':
     pars = read_params( sys.argv )
-
-    if pars['version']:
-        sys.stdout.write("MetaPhlAn version "+__version__+"\t("+__date__+")"+"\n")
-        sys.exit(0)
 
     if pars['inp'] is None and ( pars['input_type'] is None or  pars['input_type'] == 'automatic'): 
         sys.stderr.write( "The --input_type parameter need top be specified when the "
