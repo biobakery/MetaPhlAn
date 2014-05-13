@@ -296,6 +296,16 @@ class TaxClade:
         new_clade.father = self
         return new_clade
 
+    
+    def get_terminals( self ):
+        terms = []
+        if not self.children:
+            return [self]
+        for c in self.children.values():
+            terms += c.get_terminals()
+        return terms
+
+
     def get_full_name( self ):
         fullname = [self.name]
         cl = self.father
@@ -341,8 +351,16 @@ class TaxClade:
             n_rat_nreads = float(len(rat_nreads))
             n_removed = float(len(removed))
             n_tot = n_rat_nreads + n_removed
-            if n_rat_nreads < 10 and n_tot > n_rat_nreads and "k__Viruses" not in self.get_full_name():
-                rat_nreads += removed[:10-int(n_rat_nreads)]
+            n_ripr = 10
+            
+            if len(self.get_terminals()) < 2:
+                n_ripr = 0
+
+            if "k__Viruses" in self.get_full_name():
+                n_ripr = 0
+
+            if n_rat_nreads < n_ripr and n_tot > n_rat_nreads:
+                rat_nreads += removed[:n_ripr-int(n_rat_nreads)]
 
         
         rat_nreads = sorted(rat_nreads, key = lambda x: x[1])
