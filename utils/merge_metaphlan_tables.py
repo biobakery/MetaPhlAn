@@ -8,8 +8,8 @@
 import argparse
 import csv
 import os
-import re
 import sys
+
 
 def merge( aaastrIn, astrLabels, iCol, ostm ):
 	"""
@@ -36,31 +36,35 @@ def merge( aaastrIn, astrLabels, iCol, ostm ):
 	"""The list of non-ID headers for each input datum."""
 	strHeader = "ID"
 	"""The ID column header."""
+
 	# For each input datum in each input stream...
-	for iIn in range( len( aaastrIn ) ):
-		# Lines from the current file, empty list to hold data, empty hash to hold ids
-		aastrIn, aastrData, hashIDs = (a[iIn] for a in (aaastrIn, aaastrData, ahashIDs))
+	pos = 0
 
-		iLine = -1
-		# For a line in the file
-		for astrLine in aastrIn:
-			iLine += 1
+	for f in aaastrIn :
+		with open(f) as csvfile :
+			iIn = csv.reader(csvfile, csv.excel_tab)
 
-			# ID is from first column, data are everything else
-			strID, astrData = astrLine[iCol], ( astrLine[:iCol] + astrLine[( iCol + 1 ):] )
-			if iLine >= 0:
+			# Lines from the current file, empty list to hold data, empty hash to hold ids
+			aastrData, hashIDs = (a[pos] for a in (aaastrData, ahashIDs))
+
+			iLine = -1
+			# For a line in the file
+			for astrLine in iIn:
+				iLine += 1
+
+				# ID is from first column, data are everything else
+				strID, astrData = astrLine[iCol], ( astrLine[:iCol] + astrLine[( iCol + 1 ):] )
+
 				hashIDs[strID] = iLine
 				aastrData.append( astrData )
-			else:
-				aastrHeaders[iIn] = astrData
-		# Batch merge every new ID key set
-		setstrIDs.update( hashIDs.keys( ) )
+
+			# Batch merge every new ID key set
+			setstrIDs.update( hashIDs.keys( ) )
+
+		pos += 1
 
 	# Create writer
 	csvw = csv.writer( ostm, csv.excel_tab, lineterminator='\n' )
-
-	# Flatten array of arrays
-	astrHeaders = [s for a in aastrHeaders for s in a]
 
 	# Make the file names the column names
 	csvw.writerow( [strHeader] + [os.path.splitext(f)[0] for f in astrLabels] )
@@ -79,19 +83,21 @@ def merge( aaastrIn, astrLabels, iCol, ostm ):
 			astrOut += astrData
 		csvw.writerow( [strID] + astrOut )
 
+
 argp = argparse.ArgumentParser( prog = "merge_metaphlan_tables.py",
 	description = """Performs a table join on one or more metaphlan output files.""")
-argp.add_argument( "aistms",	metavar = "input.txt",
-	type = argparse.FileType( "r" ),	nargs = "+",
+argp.add_argument( "aistms",	metavar = "input.txt", nargs = "+",
 	help = "One or more tab-delimited text tables to join" )
 
 __doc__ = "::\n\n\t" + argp.format_help( ).replace( "\n", "\n\t" )
 
 argp.usage = argp.format_usage()[7:]+"\n\n\tPlease make sure to supply file paths to the files to combine. If combining 3 files (Table1.txt, Table2.txt, and Table3.txt) the call should be:\n\n\t\tpython merge_metaphlan_tables.py Table1.txt Table2.txt Table3.txt > output.txt\n\n\tA wildcard to indicate all .txt files that start with Table can be used as follows:\n\n\t\tpython merge_metaphlan_tables.py Table*.txt > output.txt"
 
+
 def _main( ):
 	args = argp.parse_args( )
-	merge( [csv.reader( f, csv.excel_tab ) for f in args.aistms], [os.path.split(os.path.basename(f.name))[1] for f in args.aistms], 0, sys.stdout )
+	merge(args.aistms, [os.path.split(os.path.basename(f))[1] for f in args.aistms], 0, sys.stdout)
+
 
 if __name__ == "__main__":
 	_main( )
