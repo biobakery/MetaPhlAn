@@ -52,6 +52,10 @@ from numpy import array
 #*  End imports related to biom file generation              *
 #*************************************************************
 
+# This set contains the markers that after careful validation are found to have low precision or recall
+# We esclude the markers here to avoid generating a new marker DB when changing just few markers
+markers_to_exclude = set(['NC_001782.1'])
+
 tax_units = "kpcofgst"
 
 def read_params(args):
@@ -448,9 +452,11 @@ class TaxTree:
 
         
         for k,p in mpa_pkl['markers'].items():
+            if k in markers_to_exclude:
+                continue
             self.markers2lens[k] = p['len']
             self.markers2clades[k] = p['clade']
-            #self.add_reads( k, 0  )
+            self.add_reads( k, 0  )
             self.markers2exts[k] = p['ext']
 
     #def set_static( self ):
