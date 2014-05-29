@@ -177,7 +177,7 @@ def read_params(args):
     arg( '--min_cu_len', metavar="", default="2000", type=int, help =
          "minimum total nucleotide length for the markers in a clade for\n"
          "estimating the abundance without considering sub-clade abundances\n"
-         "[default 10000]\n"   )
+         "[default 2000]\n"   )
 
     input_type_choices = ['automatic','multifasta','multifastq','bowtie2out','sam'] # !!!!
     arg( '--input_type', choices=input_type_choices, default = 'automatic', help =  
@@ -273,7 +273,6 @@ def guess_input_format( inp_file ):
             if line[0] == '#': continue
             if line[0] == '>': return 'multifasta'
             if line[0] == '@': return 'multifastq'
-            #if len(l.split('\t')) == 12: return 'blastout'
             if len(l.split('\t')) == 2: return 'bowtie2out'
             if i > 20: break
     return None
@@ -429,13 +428,14 @@ class TaxClade:
 
 
 class TaxTree:
-    def __init__( self, tax_txt ): #, min_cu_len ):
+    def __init__( self, mpa ): #, min_cu_len ):
         self.root = TaxClade( "root" )
-        #TaxClade.min_cu_len = min_cu_len
-        self.all_clades, self.markers2lens, self.markers2clades, self.taxa2clades = {}, {}, {}, {}
+        self.all_clades, self.markers2lens, self.markers2clades, self.taxa2clades, self.markers2exts = {}, {}, {}, {}, {}
         TaxClade.markers2lens = self.markers2lens
+        TaxClade.markers2exts = self.markers2exts
+        TaxClade.taxa2clades = self.taxa2clades
 
-        clades_txt = (l.strip().split("|") for l in tax_txt)        
+        clades_txt = (l.strip().split("|") for l in mpa_pkl['taxonomy'])        
         for clade in clades_txt:
             father = self.root
             for clade_lev in clade: # !!!!! [:-1]:
@@ -446,11 +446,17 @@ class TaxTree:
                     self.taxa2clades[clade_lev[3:]] = father 
                 father = father.children[clade_lev]
 
-    def set_static( self ):
-        TaxClade.markers2lens = self.markers2lens
-        TaxClade.markers2exts = self.markers2exts
-        TaxClade.taxa2clades = self.taxa2clades
-        #TaxClade.avoid_disqm = self.avoid_disqm
+        
+        for k,p in mpa_pkl['markers'].items():
+            self.markers2lens[k] = p['len']
+            self.markers2clades[k] = p['clade']
+            #self.add_reads( k, 0  )
+            self.markers2exts[k] = p['ext']
+
+    #def set_static( self ):
+    #    TaxClade.markers2lens = self.markers2lens
+    #    TaxClade.markers2exts = self.markers2exts
+    #    TaxClade.taxa2clades = self.taxa2clades
 
     def set_min_cu_len( self, min_cu_len ):
         TaxClade.min_cu_len = min_cu_len
@@ -480,16 +486,17 @@ class TaxTree:
         cl.markers2nreads[marker] = n
         return cl.get_full_name()
    
-    def set_marker_len( self, marker_len_f ):
-        self.markers2lens = marker_len_f
-    
-    def set_markers2clade( self, markers2clade_f ):
-        self.markers2clades = markers2clade_f
-        for k in self.markers2clades:
-            self.add_reads( k, 0  )
-
-    def set_markers2exts( self, markers2exts ):
-        self.markers2exts = markers2exts
+    #
+    #def set_marker_len( self, marker_len_f ):
+    #    self.markers2lens = marker_len_f
+    #
+    #def set_markers2clade( self, markers2clade_f ):
+    #    self.markers2clades = markers2clade_f
+    #    for k in self.markers2clades:
+    #        self.add_reads( k, 0  )
+    #
+    #def set_markers2exts( self, markers2exts ):
+    #    self.markers2exts = markers2exts
 
     def clade_profiles( self, tax_lev  ):
         cl2pr = {}
@@ -630,22 +637,18 @@ if __name__ == '__main__':
     if pars['input_type'] == 'automatic':
         pars['input_type'] = guess_input_format( pars['inp'] )
         if not pars['input_type']:
-            sys.stderr.write( "Sorry, I cannot guess the format of the input file\n" )
+            sys.stderr.write( "Sorry, I cannot guess the format of the input file, please "
+                              "specify the --input_type parameter \n" )
             sys.exit(1) 
 
     no_map = False
     if pars['input_type'] == 'multifasta' or pars['input_type'] == 'multifastq':
         bow = pars['bowtie2db'] is not None
         if not bow:
-            sys.stderr.write( "No MetaPhlAn BowTie2 database providedi\n "
+            sys.stderr.write( "No MetaPhlAn BowTie2 database provided\n "
                               "[--bowtie2db options]!\n"
                               "Exiting...\n\n" )
             sys.exit()
-        #if bla and bow:
-        #    sys.stderr.write( "Both blast and BowTie MataPhlAn databases provided, "
-        #                      "only one of the two is allowed in the same run. \n"
-        #                      "Exiting...\n\n" )
-
         if pars['no_map']:
             pars['bowtie2out'] = tf.NamedTemporaryFile(dir=pars['tmp_dir']).name
             no_map = True
@@ -684,12 +687,12 @@ if __name__ == '__main__':
     with open( pars['mpa_pkl'], 'rb' ) as a:
         mpa_pkl = pickle.loads( bz2.decompress( a.read() ) )
 
-    tree = TaxTree( mpa_pkl['taxonomy'] )
-    tree.set_marker_len( dict( [(k,p['len']) for k,p in mpa_pkl['markers'].items()] )) 
-    tree.set_markers2clade( dict( [(k,p['clade']) for k,p in mpa_pkl['markers'].items()] )) 
-    tree.set_markers2exts( dict( [(k,p['ext']) for k,p in mpa_pkl['markers'].items()] )) 
+    tree = TaxTree( mpa_pkl )
+    #tree.set_marker_len( dict( [(k,p['len']) for k,p in mpa_pkl['markers'].items()] )) 
+    #tree.set_markers2clade( dict( [(k,p['clade']) for k,p in mpa_pkl['markers'].items()] )) 
+    #tree.set_markers2exts( dict( [(k,p['ext']) for k,p in mpa_pkl['markers'].items()] )) 
     tree.set_min_cu_len( pars['min_cu_len'] )
-    tree.set_static( )
+    #tree.set_static( )
     tree.set_stat( pars['stat'], pars['stat_q'], pars['avoid_disqm']  )
 
     markers2reads = map2bbh( pars['inp'], pars['input_type'] )
