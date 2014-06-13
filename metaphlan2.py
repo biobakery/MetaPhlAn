@@ -13,8 +13,8 @@ from __future__ import with_statement
 # ==============================================================================
 
 __author__ = 'Nicola Segata (nicola.segata@unitn.it)'
-__version__ = '2.0.0 alpha'
-__date__ = '1 April 2014'
+__version__ = '2.0.0 beta2'
+__date__ = '29 May 2014'
 
 
 import sys
@@ -68,17 +68,16 @@ def read_params(args):
             "* Profiling a metagenome from raw reads (requires BowTie2 in the system path \n"
             "  with execution and read permissions, Perl installed, and the BowTie2 marker DB \n"
             "  provided with MetaPhlAn):\n"
-            "metaphlan.py metagenome.fasta --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa\n"
-            "  mpa.pkl is the marker metadata file provided with the MetaPhlAn package\n\n"
-            "* When possible, it is recommended to use fastq files for higher accuracy: \n"
-            "metaphlan.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa --bt2_ps sensitive-local\n\n"
+            "metaphlan2.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa\n"
+            "  mpa.pkl is the marker metadata file provided with the MetaPhlAn package\n"
+            "  Although not optimal, also reads in fasta format can be used. \n\n"
             "* you can take advantage of multiple CPUs and you can save the intermediate BowTie2\n"
             "  output\n for re-running MetaPhlAn extremely quickly:\n"
-            "metaphlan.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa --nproc 5 --bowtie2out metagenome.bt2out.txt\n\n"
+            "metaphlan.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa --nproc 5 --bowtie2out metagenome.bt2out.bz2\n\n"
             "* if you already mapped your metagenome against the marker DB (using a previous \n"
             "  MetaPhlAn run, you can obtain the results in few seconds:\n"
-            "metaphlan.py --input_type bowtie2out --mpa_pkl mpa.pkl metagenome.bowtie2out.txt\n"
-            "  (notice that 'bowtie2out' is a reduced SAM file that can be obtained from \n"
+            "metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl metagenome.bowtie2out.bz2\n"
+            "  (notice that 'bowtie2out' file is automatically bzip2 compressed/uncompressed) \n"
             "  a standard SAM file as follows: \n"
             "cat file.sam | cut -f 1,3 | grep -v \"*\" > file.bowtie2out.txt\n\n"
             "* The metagenome can also be passed from the standard input but \n"
@@ -86,11 +85,11 @@ def read_params(args):
             "tar xjf metagenome.tar.bz2 --to-stdout | metaphlan.py --mpa_pkl mpa.pkl --input_type multifastq --blastdb blastdb/mpa\n\n"
             "* Also the pre-computed BowTie2 output can be provided with a pipe (again \n"
             "  specifying the input type): \n"
-            "metaphlan.py --input_type bowtie2out --mpa_pkl mpa.pkl < metagenome.bowtie2out.txt > profiling_output.txt\n\n"
+            "metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl < metagenome.bowtie2out.txt > profiling_output.txt\n\n"
             "* you can also set advanced options for the BowTie2 step selecting the preset option \n"
             "  among 'sensitive','very-sensitive','sensitive-local','very-sensitive-local' \n"
             "  (valid for metagenome as input only):\n" 
-            "metaphlan.py --bt2_ps very-sensitive-local --mpa_pkl mpa.pkl metagenome.fasta\n\n",
+            "metaphlan2.py --bt2_ps very-sensitive-local --mpa_pkl mpa.pkl metagenome.fasta\n\n",
             formatter_class=ap.RawTextHelpFormatter )
     arg = p.add_argument
 
@@ -459,11 +458,6 @@ class TaxTree:
             self.add_reads( k, 0  )
             self.markers2exts[k] = p['ext']
 
-    #def set_static( self ):
-    #    TaxClade.markers2lens = self.markers2lens
-    #    TaxClade.markers2exts = self.markers2exts
-    #    TaxClade.taxa2clades = self.taxa2clades
-
     def set_min_cu_len( self, min_cu_len ):
         TaxClade.min_cu_len = min_cu_len
 
@@ -492,18 +486,6 @@ class TaxTree:
         cl.markers2nreads[marker] = n
         return cl.get_full_name()
    
-    #
-    #def set_marker_len( self, marker_len_f ):
-    #    self.markers2lens = marker_len_f
-    #
-    #def set_markers2clade( self, markers2clade_f ):
-    #    self.markers2clades = markers2clade_f
-    #    for k in self.markers2clades:
-    #        self.add_reads( k, 0  )
-    #
-    #def set_markers2exts( self, markers2exts ):
-    #    self.markers2exts = markers2exts
-
     def clade_profiles( self, tax_lev  ):
         cl2pr = {}
         for k,v in self.all_clades.items():
@@ -694,11 +676,7 @@ if __name__ == '__main__':
         mpa_pkl = pickle.loads( bz2.decompress( a.read() ) )
 
     tree = TaxTree( mpa_pkl )
-    #tree.set_marker_len( dict( [(k,p['len']) for k,p in mpa_pkl['markers'].items()] )) 
-    #tree.set_markers2clade( dict( [(k,p['clade']) for k,p in mpa_pkl['markers'].items()] )) 
-    #tree.set_markers2exts( dict( [(k,p['ext']) for k,p in mpa_pkl['markers'].items()] )) 
     tree.set_min_cu_len( pars['min_cu_len'] )
-    #tree.set_static( )
     tree.set_stat( pars['stat'], pars['stat_q'], pars['avoid_disqm']  )
 
     markers2reads = map2bbh( pars['inp'], pars['input_type'] )
