@@ -82,7 +82,7 @@ def read_params(args):
             "cat file.sam | cut -f 1,3 | grep -v \"*\" > file.bowtie2out.txt\n\n"
             "* The metagenome can also be passed from the standard input but \n"
             "  it is necessary to specify the input format explicitly:\n"
-            "tar xjf metagenome.tar.bz2 --to-stdout | metaphlan.py --mpa_pkl mpa.pkl --input_type multifastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa\n\n"
+            "tar xjf metagenome.tar.bz2 --to-stdout | metaphlan.py --input_type multifastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa\n\n"
             "* Also the pre-computed BowTie2 output can be provided with a pipe (again \n"
             "  specifying the input type): \n"
             "metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl < metagenome.bowtie2out.txt > profiling_output.txt\n\n"
