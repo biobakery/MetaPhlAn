@@ -82,7 +82,7 @@ def read_params(args):
             "cat file.sam | cut -f 1,3 | grep -v \"*\" > file.bowtie2out.txt\n\n"
             "* The metagenome can also be passed from the standard input but \n"
             "  it is necessary to specify the input format explicitly:\n"
-            "tar xjf metagenome.tar.bz2 --to-stdout | metaphlan.py --mpa_pkl mpa.pkl --input_type multifastq --blastdb blastdb/mpa\n\n"
+            "tar xjf metagenome.tar.bz2 --to-stdout | metaphlan.py --mpa_pkl mpa.pkl --input_type multifastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa\n\n"
             "* Also the pre-computed BowTie2 output can be provided with a pipe (again \n"
             "  specifying the input type): \n"
             "metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl < metagenome.bowtie2out.txt > profiling_output.txt\n\n"
@@ -185,7 +185,7 @@ def read_params(args):
     input_type_choices = ['automatic','multifasta','multifastq','bowtie2out','sam'] # !!!!
     arg( '--input_type', choices=input_type_choices, default = 'automatic', help =  
          "set wheter the input is the multifasta file of metagenomic reads or \n"
-         "the blast output (outfmt 6 format) of the reads against the MetaPhlAn db.\n"
+         "the SAM file of the mapping of the reads against the MetaPhlAn db.\n"
          "[default 'automatic', i.e. the script will try to guess the input format]\n" )
 
     arg( '--ignore_viruses', action='store_true', help=
@@ -220,7 +220,7 @@ def read_params(args):
          "The output file (if not specified as positional argument)\n")
 
     arg( '--nproc', metavar="N", type=int, default=1, help = 
-         "The number of CPUs to use for parallelizing the blasting\n"
+         "The number of CPUs to use for parallelizing the mapping\n"
          "[default 1, i.e. no parallelism]\n" ) 
 
     #*************************************************************
@@ -526,14 +526,14 @@ class TaxTree:
             ret_d[tax_lev+"unclassified"] = 1.0 - sum(ret_d.values())
         return ret_d
 
-def map2bbh( blast_outfmt6, input_type = 'bowtie2out'  ):
-    if not blast_outfmt6:
+def map2bbh( mapping_f, input_type = 'bowtie2out'  ):
+    if not mapping_f:
         inpf = sys.stdin
     else:
-        if blast_outfmt6.endswith(".bz2"):
-            inpf = bz2.BZ2File( blast_outfmt6, "r" )
+        if mapping_f.endswith(".bz2"):
+            inpf = bz2.BZ2File( mapping_f, "r" )
         else:
-            inpf = open( blast_outfmt6 )
+            inpf = open( mapping_f )
 
     reads2markers, reads2maxb = {}, {}
     if input_type == 'bowtie2out':
