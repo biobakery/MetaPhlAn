@@ -14,7 +14,7 @@ from __future__ import with_statement
 
 __author__ = 'Nicola Segata (nicola.segata@unitn.it)'
 __version__ = '2.0.0 beta2'
-__date__ = '29 May 2014'
+__date__ = '12 July 2014'
 
 
 import sys
