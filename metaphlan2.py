@@ -200,6 +200,9 @@ def read_params(args):
     arg( '--stat_q', metavar="", type = float, default=0.1, help = 
          "Quantile value for the robust average\n"
          "[default 0.1]"   )
+    
+    arg( '--ignore_markers', type=str, default = None, help = 
+         "File containing a list of markers to ignore. \n")
 
     arg( '--avoid_disqm', action="store_true", help = 
          "Descrivate the procedure of disambiguating the quasi-markers based on the \n"
@@ -431,7 +434,7 @@ class TaxClade:
 
 
 class TaxTree:
-    def __init__( self, mpa ): #, min_cu_len ):
+    def __init__( self, mpa, markers_to_ignore = None ): #, min_cu_len ):
         self.root = TaxClade( "root" )
         self.all_clades, self.markers2lens, self.markers2clades, self.taxa2clades, self.markers2exts = {}, {}, {}, {}, {}
         TaxClade.markers2lens = self.markers2lens
@@ -452,6 +455,8 @@ class TaxTree:
         
         for k,p in mpa_pkl['markers'].items():
             if k in markers_to_exclude:
+                continue
+            if k in markers_to_ignore:
                 continue
             self.markers2lens[k] = p['len']
             self.markers2clades[k] = p['clade']
@@ -629,6 +634,12 @@ if __name__ == '__main__':
                               "specify the --input_type parameter \n" )
             sys.exit(1) 
 
+    if pars['ignore_markers']:
+        with open(pars['ignore_markers']) as ignv:
+            ignore_markers = set([l.strip() for l in ignv])
+    else:
+        ignore_markers = set()
+
     no_map = False
     if pars['input_type'] == 'multifasta' or pars['input_type'] == 'multifastq':
         bow = pars['bowtie2db'] is not None
@@ -675,7 +686,7 @@ if __name__ == '__main__':
     with open( pars['mpa_pkl'], 'rb' ) as a:
         mpa_pkl = pickle.loads( bz2.decompress( a.read() ) )
 
-    tree = TaxTree( mpa_pkl )
+    tree = TaxTree( mpa_pkl, ignore_markers )
     tree.set_min_cu_len( pars['min_cu_len'] )
     tree.set_stat( pars['stat'], pars['stat_q'], pars['avoid_disqm']  )
 
