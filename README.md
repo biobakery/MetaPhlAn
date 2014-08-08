@@ -14,7 +14,7 @@ MetaPhlAn relies on unique clade-specific marker genes identified from ~17,000 r
 * accurate estimation of organismal relative abundance;
 * species-level resolution for bacteria, archaea, eukaryotes and viruses.
 
-If you use this software, please cite our paper: ****
+If you use this software, please cite : ****
 
 -------------
 
