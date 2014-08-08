@@ -38,7 +38,7 @@ If you use the "utils/metaphlan_hclust_heatmap.py" script to plot and hierarchia
 
 MetaPhlAn v2.0 can be obtained by either
 
-* Downloading MetaPhlAn v2.0 via the [Downloads section](downloads)
+* Downloading MetaPhlAn v2.0 via the [Downloads section](metaphlan2/downloads)
 
 **OR**
 
