@@ -78,6 +78,10 @@ metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl metagenome.bowtie2out.bz
 
 ## FULL COMMAND LINE OPTIONS ##
 
+
+```
+#!cmd
+
 usage: metaphlan2.py [-h] [-v] [--mpa_pkl] [--stat] [-t ANALYSIS TYPE]
                      [--tax_lev TAXONOMIC_LEVEL] [--nreads NUMBER_OF_READS]
                      [--pres_th PRESENCE_THRESHOLD]
@@ -184,4 +188,5 @@ optional arguments:
   --biom biom_output, --biom_output_file biom_output
                         If requesting biom file output: The name of the output file in biom format 
   --mdelim mdelim, --metadata_delimiter_char mdelim
-                        Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria 
+                        Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria
+```
