@@ -183,4 +183,4 @@ optional arguments:
   --biom biom_output, --biom_output_file biom_output
                         If requesting biom file output: The name of the output file in biom format 
   --mdelim mdelim, --metadata_delimiter_char mdelim
-                        Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria 
+                        Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria
