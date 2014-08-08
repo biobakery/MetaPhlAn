@@ -32,6 +32,26 @@ If you would like to use the BowTie2 integrated in MetaPhlAn, you need to have:
 
 If you use the "utils/metaphlan_hclust_heatmap.py" script to plot and hierarchial cluster multiple metaphlan-profiled samples you will also need the following python libraries: matplotlib, scipy, pylab 
 
+----------------------
+
+##INSTALLATION##
+
+MetaPhlAn v2.0 can be obtained by either
+
+* Downloading MetaPhlAn v2.0 via the [Downloads section](downloads)
+
+**OR**
+
+* Cloning the repository via the following commands
+```
+#!cmd
+
+$ hg clone https://bitbucket.org/biobakery/metaphlan2
+
+```
+
+--------------------------
+
 
 ## BASIC USAGE ##
 
