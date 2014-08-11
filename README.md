@@ -4,7 +4,7 @@
 
 AUTHORS: Nicola Segata (nicola.segata@unitn.it)
 
-##DESCRIPTION##
+##Description##
  MetaPhlAn version 2.0.0 beta2 (12 July 2014): METAgenomic PHyLogenetic ANalysis for
  taxonomic classification of metagenomic reads.
 
@@ -20,7 +20,7 @@ If you use this software, please cite : ****
 
 -------------
 
-##PREREQUISITES##
+##Pre-requisites##
 
 * MetaPhlAn requires python 2.7 or higher with argparse, tempfile and numpy libraries installed 
   (apart for numpy they are usually installed together with the python distribution). 
@@ -36,7 +36,7 @@ If you use the "utils/metaphlan_hclust_heatmap.py" script to plot and hierarchia
 
 ----------------------
 
-##INSTALLATION##
+##Installation##
 
 MetaPhlAn v2.0 can be obtained by either
 
@@ -55,7 +55,7 @@ $ hg clone https://bitbucket.org/biobakery/metaphlan2
 --------------------------
 
 
-## BASIC USAGE ##
+## Basic Usage ##
 
 * Profiling a metagenome from raw reads (requires BowTie2 in the system path 
   with execution and read permissions, Perl installed, and the BowTie2 marker DB 
@@ -98,7 +98,7 @@ metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl metagenome.bowtie2out.bz
 
 
 
-## FULL COMMAND LINE OPTIONS ##
+## Full command-line options ##
 
 
 ```
