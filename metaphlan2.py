@@ -278,6 +278,11 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format = 
         sys.exit(1)
 
 def guess_input_format( inp_file ):
+    if "," in inp_file:
+        sys.stderr.write( "Sorry, I cannot guess the format of the input, when "
+                          "more than one file is specified. Please set the --input_type parameter \n" )
+        sys.exit(1) 
+
     with open( inp_file ) as inpf:
         for i,l in enumerate(inpf):
             line = l.strip()
