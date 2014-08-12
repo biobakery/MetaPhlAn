@@ -1,10 +1,10 @@
 [TOC]
 
-#MetaPhlAn 2.0: Metagenomic Phylogenetic Analysis#
+#**MetaPhlAn 2.0: Metagenomic Phylogenetic Analysis**#
 
 AUTHORS: Nicola Segata (nicola.segata@unitn.it)
 
-##Description##
+##**Description**##
  MetaPhlAn version 2.0.0 beta2 (12 July 2014): METAgenomic PHyLogenetic ANalysis for
  taxonomic classification of metagenomic reads.
 
@@ -16,11 +16,15 @@ MetaPhlAn relies on unique clade-specific marker genes identified from ~17,000 r
 * accurate estimation of organismal relative abundance;
 * species-level resolution for bacteria, archaea, eukaryotes and viruses.
 
-If you use this software, please cite : ****
+If you use this software, please cite :
+
+[**Metagenomic microbial community profiling using unique clade-specific marker genes**](http://www.nature.com/nmeth/journal/v9/n8/full/nmeth.2066.html)
+*Nicola Segata, Levi Waldron, Annalisa Ballarini, Vagheesh Narasimhan, Olivier Jousson, Curtis Huttenhower*. 
+Nature Methods, 8, 811–814, 2012
 
 -------------
 
-##Pre-requisites##
+##**Pre-requisites**##
 
 * MetaPhlAn requires python 2.7 or higher with argparse, tempfile and numpy libraries installed 
   (apart for numpy they are usually installed together with the python distribution). 
@@ -36,69 +40,55 @@ If you use the "utils/metaphlan_hclust_heatmap.py" script to plot and hierarchia
 
 ----------------------
 
-##Installation##
+##**Installation**##
 
 MetaPhlAn v2.0 can be obtained by either
 
-* Downloading MetaPhlAn v2.0 via the [Downloads section](metaphlan2/downloads)
+* [Downloading MetaPhlAn v2.0](metaphlan2/downloads)
 
 **OR**
 
 * Cloning the repository via the following commands
-```
-#!cmd
-
-$ hg clone https://bitbucket.org/biobakery/metaphlan2
-
-```
+* * ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``
 
 --------------------------
 
 
-## Basic Usage ##
+##**Basic Usage**##
 
-* Profiling a metagenome from raw reads (requires BowTie2 in the system path 
-  with execution and read permissions, Perl installed, and the BowTie2 marker DB 
-  provided with MetaPhlAn):
+* Profiling a metagenome from raw reads (requires BowTie2 in the system path with execution and read permissions, Perl installed, and the BowTie2 marker DB provided with MetaPhlAn). Here, mpa.pkl is the marker metadata file provided with the MetaPhlAn package:
 
-``metaphlan2.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa``
+* * ``$ metaphlan2.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa``
 
-  mpa.pkl is the marker metadata file provided with the MetaPhlAn package
-  Although not optimal, also reads in fasta format can be used. 
+* You can take advantage of multiple CPUs and you can save the intermediate BowTie2 output for re-running MetaPhlAn extremely quickly:
 
-* You can take advantage of multiple CPUs and you can save the intermediate BowTie2
-  output
- for re-running MetaPhlAn extremely quickly:
+* * ``metaphlan2.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa --nproc 5 --bowtie2out metagenome.bt2out.bz2``
 
-``metaphlan2.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa --nproc 5 --bowtie2out metagenome.bt2out.bz2``
+* If you already mapped your metagenome against the marker DB (using a previous  MetaPhlAn run, you can obtain the results in few seconds:
 
-* If you already mapped your metagenome against the marker DB (using a previous 
-  MetaPhlAn run, you can obtain the results in few seconds:
-metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl metagenome.bowtie2out.bz2
-  (notice that 'bowtie2out' file is automatically bzip2 compressed/uncompressed) 
-  a standard SAM file as follows: 
+* * ``metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl metagenome.bowtie2out.bz2``
 
-``cat file.sam | cut -f 1,3 | grep -v "*" > file.bowtie2out.txt``
+* Standard SAM file can be converted into bowtie2out using the command below, and then run through MetaPhlAn as described above.
 
-* The metagenome can also be passed from the standard input but 
-  it is necessary to specify the input format explicitly:
+* * ``cat file.sam | cut -f 1,3 | grep -v "*" > file.bowtie2out.txt``
 
-``tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type multifastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa``
+* The metagenome can also be passed from the standard input but it is necessary to specify the input format explicitly:
 
-* Also the pre-computed BowTie2 output can be provided with a pipe (again 
-  specifying the input type): 
+* * ``tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type multifastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa``
 
-``metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl < metagenome.bowtie2out.txt > profiling_output.txt``
+* Also the pre-computed BowTie2 output can be provided with a pipe (again specifying the input type): 
+
+* * ``metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl < metagenome.bowtie2out.txt > profiling_output.txt``
 
 * You can also set advanced options for the BowTie2 step selecting the preset option 
   among 'sensitive','very-sensitive','sensitive-local','very-sensitive-local' 
   (valid for metagenome as input only):
 
-``metaphlan2.py --bt2_ps very-sensitive-local --mpa_pkl mpa.pkl metagenome.fasta``
+* * ``metaphlan2.py --bt2_ps very-sensitive-local --mpa_pkl mpa.pkl metagenome.fasta``
 
 
 
-## Full command-line options ##
+##**Full command-line options**##
 
 
 ```
@@ -212,3 +202,111 @@ optional arguments:
   --mdelim mdelim, --metadata_delimiter_char mdelim
                         Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria
 ```
+
+##**Utility Scripts**##
+
+MetaPhlAn's repository features a few utility scripts to aid in manipulation of sample output and its visualization. These scripts can be found under the ``utils`` folder in the metaphlan2 directory.
+
+###**Merging Tables**###
+
+The script **merge_metaphlan_tables.py** allows to combine MetaPhlAn output from several samples to be merged into one table Bugs (rows) vs Samples (columns) with the table enlisting the relative normalized abundances per sample per bug.
+
+To merge multiple output files, run the script as below
+
+``$ python utils/merge_metaphlan_tables.py metaphlan_output1.txt metaphlan_output2.txt metaphlan_output3.txt > output/merged_abundance_table.txt``
+
+**There is no limit to how many files you can merge.**
+
+##**Heatmap Visualization**##
+
+The script **metaphlan_hclust_heatmap.py** allows to visualize the MetaPhlAn results in the form of a hierarchically-clustered heatmap. To generate the heatmap for a merged metaphlan output table (as described above), please run the script as below.
+
+``$ python utils/metaphlan_hclust_heatmap.py -c bbcry --top 25 --minv 0.1 -s log --in output/merged_abundance_table.txt --out output_images/abundance_heatmap.png``
+
+For detailed command-line instructions, please refer to below:
+
+
+```
+#!
+
+$ utils/metaphlan_hclust_heatmap.py -h
+usage: metaphlan_hclust_heatmap.py [-h] --in INPUT_FILE --out OUTPUT_FILE
+                                   [-m {single,complete,average,weighted,centroid,median,ward}]
+                                   [-d {euclidean,minkowski,cityblock,seuclidean,sqeuclidean,cosine,correlation,hamming,jaccard,chebyshev,canberra,braycurtis,mahalanobis,yule,matching,dice,kulsinski,rogerstanimoto,russellrao,sokalmichener,sokalsneath,wminkowski,ward}]
+                                   [-f {euclidean,minkowski,cityblock,seuclidean,sqeuclidean,cosine,correlation,hamming,jaccard,chebyshev,canberra,braycurtis,mahalanobis,yule,matching,dice,kulsinski,rogerstanimoto,russellrao,sokalmichener,sokalsneath,wminkowski,ward}]
+                                   [-s scale norm] [-x X] [-y Y] [--minv MINV]
+                                   [--maxv max value]
+                                   [--tax_lev TAXONOMIC_LEVEL] [--perc PERC]
+                                   [--top TOP] [--sdend_h SDEND_H]
+                                   [--fdend_w FDEND_W] [--cm_h CM_H]
+                                   [--cm_ticks label for ticks of the colormap]
+                                   [--font_size FONT_SIZE]
+                                   [--clust_line_w CLUST_LINE_W]
+                                   [-c {Accent,Blues,BrBG,BuGn,BuPu,Dark2,GnBu,Greens,Greys,OrRd,Oranges,PRGn,Paired,Pastel1,Pastel2,PiYG,PuBu,PuBuGn,PuOr,PuRd,Purples,RdBu,RdGy,RdPu,RdYlBu,RdYlGn,Reds,Set1,Set2,Set3,Spectral,YlGn,YlGnBu,YlOrBr,YlOrRd,afmhot,autumn,binary,bone,brg,bwr,cool,copper,flag,gist_earth,gist_gray,gist_heat,gist_ncar,gist_rainbow,gist_stern,gist_yarg,gnuplot,gnuplot2,gray,hot,hsv,jet,ocean,pink,prism,rainbow,seismic,spectral,spring,summer,terrain,winter,bbcyr,bbcry}]
+
+This scripts generates heatmaps with hierarchical clustering of both samples
+and microbial clades. The script can also subsample the number of clades to                                                                                                                                                                                                    
+display based on the their nth percentile abundance value in each sample                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                               
+optional arguments:                                                                                                                                                                                                                                                            
+  -h, --help            show this help message and exit                                                                                                                                                                                                                        
+  --in INPUT_FILE       The input file of microbial relative abundances. This                                                                                                                                                                                                  
+                        file is typically obtained with the                                                                                                                                                                                                                    
+                        "utils/merge_metaphlan_tables.py"                                                                                                                                                                                                                      
+  --out OUTPUT_FILE     The output image. The extension of the file determines                                                                                                                                                                                                 
+                        the image format. png, pdf, and svg are the preferred                                                                                                                                                                                                  
+                        format                                                                                                                                                                                                                                                 
+  -m {single,complete,average,weighted,centroid,median,ward}                                                                                                                                                                                                                   
+                        The hierarchical clustering method, default is                                                                                                                                                                                                         
+                        "average"                                                                                                                                                                                                                                              
+  -d {euclidean,minkowski,cityblock,seuclidean,sqeuclidean,cosine,correlation,hamming,jaccard,chebyshev,canberra,braycurtis,mahalanobis,yule,matching,dice,kulsinski,rogerstanimoto,russellrao,sokalmichener,sokalsneath,wminkowski,ward}                                      
+                        The distance function for samples. Default is                                                                                                                                                                                                          
+                        "braycurtis"                                                                                                                                                                                                                                           
+  -f {euclidean,minkowski,cityblock,seuclidean,sqeuclidean,cosine,correlation,hamming,jaccard,chebyshev,canberra,braycurtis,mahalanobis,yule,matching,dice,kulsinski,rogerstanimoto,russellrao,sokalmichener,sokalsneath,wminkowski,ward}                                      
+                        The distance function for microbes. Default is                                                                                                                                                                                                         
+                        "correlation"                                                                                                                                                                                                                                          
+  -s scale norm                                                                                                                                                                                                                                                                
+  -x X                  Width of heatmap cells. Automatically set, this option                                                                                                                                                                                                 
+                        should not be necessary unless for very large heatmaps                                                                                                                                                                                                 
+  -y Y                  Height of heatmap cells. Automatically set, this                                                                                                                                                                                                       
+                        option should not be necessary unless for very large                                                                                                                                                                                                   
+                        heatmaps                                                                                                                                                                                                                                               
+  --minv MINV           Minimum value to display. Default is 0.0, values                                                                                                                                                                                                       
+                        around 0.001 are also reasonable                                                                                                                                                                                                                       
+  --maxv max value      Maximum value to display. Default is maximum value                                                                                                                                                                                                     
+                        present, can be set e.g. to 100 to display the full
+                        scale
+  --tax_lev TAXONOMIC_LEVEL
+                        The taxonomic level to display: 'a' : all taxonomic
+                        levels 'k' : kingdoms (Bacteria and Archaea) only 'p'
+                        : phyla only 'c' : classes only 'o' : orders only 'f'
+                        : families only 'g' : genera only 's' : species only
+                        [default 's']
+  --perc PERC           Percentile to be used for ordering the microbes in
+                        order to select with --top the most abundant microbes
+                        only. Default is 90
+  --top TOP             Display the --top most abundant microbes only
+                        (ordering based on --perc)
+  --sdend_h SDEND_H     Set the height of the sample dendrogram. Default is
+                        0.1
+  --fdend_w FDEND_W     Set the width of the microbes dendrogram. Default is
+                        0.1
+  --cm_h CM_H           Set the height of the colormap. Default = 0.03
+  --cm_ticks label for ticks of the colormap
+  --font_size FONT_SIZE
+                        Set label font sizes. Default is 7
+  --clust_line_w CLUST_LINE_W
+                        Set the line width for the dendrograms
+  -c {Accent,Blues,BrBG,BuGn,BuPu,Dark2,GnBu,Greens,Greys,OrRd,Oranges,PRGn,Paired,Pastel1,Pastel2,PiYG,PuBu,PuBuGn,PuOr,PuRd,Purples,RdBu,RdGy,RdPu,RdYlBu,RdYlGn,Reds,Set1,Set2,Set3,Spectral,YlGn,YlGnBu,YlOrBr,YlOrRd,afmhot,autumn,binary,bone,brg,bwr,cool,copper,flag,gist_earth,gist_gray,gist_heat,gist_ncar,gist_rainbow,gist_stern,gist_yarg,gnuplot,gnuplot2,gray,hot,hsv,jet,ocean,pink,prism,rainbow,seismic,spectral,spring,summer,terrain,winter,bbcyr,bbcry}
+                        Set the colormap. Default is "jet".
+```
+
+###**GraPhlAn Visualization**###
+
+Utilities also features **metaphlan2graphlan.py** script that provides a way to automatically create the two input files to create a [GraPhlAn](http://huttenhower.sph.harvard.edu/graphlan) cladogram. To convert the MetaPhlAn output into input for GraPhlAn, please run the following script.
+
+``$ python utils/metaphlan2graphlan2.py merged_abundance_table.txt --tree_file merged_table.tree --annot_file merged_table.annot``
+
+The above script will create the files **merged_table.tree** and **merged_table.annot** which you can then provide to GraPhlAn to create the cladogram.
+
+For details, please refer to GraPhlAn's documentation.
