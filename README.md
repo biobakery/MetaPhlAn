@@ -70,7 +70,7 @@ $ hg clone https://bitbucket.org/biobakery/metaphlan2
   output
  for re-running MetaPhlAn extremely quickly:
 
-``metaphlan.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa --nproc 5 --bowtie2out metagenome.bt2out.bz2``
+``metaphlan2.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa --nproc 5 --bowtie2out metagenome.bt2out.bz2``
 
 * If you already mapped your metagenome against the marker DB (using a previous 
   MetaPhlAn run, you can obtain the results in few seconds:
@@ -83,7 +83,7 @@ metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl metagenome.bowtie2out.bz
 * The metagenome can also be passed from the standard input but 
   it is necessary to specify the input format explicitly:
 
-``tar xjf metagenome.tar.bz2 --to-stdout | metaphlan.py --input_type multifastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa``
+``tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type multifastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa``
 
 * Also the pre-computed BowTie2 output can be provided with a pipe (again 
   specifying the input type): 
