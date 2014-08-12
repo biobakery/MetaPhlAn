@@ -187,7 +187,7 @@ def read_params(args):
          "estimating the abundance without considering sub-clade abundances\n"
          "[default 2000]\n"   )
 
-    input_type_choices = ['automatic','multifasta','multifastq','bowtie2out','sam'] # !!!!
+    input_type_choices = ['automatic','fastq','fasta','multifasta','multifastq','bowtie2out','sam'] # !!!!
     arg( '--input_type', choices=input_type_choices, default = 'automatic', help =  
          "set wheter the input is the multifasta file of metagenomic reads or \n"
          "the SAM file of the mapping of the reads against the MetaPhlAn db.\n"
@@ -631,6 +631,11 @@ if __name__ == '__main__':
                           "input is provided from the standard input.\n"
                           "Type metaphlan.py -h for more info\n")
         sys.exit(0)
+
+    if pars['input_type'] == 'fastq':
+        pars['input_type'] = 'multifastq'
+    if pars['input_type'] == 'fasta':
+        pars['input_type'] = 'multifasta'
 
     if pars['input_type'] == 'automatic':
         pars['input_type'] = guess_input_format( pars['inp'] )
