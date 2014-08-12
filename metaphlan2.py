@@ -127,7 +127,7 @@ def read_params(args):
          "'med'    : median of length-normalized marker counts\n"
          "[default tavg_g]"   ) 
     
-    analysis_types = ['rel_ab', 'reads_map', 'clade_profiles', 'marker_ab_table', 'marker_pres_table']
+    analysis_types = ['rel_ab', 'reads_map', 'clade_profiles', 'marker_ab_table', 'marker_pres_table', 'clade_specific_strain_tracker']
     arg( '-t', metavar='ANALYSIS TYPE', type=str, choices = analysis_types, 
          default='rel_ab', help = 
          "Type of analysis to perform: \n"
@@ -176,6 +176,11 @@ def read_params(args):
     arg( '--tmp_dir', metavar="", default=None, type=str, help = 
          "the folder used to store temporary files \n"
          "[default is the OS dependent tmp dir]\n"   )
+    
+    arg( '--clade', metavar="", default=None, type=str, help = 
+         "The clade for clade_specific_strain_tracker analysis\n"  )
+    arg( '--min_ab', metavar="", default=0.1, type=float, help = 
+         "The minimum percentage abundace for the clade in the clade_specific_strain_tracker analysis\n"  )
     
     arg( '--min_cu_len', metavar="", default="2000", type=int, help =
          "minimum total nucleotide length for the markers in a clade for\n"
@@ -491,13 +496,13 @@ class TaxTree:
         cl.markers2nreads[marker] = n
         return cl.get_full_name()
    
-    def clade_profiles( self, tax_lev  ):
+    def clade_profiles( self, tax_lev, get_all = False  ):
         cl2pr = {}
         for k,v in self.all_clades.items():
             if tax_lev and not k.startswith(tax_lev): 
                 continue
             prof = v.get_normalized_counts()
-            if len(prof) < 1 or not sum([p[1] for p in prof]) > 0.0:
+            if not get_all and ( len(prof) < 1 or not sum([p[1] for p in prof]) > 0.0 ):
                 continue
             cl2pr[v.get_full_name()] = prof
         return cl2pr
@@ -740,6 +745,22 @@ if __name__ == '__main__':
                 strout = ["\t".join([str(a),"1"]) for a,b in v if b > pars['pres_th']]
                 if strout:
                     outf.write( "\n".join(strout) + "\n" )
+        elif pars['t'] == 'clade_specific_strain_tracker':
+            cl2pr = tree.clade_profiles( None, get_all = True  )
+            cl2ab = tree.relative_abundances( None )
+            strout = []
+            for cl,v in cl2pr.items():
+                if cl.endswith(pars['clade']) and cl2ab[cl]*100.0 < pars['min_ab']:
+                    strout = []
+                    break
+                if pars['clade'] in cl:
+                    strout += ["\t".join([str(a),str(int(b > pars['pres_th']))]) for a,b in v]
+            if strout:
+                strout = sorted(strout,key=lambda x:x[0])
+                outf.write( "\n".join(strout) + "\n" )
+            else:
+                sys.stderr.write("Clade "+pars['clade']+" not present at an abundance >"+str(round(pars['min_ab'],2))+"%, "
+                                 "so no clade specific markers are reported\n")
                     
     #***************************************************************************
     #* Check if the User requested biom output - if so, generate it            *
