@@ -8,6 +8,7 @@ AUTHORS: Nicola Segata (nicola.segata@unitn.it)
 MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data with species level resolution. From version 2.0 MetaPhlAn is also able to identify specific strains (in the not-so-frequent cases in which the sample contains a previously sequenced strains) and to track strains across samples for all species.
 
 MetaPhlAn 2.0 relies on ~1M unique clade-specific marker genes identified from ~17,000 reference genomes (~13,500 bacterial and archaeal, ~3,500 viral, and ~110 eukaryotic), allowing:
+
 * unambiguous taxonomic assignments;
 * accurate estimation of organismal relative abundance;
 * species-level resolution for bacteria, archaea, eukaryotes and viruses;
@@ -17,6 +18,7 @@ MetaPhlAn 2.0 relies on ~1M unique clade-specific marker genes identified from ~
 If you use this software, please cite :
 
 [**Metagenomic microbial community profiling using unique clade-specific marker genes**](http://www.nature.com/nmeth/journal/v9/n8/full/nmeth.2066.html)
+
 *Nicola Segata, Levi Waldron, Annalisa Ballarini, Vagheesh Narasimhan, Olivier Jousson, Curtis Huttenhower*. 
 Nature Methods, 8, 811–814, 2012
 
