@@ -19,6 +19,7 @@ __date__ = '13 August 2014'
 
 import sys
 import os
+import stat
 
 try:
     import numpy as np 
@@ -187,8 +188,8 @@ def read_params(args):
          "estimating the abundance without considering sub-clade abundances\n"
          "[default 2000]\n"   )
 
-    input_type_choices = ['automatic','fastq','fasta','multifasta','multifastq','bowtie2out','sam'] # !!!!
-    arg( '--input_type', choices=input_type_choices, default = 'automatic', help =  
+    input_type_choices = ['fastq','fasta','multifasta','multifastq','bowtie2out','sam'] # !!!!
+    arg( '--input_type', choices=input_type_choices, required = 'True', help =  
          "set wheter the input is the multifasta file of metagenomic reads or \n"
          "the SAM file of the mapping of the reads against the MetaPhlAn db.\n"
          "[default 'automatic', i.e. the script will try to guess the input format]\n" )
@@ -246,23 +247,25 @@ def read_params(args):
     return vars(p.parse_args()) 
 
 def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format = "multifasta", exe = None ):
-    try:
-        if not fna_in:
+    #try:
+    if True:
+        if not fna_in or stat.S_ISFIFO(os.stat(fna_in).st_mode):
             fna_in = "-"
         bowtie2_cmd = [ exe if exe else 'bowtie2', 
                         "--quiet", "--sam-no-hd", "--sam-no-sq","--no-unal", 
-                        "--"+preset, 
+                        "--"+preset,
+                        "-S","-",
                         "-x", bowtie2_db,
-                        "-U", fna_in,
                          ] + ([] if int(nproc) < 2 else ["-p",str(nproc)])
+        bowtie2_cmd += ["-U", fna_in] # if not stat.S_ISFIFO(os.stat(fna_in).st_mode) else []
         bowtie2_cmd += (["-f"] if file_format == "multifasta" else []) 
-        p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE )
+        p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE) 
         outf = bz2.BZ2File(outfmt6_out, "w") if outfmt6_out.endswith(".bz2") else open( outfmt6_out, "w" )
-        for o in (str(l, encoding='utf8').strip().split('\t') for l in p.stdout):
+        for o in (unicode(l).strip().split('\t') for l in p.stdout):
             if o[2][-1] != '*':
                 outf.write( "\t".join([o[0],o[2]]) +"\n" )
         outf.close()
-    
+    """
     except OSError:
         sys.stderr.write( "OSError: fatal error running BowTie2. Is BowTie2 in the system path?\n" )
         sys.exit(1)
@@ -272,6 +275,7 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format = 
     except IOError:
         sys.stderr.write( "IOError: fatal error running BowTie2.\n" )
         sys.exit(1)
+    """
     if p.returncode == 13:
         sys.stderr.write( "Permission Denied Error: fatal error running BowTie2." 
           "Is the BowTie2 file in the path with execution and read permissions?\n" )
@@ -630,7 +634,6 @@ def generate_biom_file(pars):
 
 if __name__ == '__main__':
     pars = read_params( sys.argv )
-
     if pars['inp'] is None and ( pars['input_type'] is None or  pars['input_type'] == 'automatic'): 
         sys.stderr.write( "The --input_type parameter need top be specified when the "
                           "input is provided from the standard input.\n"
@@ -672,7 +675,12 @@ if __name__ == '__main__':
                     sys.stderr.write( "Error! --bowtie2out needs to be specified when multiple "
                                       "fastq or fasta files (comma separated) are provided"  )
                     sys.exit()
-                pars['bowtie2out'] = ( pars['inp'] if pars['inp'] else "stdin_map") + ".bowtie2out.txt"
+                fname = pars['inp']
+                if fname is None:
+                    fname = "stdin_map"
+                elif stat.S_ISFIFO(os.stat(fname).st_mode):
+                    fname = "fifo_map"
+                pars['bowtie2out'] = fname + ".bowtie2out.txt"
 
             if os.path.exists( pars['bowtie2out'] ):
                 sys.stderr.write(   
