@@ -17,8 +17,8 @@ MetaPhlAn 2.0 relies on ~1M unique clade-specific marker genes identified from ~
 
 If you use this software, please cite :
 
-[**Metagenomic microbial community profiling using unique clade-specific marker genes**](http://www.nature.com/nmeth/journal/v9/n8/full/nmeth.2066.html)
-*Nicola Segata, Levi Waldron, Annalisa Ballarini, Vagheesh Narasimhan, Olivier Jousson, Curtis Huttenhower*. 
+[**Metagenomic microbial community profiling using unique clade-specific marker genes.**](http://www.nature.com/nmeth/journal/v9/n8/full/nmeth.2066.html)
+ *Nicola Segata, Levi Waldron, Annalisa Ballarini, Vagheesh Narasimhan, Olivier Jousson, Curtis Huttenhower*. 
 Nature Methods, 8, 811–814, 2012
 
 -------------
