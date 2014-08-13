@@ -89,7 +89,10 @@ In order to make MetaPhlAn 2 easily compatible with complex metagenomic pipeline
 
 MetaPhlAn 2 can also natively **handle paired-end metagenomes**, and, more generally, metagenomes stored in multiple files (but you need to specify the --bowtie2out parameter):
 
-``$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 > profiled_metagenome.txt``
+```
+#!cmd
+$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 > profiled_metagenome.txt
+```
 
 For advanced options and other analysis types (such as strain tracking) please refer to the full command-line options.
 
