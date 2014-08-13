@@ -85,10 +85,11 @@ If you already mapped your metagenome against the marker DB (using a previous  M
 $ metaphlan2.py metagenome.bowtie2.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --nproc 5 --input_type bowtie2out > profiled_metagenome.txt
 ```
 
-You can also provide an externally BowTie2-mapped SAM if you specify this format with --input_type
+You can also provide an externally BowTie2-mapped SAM if you specify this format with --input_type. Two step here: first map your metagenome with BowTie2 and then feed MetaPhlAn2 with the obtained sam:
 
 ```
 #!cmd
+$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/db_v20/mpa_v20_m200 -U metagenome.fastq
 $ metaphlan2.py metagenome.sam --input_type sam --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl > profiled_metagenome.txt
 ```
 
