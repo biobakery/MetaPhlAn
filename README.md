@@ -127,20 +127,60 @@ For advanced options and other analysis types (such as strain tracking) please r
 
 
 ```
-#!cmd
-
 usage: metaphlan2.py [-h] [-v] [--mpa_pkl] [--stat] [-t ANALYSIS TYPE]
                      [--tax_lev TAXONOMIC_LEVEL] [--nreads NUMBER_OF_READS]
                      [--pres_th PRESENCE_THRESHOLD]
                      [--bowtie2db METAPHLAN_BOWTIE2_DB]
-                     [--bt2_ps BowTie2 presets] [--tmp_dir] [--min_cu_len]
-                     [--input_type {automatic,multifasta,multifastq,bowtie2out,sam}]
+                     [--bt2_ps BowTie2 presets] [--tmp_dir] [--clade]
+                     [--min_ab] [--min_cu_len] --input_type
+                     {fastq,fasta,multifasta,multifastq,bowtie2out,sam}
                      [--ignore_viruses] [--ignore_eukaryotes]
                      [--ignore_bacteria] [--ignore_archaea] [--stat_q]
-                     [--avoid_disqm] [--bowtie2_exe BOWTIE2_EXE]
-                     [--bowtie2out FILE_NAME] [--no_map] [-o output file]
-                     [--nproc N] [--biom biom_output] [--mdelim mdelim]
+                     [--ignore_markers IGNORE_MARKERS] [--avoid_disqm]
+                     [--bowtie2_exe BOWTIE2_EXE] [--bowtie2out FILE_NAME]
+                     [--no_map] [-o output file] [--nproc N]
+                     [--biom biom_output] [--mdelim mdelim]
                      [INPUT_FILE] [OUTPUT_FILE]
+
+DESCRIPTION
+ MetaPhlAn version 2.0.0 beta3 (13 August 2014): METAgenomic PHyLogenetic ANalysis for
+ taxonomic classification of metagenomic reads.
+
+AUTHORS: Nicola Segata (nicola.segata@unitn.it)
+
+COMMON COMMANDS
+
+* Profiling a metagenome from raw reads (requires BowTie2 in the system path 
+  with execution and read permissions, Perl installed, and the BowTie2 marker DB 
+  provided with MetaPhlAn):
+metaphlan2.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa
+  mpa.pkl is the marker metadata file provided with the MetaPhlAn package
+  Although not optimal, also reads in fasta format can be used. 
+
+* you can take advantage of multiple CPUs and you can save the intermediate BowTie2
+  output
+ for re-running MetaPhlAn extremely quickly:
+metaphlan.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa --nproc 5 --bowtie2out metagenome.bt2out.bz2
+
+* if you already mapped your metagenome against the marker DB (using a previous 
+  MetaPhlAn run, you can obtain the results in few seconds:
+metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl metagenome.bowtie2out.bz2
+  (notice that 'bowtie2out' file is automatically bzip2 compressed/uncompressed) 
+  a standard SAM file as follows: 
+cat file.sam | cut -f 1,3 | grep -v "*" > file.bowtie2out.txt
+
+* The metagenome can also be passed from the standard input but 
+  it is necessary to specify the input format explicitly:
+tar xjf metagenome.tar.bz2 --to-stdout | metaphlan.py --input_type multifastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa
+
+* Also the pre-computed BowTie2 output can be provided with a pipe (again 
+  specifying the input type): 
+metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl < metagenome.bowtie2out.txt > profiling_output.txt
+
+* you can also set advanced options for the BowTie2 step selecting the preset option 
+  among 'sensitive','very-sensitive','sensitive-local','very-sensitive-local' 
+  (valid for metagenome as input only):
+metaphlan2.py --bt2_ps very-sensitive-local --mpa_pkl mpa.pkl metagenome.fasta
 
 positional arguments:
   INPUT_FILE            the input file can be:
@@ -205,11 +245,13 @@ optional arguments:
                         [default very-sensitive]
   --tmp_dir             the folder used to store temporary files 
                         [default is the OS dependent tmp dir]
+  --clade               The clade for clade_specific_strain_tracker analysis
+  --min_ab              The minimum percentage abundace for the clade in the clade_specific_strain_tracker analysis
   --min_cu_len          minimum total nucleotide length for the markers in a clade for
                         estimating the abundance without considering sub-clade abundances
                         [default 2000]
-  --input_type {automatic,multifasta,multifastq,bowtie2out,sam}
-                        set whet`er the input is the multifasta file of metagenomic reads or 
+  --input_type {fastq,fasta,multifasta,multifastq,bowtie2out,sam}
+                        set wheter the input is the multifasta file of metagenomic reads or 
                         the SAM file of the mapping of the reads against the MetaPhlAn db.
                         [default 'automatic', i.e. the script will try to guess the input format]
   --ignore_viruses      Do not profile viral organisms
@@ -218,6 +260,8 @@ optional arguments:
   --ignore_archaea      Do not profile archeal organisms
   --stat_q              Quantile value for the robust average
                         [default 0.1]
+  --ignore_markers IGNORE_MARKERS
+                        File containing a list of markers to ignore. 
   --avoid_disqm         Descrivate the procedure of disambiguating the quasi-markers based on the 
                         marker abundance pattern found in the sample. It is generally recommended 
                         too keep the disambiguation procedure in order to minimize false positives
@@ -235,7 +279,7 @@ optional arguments:
   --biom biom_output, --biom_output_file biom_output
                         If requesting biom file output: The name of the output file in biom format 
   --mdelim mdelim, --metadata_delimiter_char mdelim
-                        Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria
+                        Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria 
 ```
 
 ##**Utility Scripts**##
