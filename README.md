@@ -61,33 +61,33 @@ We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir``
 
 Here is the basic example to profile a metagenome from raw reads (requires BowTie2 in the system path with execution and read permissions, Perl installed). 
 
-``$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 > profiled_metagenome.txt``
+``$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --input_type fastq > profiled_metagenome.txt``
 
 It is highly recommended to save the intermediate BowTie2 output for re-running MetaPhlAn extremely quickly (--bowtie2out), and use multiple CPUs (--nproc) if available:
 
-``$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 > profiled_metagenome.txt``
+``$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq > profiled_metagenome.txt``
 
-If you already mapped your metagenome against the marker DB (using a previous  MetaPhlAn run), you can obtain the results in few seconds by using the previously saved --bowtie2out file:
+If you already mapped your metagenome against the marker DB (using a previous  MetaPhlAn run), you can obtain the results in few seconds by using the previously saved --bowtie2out file and specifying the input (--input_type bowtie2out):
 
-``$ metaphlan2.py metagenome.bowtie2.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --nproc 5 > profiled_metagenome.txt``
+``$ metaphlan2.py metagenome.bowtie2.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --nproc 5 --input_type bowtie2out > profiled_metagenome.txt``
 
-You can also provide an externally BowTie2-mapped SAM if you specify this format with --input_format
+You can also provide an externally BowTie2-mapped SAM if you specify this format with --input_type
 
-``$ metaphlan2.py metagenome.sam --input_format sam --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl > profiled_metagenome.txt``
+``$ metaphlan2.py metagenome.sam --input_type sam --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl > profiled_metagenome.txt``
 
-In order to make MetaPhlAn 2 easily compatible with complex metagenomic pipeline, there are now multiple alternative ways to pass the input, but in these cases **you need to set the --input_type format explicitly**:
+In order to make MetaPhlAn 2 easily compatible with complex metagenomic pipeline, there are now multiple alternative ways to pass the input:
 
-``$ cat metagenome.fastq --to-stdout | metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl > profiled_metagenome.txt``
+``$ cat metagenome.fastq | metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 > profiled_metagenome.txt``
 
-``$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl > profiled_metagenome.txt``
+``$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 > profiled_metagenome.txt``
 
-``$ metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl < metagenome.fastq > profiled_metagenome.txt``
+``$ metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 < metagenome.fastq > profiled_metagenome.txt``
 
-``$ metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl <(bzcat metagenome.fastq.bz2) > profiled_metagenome.txt``
+``$ metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 <(bzcat metagenome.fastq.bz2) > profiled_metagenome.txt``
 
-``$ metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl <(bzcat metagenome_1.fastq.bz2 metagenome_2.fastq.bz2) > profiled_metagenome.txt``
+``$ metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz) > profiled_metagenome.txt``
 
-MetaPhlAn 2 can also natively **handle paired-end metagenomes**, and, more generally, metagenomes stored in multiple files:
+MetaPhlAn 2 can also natively **handle paired-end metagenomes**, and, more generally, metagenomes stored in multiple files (but you need to specify the --bowtie2out parameter):
 
 ``$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 > profiled_metagenome.txt``
 
