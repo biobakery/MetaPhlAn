@@ -25,23 +25,25 @@ Nature Methods, 8, 811–814, 2012
 
 ##**Pre-requisites**##
 
-* MetaPhlAn requires python 2.7 or higher with argparse, tempfile and numpy libraries installed 
+MetaPhlAn requires *python 2.7* or higher with argparse, tempfile and [*numpy*](http://www.numpy.org/) libraries installed 
   (apart for numpy they are usually installed together with the python distribution). 
-  Python3 is not supported yet.
+  Python3 is also now supported.
 
-**If you provide the output of BLASTN or BowTie2 as input, there are no additional prerequisite.**
+**If you provide the SAM output of [BowTie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml) as input, there are no additional prerequisite.**
 
-If you would like to use the BowTie2 integrated in MetaPhlAn, you need to have:
+* If you would like to use the BowTie2 integrated in MetaPhlAn, you need to have BowTie2 version 2.0.0 or higher and perl installed (bowtie2 needs to be in the system path with execute _and_ read permission)
 
-* BowTie2 version 2.0.0 or higher and perl (bowtie2 needs to be in the system path with execute _and_ read permission)
+* If you use the "utils/metaphlan_hclust_heatmap.py" script to plot and hierarchical cluster multiple MetaPhlAn-profiled samples you will also need the following python libraries: [matplotlib](http://matplotlib.org/index.html), [scipy](http://www.scipy.org/), [pylab](http://wiki.scipy.org/PyLab) (if not installed together with MatPlotLib).
 
-If you use the "utils/metaphlan_hclust_heatmap.py" script to plot and hierarchial cluster multiple metaphlan-profiled samples you will also need the following python libraries: matplotlib, scipy, pylab 
+* If you want to produce the output as "biom" file you also need [biom](http://biom-format.org/) installed
+
+* MetaPhlAn is not tightly integrated with advanced heatmap plotting with [hclust2](https://bitbucket.org/nsegata/hclust2) and cladogram visualization with [GraPhlAn](https://bitbucket.org/nsegata/graphlan/wiki/Home). If you use such visualization tool please refer to their prerequisites. 
 
 ----------------------
 
 ##**Installation**##
 
-MetaPhlAn v2.0 can be obtained by either
+MetaPhlAn 2.0 can be obtained by either
 
 * [Downloading MetaPhlAn v2.0](metaphlan2/downloads)
 
