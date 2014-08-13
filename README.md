@@ -91,18 +91,7 @@ MetaPhlAn 2 can also natively **handle paired-end metagenomes**, and, more gener
 
 ``$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 > profiled_metagenome.txt``
 
-
-* Also the pre-computed BowTie2 output can be provided with a pipe (again specifying the input type): 
-
-* * ``metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl < metagenome.bowtie2out.txt > profiling_output.txt``
-
-* You can also set advanced options for the BowTie2 step selecting the preset option 
-  among 'sensitive','very-sensitive','sensitive-local','very-sensitive-local' 
-  (valid for metagenome as input only):
-
-* * ``metaphlan2.py --bt2_ps very-sensitive-local --mpa_pkl mpa.pkl metagenome.fasta``
-
-
+For advanced options and other analysis types (such as strain tracking) please refer to the full command-line options.
 
 ##**Full command-line options**##
 
