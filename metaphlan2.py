@@ -20,6 +20,7 @@ __date__ = '13 August 2014'
 import sys
 import os
 import stat
+from binascii import b2a_uu 
 
 try:
     import numpy as np 
@@ -58,6 +59,26 @@ from numpy import array
 markers_to_exclude = set(['NC_001782.1'])
 
 tax_units = "kpcofgst"
+
+if float(sys.version_info[0]) < 3.0:
+    def read_and_split( ofn  ):
+        return (l.strip().split('\t') for l in ofn)
+else:
+    def read_and_split( ofn ):
+        return (str(l,encoding='utf-8').strip().split('\t') for l in ofn)
+
+def plain_read_and_split( ofn ):
+    return (l.strip().split('\t') for l in ofn)
+
+
+
+if float(sys.version_info[0]) < 3.0:
+    def mybytes( val ):
+        return val
+else:
+    def mybytes( val ):
+        return bytes(val,encoding='utf-8')
+    
 
 def read_params(args):
     p = ap.ArgumentParser( description= 
@@ -247,9 +268,8 @@ def read_params(args):
     return vars(p.parse_args()) 
 
 def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format = "multifasta", exe = None ):
-    #try:
-    if True:
-        if not fna_in or stat.S_ISFIFO(os.stat(fna_in).st_mode):
+    try:
+        if not fna_in: # or stat.S_ISFIFO(os.stat(fna_in).st_mode):
             fna_in = "-"
         bowtie2_cmd = [ exe if exe else 'bowtie2', 
                         "--quiet", "--sam-no-hd", "--sam-no-sq","--no-unal", 
@@ -259,13 +279,21 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format = 
                          ] + ([] if int(nproc) < 2 else ["-p",str(nproc)])
         bowtie2_cmd += ["-U", fna_in] # if not stat.S_ISFIFO(os.stat(fna_in).st_mode) else []
         bowtie2_cmd += (["-f"] if file_format == "multifasta" else []) 
-        p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE) 
-        outf = bz2.BZ2File(outfmt6_out, "w") if outfmt6_out.endswith(".bz2") else open( outfmt6_out, "w" )
-        for o in (unicode(l).strip().split('\t') for l in p.stdout):
+        p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE ) 
+        lmybytes, outf = (mybytes,bz2.BZ2File(outfmt6_out, "w")) if outfmt6_out.endswith(".bz2") else (str,open( outfmt6_out, "w" ))
+        
+        for o in read_and_split(p.stdout):
             if o[2][-1] != '*':
-                outf.write( "\t".join([o[0],o[2]]) +"\n" )
+                outf.write( lmybytes("\t".join([o[0],o[2]]) +"\n") )
+        #if  float(sys.version_info[0]) >= 3: 
+        #    for o in read_and_split(p.stdout):
+        #        if o[2][-1] != '*':
+        #            outf.write( bytes("\t".join([o[0],o[2]]) +"\n",encoding='utf-8') )
+        #else:
+        #    for o in read_and_split(p.stdout):
+        #        if o[2][-1] != '*':
+        #            outf.write( "\t".join([o[0],o[2]]) +"\n" )
         outf.close()
-    """
     except OSError:
         sys.stderr.write( "OSError: fatal error running BowTie2. Is BowTie2 in the system path?\n" )
         sys.exit(1)
@@ -275,27 +303,26 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format = 
     except IOError:
         sys.stderr.write( "IOError: fatal error running BowTie2.\n" )
         sys.exit(1)
-    """
     if p.returncode == 13:
         sys.stderr.write( "Permission Denied Error: fatal error running BowTie2." 
           "Is the BowTie2 file in the path with execution and read permissions?\n" )
         sys.exit(1)
 
-def guess_input_format( inp_file ):
-    if "," in inp_file:
-        sys.stderr.write( "Sorry, I cannot guess the format of the input, when "
-                          "more than one file is specified. Please set the --input_type parameter \n" )
-        sys.exit(1) 
-
-    with open( inp_file ) as inpf:
-        for i,l in enumerate(inpf):
-            line = l.strip()
-            if line[0] == '#': continue
-            if line[0] == '>': return 'multifasta'
-            if line[0] == '@': return 'multifastq'
-            if len(l.split('\t')) == 2: return 'bowtie2out'
-            if i > 20: break
-    return None
+#def guess_input_format( inp_file ):
+#    if "," in inp_file:
+#        sys.stderr.write( "Sorry, I cannot guess the format of the input, when "
+#                          "more than one file is specified. Please set the --input_type parameter \n" )
+#        sys.exit(1) 
+#
+#    with open( inp_file ) as inpf:
+#        for i,l in enumerate(inpf):
+#            line = l.strip()
+#            if line[0] == '#': continue
+#            if line[0] == '>': return 'multifasta'
+#            if line[0] == '@': return 'multifastq'
+#            if len(l.split('\t')) == 2: return 'bowtie2out'
+#            if i > 20: break
+#    return None
 
 class TaxClade:
     min_cu_len = -1
@@ -547,19 +574,21 @@ class TaxTree:
 
 def map2bbh( mapping_f, input_type = 'bowtie2out'  ):
     if not mapping_f:
-        inpf = sys.stdin
+        ras, inpf = plain_read_and_split, sys.stdin
     else:
         if mapping_f.endswith(".bz2"):
-            inpf = bz2.BZ2File( mapping_f, "r" )
+            ras, inpf = read_and_split, bz2.BZ2File( mapping_f, "r" )
         else:
-            inpf = open( mapping_f )
+            ras, inpf = plain_read_and_split, open( mapping_f )
 
     reads2markers, reads2maxb = {}, {}
     if input_type == 'bowtie2out':
-        for r,c in (l.strip().split('\t') for l in inpf):
+        #for r,c in (l.strip().split('\t') for l in inpf):
+        for r,c in ras(inpf):
             reads2markers[r] = c
     elif input_type == 'sam':
-        for o in (l.strip().split('\t') for l in inpf):
+        #for o in (l.strip().split('\t') for l in inpf):
+        for o in ras(inpf):
             if o[0][0] != '@' and o[2][-1] != '*':
                 reads2markers[o[0]] = o[2]
     inpf.close()
@@ -634,23 +663,23 @@ def generate_biom_file(pars):
 
 if __name__ == '__main__':
     pars = read_params( sys.argv )
-    if pars['inp'] is None and ( pars['input_type'] is None or  pars['input_type'] == 'automatic'): 
-        sys.stderr.write( "The --input_type parameter need top be specified when the "
-                          "input is provided from the standard input.\n"
-                          "Type metaphlan.py -h for more info\n")
-        sys.exit(0)
+    #if pars['inp'] is None and ( pars['input_type'] is None or  pars['input_type'] == 'automatic'): 
+    #    sys.stderr.write( "The --input_type parameter need top be specified when the "
+    #                      "input is provided from the standard input.\n"
+    #                      "Type metaphlan.py -h for more info\n")
+    #    sys.exit(0)
 
     if pars['input_type'] == 'fastq':
         pars['input_type'] = 'multifastq'
     if pars['input_type'] == 'fasta':
         pars['input_type'] = 'multifasta'
 
-    if pars['input_type'] == 'automatic':
-        pars['input_type'] = guess_input_format( pars['inp'] )
-        if not pars['input_type']:
-            sys.stderr.write( "Sorry, I cannot guess the format of the input file, please "
-                              "specify the --input_type parameter \n" )
-            sys.exit(1) 
+    #if pars['input_type'] == 'automatic':
+    #    pars['input_type'] = guess_input_format( pars['inp'] )
+    #    if not pars['input_type']:
+    #        sys.stderr.write( "Sorry, I cannot guess the format of the input file, please "
+    #                          "specify the --input_type parameter \n" )
+    #        sys.exit(1) 
 
     if pars['ignore_markers']:
         with open(pars['ignore_markers']) as ignv:
