@@ -292,15 +292,27 @@ The script **merge_metaphlan_tables.py** allows to combine MetaPhlAn output from
 
 To merge multiple output files, run the script as below
 
-``$ python utils/merge_metaphlan_tables.py metaphlan_output1.txt metaphlan_output2.txt metaphlan_output3.txt > output/merged_abundance_table.txt``
+```
+#!cmd
+$ python utils/merge_metaphlan_tables.py metaphlan_output1.txt metaphlan_output2.txt metaphlan_output3.txt > output/merged_abundance_table.txt
+```
+
+Wildcards can be used as needed:
+```
+#!cmd
+$ python utils/merge_metaphlan_tables.py metaphlan_output*.txt > output/merged_abundance_table.txt
+```
 
 **There is no limit to how many files you can merge.**
 
 ##**Heatmap Visualization**##
 
-The script **metaphlan_hclust_heatmap.py** allows to visualize the MetaPhlAn results in the form of a hierarchically-clustered heatmap. To generate the heatmap for a merged metaphlan output table (as described above), please run the script as below.
+The script **metaphlan_hclust_heatmap.py** allows to visualize the MetaPhlAn results in the form of a hierarchically-clustered heatmap. To generate the heatmap for a merged MetaPhlAn output table (as described above), please run the script as below.
 
-``$ python utils/metaphlan_hclust_heatmap.py -c bbcry --top 25 --minv 0.1 -s log --in output/merged_abundance_table.txt --out output_images/abundance_heatmap.png``
+```
+#!cmd
+$ python utils/metaphlan_hclust_heatmap.py -c bbcry --top 25 --minv 0.1 -s log --in output/merged_abundance_table.txt --out output_images/abundance_heatmap.png
+```
 
 For detailed command-line instructions, please refer to below:
 
