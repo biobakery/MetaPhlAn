@@ -5,16 +5,14 @@
 AUTHORS: Nicola Segata (nicola.segata@unitn.it)
 
 ##**Description**##
- MetaPhlAn version 2.0.0 beta2 (12 July 2014): METAgenomic PHyLogenetic ANalysis for
- taxonomic classification of metagenomic reads.
+MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data with species level resolution. From version 2.0 MetaPhlAn is also able to identify specific strains (in the not-so-frequent cases in which the sample contains a previously sequenced strains) and to track strains across samples for all species.
 
-MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data. 
-MetaPhlAn relies on unique clade-specific marker genes identified from ~17,000 reference genomes (~13,500 bacterial and archaeal, ~3,500 viral, and ~110 eukaryotic), allowing:
-
-* orders of magnitude speedups compared to existing methods;
+MetaPhlAn 2.0 relies on ~1M unique clade-specific marker genes identified from ~17,000 reference genomes (~13,500 bacterial and archaeal, ~3,500 viral, and ~110 eukaryotic), allowing:
 * unambiguous taxonomic assignments;
 * accurate estimation of organismal relative abundance;
-* species-level resolution for bacteria, archaea, eukaryotes and viruses.
+* species-level resolution for bacteria, archaea, eukaryotes and viruses;
+* strain identification and tracking
+* orders of magnitude speedups compared to existing methods.
 
 If you use this software, please cite :
 
