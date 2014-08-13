@@ -57,11 +57,18 @@ Cloning the repository via the following commands
 
 ##**Basic Usage**##
 
-* Profiling a metagenome from raw reads (requires BowTie2 in the system path with execution and read permissions, Perl installed, and the BowTie2 marker DB provided with MetaPhlAn). Here, mpa.pkl is the marker metadata file provided with the MetaPhlAn package:
+We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir`` bash variable contains the main MetaPhlAn folder:
 
-* * ``$ metaphlan2.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa``
+Here is the basic example to profile a metagenome from raw reads (requires BowTie2 in the system path with execution and read permissions, Perl installed). 
 
-* You can take advantage of multiple CPUs and you can save the intermediate BowTie2 output for re-running MetaPhlAn extremely quickly:
+``$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 > profiled_metagenome.txt``
+
+It is highly recommended to save the intermediate BowTie2 output for re-running MetaPhlAn extremely quickly (--bowtie2out), and use multiple CPUs (--nproc) if available:
+
+``$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 > profiled_metagenome.txt``
+
+
+You can take advantage of multiple CPUs and you can save the intermediate BowTie2 output for re-running MetaPhlAn extremely quickly:
 
 * * ``metaphlan2.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa --nproc 5 --bowtie2out metagenome.bt2out.bz2``
 
