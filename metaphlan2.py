@@ -13,8 +13,8 @@ from __future__ import with_statement
 # ==============================================================================
 
 __author__ = 'Nicola Segata (nicola.segata@unitn.it)'
-__version__ = '2.0.0 beta2'
-__date__ = '12 July 2014'
+__version__ = '2.0.0 beta3'
+__date__ = '13 August 2014'
 
 
 import sys
@@ -258,7 +258,7 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format = 
         bowtie2_cmd += (["-f"] if file_format == "multifasta" else []) 
         p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE )
         outf = bz2.BZ2File(outfmt6_out, "w") if outfmt6_out.endswith(".bz2") else open( outfmt6_out, "w" )
-        for o in (l.strip().split('\t') for l in p.stdout):
+        for o in (str(l, encoding='utf8').strip().split('\t') for l in p.stdout):
             if o[2][-1] != '*':
                 outf.write( "\t".join([o[0],o[2]]) +"\n" )
         outf.close()
