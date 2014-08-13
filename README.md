@@ -78,9 +78,13 @@ You can also provide an externally BowTie2-mapped SAM if you specify this format
 In order to make MetaPhlAn 2 easily compatible with complex metagenomic pipeline, there are now multiple alternative ways to pass the input, but in these cases **you need to set the --input_type format explicitly**:
 
 ``$ cat metagenome.fastq --to-stdout | metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl > profiled_metagenome.txt``
+
 ``$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl > profiled_metagenome.txt``
+
 ``$ metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl < metagenome.fastq > profiled_metagenome.txt``
+
 ``$ metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl <(bzcat metagenome.fastq.bz2) > profiled_metagenome.txt``
+
 ``$ metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl <(bzcat metagenome_1.fastq.bz2 metagenome_2.fastq.bz2) > profiled_metagenome.txt``
 
 MetaPhlAn 2 can also natively **handle paired-end metagenomes**, and, more generally, metagenomes stored in multiple files:
