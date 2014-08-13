@@ -57,7 +57,12 @@ Cloning the repository via the following commands
 
 ##**Basic Usage**##
 
-We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir`` bash variable contains the main MetaPhlAn folder.
+We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir`` bash variable contains the main MetaPhlAn folder. You can set this two variables moving to your MetaPhlAn2 local folder and type:
+```
+#!cmd
+$ export PATH=`pwd`:$PATH
+$ mpa_dir=`pwd`
+```
 
 Here is the basic example to profile a metagenome from raw reads (requires BowTie2 in the system path with execution and read permissions, Perl installed). 
 
