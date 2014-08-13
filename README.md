@@ -57,7 +57,7 @@ Cloning the repository via the following commands
 
 ##**Basic Usage**##
 
-We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir`` bash variable contains the main MetaPhlAn folder:
+We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir`` bash variable contains the main MetaPhlAn folder.
 
 Here is the basic example to profile a metagenome from raw reads (requires BowTie2 in the system path with execution and read permissions, Perl installed). 
 
@@ -67,22 +67,26 @@ It is highly recommended to save the intermediate BowTie2 output for re-running 
 
 ``$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 > profiled_metagenome.txt``
 
+If you already mapped your metagenome against the marker DB (using a previous  MetaPhlAn run), you can obtain the results in few seconds by using the previously saved --bowtie2out file:
 
-You can take advantage of multiple CPUs and you can save the intermediate BowTie2 output for re-running MetaPhlAn extremely quickly:
+``$ metaphlan2.py metagenome.bowtie2.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl --nproc 5 > profiled_metagenome.txt``
 
-* * ``metaphlan2.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa --nproc 5 --bowtie2out metagenome.bt2out.bz2``
+You can also provide an externally BowTie2-mapped SAM if you specify this format with --input_format
 
-* If you already mapped your metagenome against the marker DB (using a previous  MetaPhlAn run, you can obtain the results in few seconds:
+``$ metaphlan2.py metagenome.sam --input_format sam --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl > profiled_metagenome.txt``
 
-* * ``metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl metagenome.bowtie2out.bz2``
+In order to make MetaPhlAn 2 easily compatible with complex metagenomic pipeline, there are now multiple alternative ways to pass the input, but in these cases **you need to set the --input_type format explicitly**:
 
-* Standard SAM file can be converted into bowtie2out using the command below, and then run through MetaPhlAn as described above.
+``$ cat metagenome.fastq --to-stdout | metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl > profiled_metagenome.txt``
+``$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl > profiled_metagenome.txt``
+``$ metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl < metagenome.fastq > profiled_metagenome.txt``
+``$ metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl <(bzcat metagenome.fastq.bz2) > profiled_metagenome.txt``
+``$ metaphlan2.py --input_format fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl <(bzcat metagenome_1.fastq.bz2 metagenome_2.fastq.bz2) > profiled_metagenome.txt``
 
-* * ``cat file.sam | cut -f 1,3 | grep -v "*" > file.bowtie2out.txt``
+MetaPhlAn 2 can also natively **handle paired-end metagenomes**, and, more generally, metagenomes stored in multiple files:
 
-* The metagenome can also be passed from the standard input but it is necessary to specify the input format explicitly:
+``$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 > profiled_metagenome.txt``
 
-* * ``tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type multifastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa``
 
 * Also the pre-computed BowTie2 output can be provided with a pipe (again specifying the input type): 
 
