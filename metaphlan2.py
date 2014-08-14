@@ -83,83 +83,104 @@ else:
 def read_params(args):
     p = ap.ArgumentParser( description= 
             "DESCRIPTION\n"
-            " MetaPhlAn version "+__version__+" ("+__date__+"): METAgenomic PHyLogenetic ANalysis for\n"
-            " taxonomic classification of metagenomic reads.\n\n"
+            " MetaPhlAn version "+__version__+" ("+__date__+"): \n"
+            " METAgenomic PHyLogenetic ANalysis for metagenomic taxonomic profiling.\n\n"
             "AUTHORS: "+__author__+"\n\n"
             "COMMON COMMANDS\n\n"
-            "* Profiling a metagenome from raw reads (requires BowTie2 in the system path \n"
-            "  with execution and read permissions, Perl installed, and the BowTie2 marker DB \n"
-            "  provided with MetaPhlAn):\n"
-            "metaphlan2.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa\n"
-            "  mpa.pkl is the marker metadata file provided with the MetaPhlAn package\n"
-            "  Although not optimal, also reads in fasta format can be used. \n\n"
-            "* you can take advantage of multiple CPUs and you can save the intermediate BowTie2\n"
-            "  output\n for re-running MetaPhlAn extremely quickly:\n"
-            "metaphlan.py metagenome.fastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa --nproc 5 --bowtie2out metagenome.bt2out.bz2\n\n"
-            "* if you already mapped your metagenome against the marker DB (using a previous \n"
-            "  MetaPhlAn run, you can obtain the results in few seconds:\n"
-            "metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl metagenome.bowtie2out.bz2\n"
-            "  (notice that 'bowtie2out' file is automatically bzip2 compressed/uncompressed) \n"
-            "  a standard SAM file as follows: \n"
-            "cat file.sam | cut -f 1,3 | grep -v \"*\" > file.bowtie2out.txt\n\n"
-            "* The metagenome can also be passed from the standard input but \n"
-            "  it is necessary to specify the input format explicitly:\n"
-            "tar xjf metagenome.tar.bz2 --to-stdout | metaphlan.py --input_type multifastq --mpa_pkl mpa.pkl --bowtie2db bowtie2db/mpa\n\n"
-            "* Also the pre-computed BowTie2 output can be provided with a pipe (again \n"
-            "  specifying the input type): \n"
-            "metaphlan2.py --input_type bowtie2out --mpa_pkl mpa.pkl < metagenome.bowtie2out.txt > profiling_output.txt\n\n"
-            "* you can also set advanced options for the BowTie2 step selecting the preset option \n"
-            "  among 'sensitive','very-sensitive','sensitive-local','very-sensitive-local' \n"
-            "  (valid for metagenome as input only):\n" 
-            "metaphlan2.py --bt2_ps very-sensitive-local --mpa_pkl mpa.pkl metagenome.fasta\n\n",
-            formatter_class=ap.RawTextHelpFormatter )
+            " We assume here that metaphlan2.py is in the system path and that mpa_dir bash variable contains the\n"
+            " main MetaPhlAn folder. Also BowTie2 should be in the system path with execution and read\n"
+            " permissions, and Perl should be installed)\n\n"
+            
+            "*  Profiling a metagenome from raw reads:\n"
+            "$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --input_type fastq\n\n"
+            
+            "*  You can take advantage of multiple CPUs and save the intermediate BowTie2 output for re-running\n"
+            "   MetaPhlAn extremely quickly:\n"
+            "$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
+            
+            "*  If you already mapped your metagenome against the marker DB (using a previous MetaPhlAn run), you\n"
+            "   can obtain the results in few seconds by using the previously saved --bowtie2out file and \n"
+            "   specifying the input (--input_type bowtie2out):\n"
+            "$ metaphlan2.py metagenome.bowtie2.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --nproc 5 --input_type bowtie2out\n\n"
+            
+            "*  You can also provide an externally BowTie2-mapped SAM if you specify this format with \n"
+            "   --input_type. Two steps: first apply BowTie2 and then feed MetaPhlAn2 with the obtained sam:\n"
+            "$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/db_v20/mpa_v20_m200 -U metagenome.fastq\n"
+            "$ metaphlan2.py metagenome.sam --input_type sam --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl > profiled_metagenome.txt\n\n"
+            
+            "*  Multiple alternative ways to pass the input are also available:\n"
+            "$ cat metagenome.fastq | metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200\n"
+            "$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200\n"
+            "$ metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 < metagenome.fastq\n"
+            "$ metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 <(bzcat metagenome.fastq.bz2)\n"
+            "$ metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz)\n\n"
+
+            "* We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in \n"
+            "  multiple files (but you need to specify the --bowtie2out parameter):\n"
+            "$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
+            
+            "",
+            formatter_class=ap.RawTextHelpFormatter,
+            add_help=False )
     arg = p.add_argument
 
     arg( 'inp', metavar='INPUT_FILE', type=str, nargs='?', default=None, help= 
          "the input file can be:\n"
-         "* a multi-fasta file containing metagenomic reads\n"
+         "* a fastq file containing metagenomic reads\n"
          "OR\n"
-         "* a NCBI BLAST output file (-outfmt 6 format) of the metagenome against the MetaPhlAn database. \n"
+         "* a BowTie2 produced SAM file. \n"
          "OR\n"
-         "* a BowTie2 output file of the metagenome generated by a previous MetaPhlAn run \n"
-         "The software will recognize the format automatically.\n"
+         "* an intermediary mapping file of the metagenome generated by a previous MetaPhlAn run \n"
          "If the input file is missing, the script assumes that the input is provided using the standard \n"
-         "input, and the input format has to be specified with --input_type" )   
+         "input, or named pipes.\n"
+         "IMPORTANT: the type of input needs to be specified with --input_type" )   
     
     arg( 'output', metavar='OUTPUT_FILE', type=str, nargs='?', default=None,
-         help= "the tab-separated output file of the predicted taxon relative "
-               "abundances \n"
+         help= "the tab-separated output file of the predicted taxon relative abundances \n"
                "[stdout if not present]")
 
-    arg( '-v','--version', action='version', version="MetaPhlAn version "+__version__+"\t("+__date__+")",
-         help="Prints the current MetaPhlAn version and exit\n" )
 
-    arg( '--mpa_pkl', metavar="", default=None, type=str, # !!!!
+    g = p.add_argument_group('Required arguments')
+    arg = g.add_argument
+    arg( '--mpa_pkl', type=str, required = 'True', 
          help = "the metadata pickled MetaPhlAn file")
     
-    stat_choices = ['avg_g','avg_l','tavg_g','tavg_l','wavg_g','wavg_l','med']
-    arg( '--stat', metavar="", choices=stat_choices, default="tavg_g", type=str, help = 
-         "EXPERIMENTAL! Statistical approach for converting marker abundances into clade abundances\n"
-         "'avg_g'  : clade global (i.e. normalizing all markers together) average\n"
-         "'avg_l'  : average of length-normalized marker counts\n"
-         "'tavg_g' : truncated clade global average at --stat_q quantile\n"
-         "'tavg_l' : trunated average of length-normalized marker counts (at --stat_q)\n"
-         "'wavg_g' : winsorized clade global average (at --stat_q)\n"
-         "'wavg_l' : winsorized average of length-normalized marker counts (at --stat_q)\n"
-         "'med'    : median of length-normalized marker counts\n"
-         "[default tavg_g]"   ) 
+    input_type_choices = ['fastq','fasta','multifasta','multifastq','bowtie2out','sam'] # !!!!
+    arg( '--input_type', choices=input_type_choices, required = 'True', help =  
+         "set wheter the input is the multifasta file of metagenomic reads or \n"
+         "the SAM file of the mapping of the reads against the MetaPhlAn db.\n"
+         "[default 'automatic', i.e. the script will try to guess the input format]\n" )
+   
+    g = p.add_argument_group('Mapping arguments')
+    arg = g.add_argument
+    arg( '--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default = None,
+         help = "The BowTie2 database file of the MetaPhlAn database. \n"
+                "REQUIRED if --input_type is fastq, fasta, multifasta, or multifastq")
+    bt2ps = ['sensitive','very-sensitive','sensitive-local','very-sensitive-local']
+    arg( '--bt2_ps', metavar="BowTie2 presets", default='very-sensitive', choices=bt2ps,
+         help = "presets options for BowTie2 (applied only when a multifasta file is provided)\n"
+                "The choices enabled in MetaPhlAn are:\n"
+                " * sensitive\n"
+                " * very-sensitive\n"
+                " * sensitive-local\n"
+                " * very-sensitive-local\n"
+                "[default very-sensitive]\n"   )
+    arg( '--bowtie2_exe', type=str, default = None, help =
+         'Full path and name of the BowTie2 executable. This option allows \n'
+         'MetaPhlAn to reach the executable even when it is not in the system \n'
+         'PATH or the system PATH is unreachable\n' )
+    arg( '--bowtie2out', metavar="FILE_NAME", type=str, default = None, help = 
+         "The file for saving the output of BowTie2\n" )
+    arg( '--no_map', action='store_true', help=
+         "Avoid storing the --bowtie2out map file\n" )
+    arg( '--tmp_dir', metavar="", default=None, type=str, help = 
+         "the folder used to store temporary files \n"
+         "[default is the OS dependent tmp dir]\n"   )
     
-    analysis_types = ['rel_ab', 'reads_map', 'clade_profiles', 'marker_ab_table', 'marker_pres_table', 'clade_specific_strain_tracker']
-    arg( '-t', metavar='ANALYSIS TYPE', type=str, choices = analysis_types, 
-         default='rel_ab', help = 
-         "Type of analysis to perform: \n"
-         " * rel_ab: profiling a metagenomes in terms of relative abundances\n"
-         " * reads_map: mapping from reads to clades (only reads hitting a marker)\n"
-         " * clade_profiles: normalized marker counts for clades with at least a non-null marker\n"
-         " * marker_ab_table: normalized marker counts (only when > 0.0 and normalized by metagenome size if --nreads is specified)\n"
-         " * marker_pres_table: list of markers present in the sample (threshold at 1.0 if not differently specified with --pres_th\n"
-         "[default 'rel_ab']" )
-
+    
+    g = p.add_argument_group('Post-mapping arguments')
+    arg = g.add_argument
+    stat_choices = ['avg_g','avg_l','tavg_g','tavg_l','wavg_g','wavg_l','med']
     arg( '--tax_lev', metavar='TAXONOMIC_LEVEL', type=str, 
          choices='a'+tax_units, default='a', help = 
          "The taxonomic level for the relative abundance output:\n"
@@ -172,49 +193,10 @@ def read_params(args):
          "'g' : genera only\n"
          "'s' : species only\n"
          "[default 'a']" )
-    
-    arg( '--nreads', metavar="NUMBER_OF_READS", type=int, default = None, help =
-         "The total number of reads in the original metagenome. It is used only when \n"
-         "-t marker_table is specified for normalizing the length-normalized counts \n"
-         "with the metagenome size as well. No normalization applied if --nreads is not \n"
-         "specified" )
-
-    arg( '--pres_th', metavar="PRESENCE_THRESHOLD", type=int, default = 1.0, help =
-         'Threshold for calling a marker present by the -t marker_pres_table option' )
-
-    arg( '--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default = None,
-         help = "The BowTie2 database file of the MetaPhlAn database " )
-
-    bt2ps = ['sensitive','very-sensitive','sensitive-local','very-sensitive-local']
-    arg( '--bt2_ps', metavar="BowTie2 presets", default='very-sensitive', choices=bt2ps,
-         help = "presets options for BowTie2 (applied only when a multifasta file is provided)\n"
-                "The choices enabled in MetaPhlAn are:\n"
-                " * sensitive\n"
-                " * very-sensitive\n"
-                " * sensitive-local\n"
-                " * very-sensitive-local\n"
-                "[default very-sensitive]\n"   )
-    
-    arg( '--tmp_dir', metavar="", default=None, type=str, help = 
-         "the folder used to store temporary files \n"
-         "[default is the OS dependent tmp dir]\n"   )
-    
-    arg( '--clade', metavar="", default=None, type=str, help = 
-         "The clade for clade_specific_strain_tracker analysis\n"  )
-    arg( '--min_ab', metavar="", default=0.1, type=float, help = 
-         "The minimum percentage abundace for the clade in the clade_specific_strain_tracker analysis\n"  )
-    
     arg( '--min_cu_len', metavar="", default="2000", type=int, help =
          "minimum total nucleotide length for the markers in a clade for\n"
          "estimating the abundance without considering sub-clade abundances\n"
          "[default 2000]\n"   )
-
-    input_type_choices = ['fastq','fasta','multifasta','multifastq','bowtie2out','sam'] # !!!!
-    arg( '--input_type', choices=input_type_choices, required = 'True', help =  
-         "set wheter the input is the multifasta file of metagenomic reads or \n"
-         "the SAM file of the mapping of the reads against the MetaPhlAn db.\n"
-         "[default 'automatic', i.e. the script will try to guess the input format]\n" )
-
     arg( '--ignore_viruses', action='store_true', help=
          "Do not profile viral organisms" )
     arg( '--ignore_eukaryotes', action='store_true', help=
@@ -223,36 +205,59 @@ def read_params(args):
          "Do not profile bacterial organisms" )
     arg( '--ignore_archaea', action='store_true', help=
          "Do not profile archeal organisms" )
-
     arg( '--stat_q', metavar="", type = float, default=0.1, help = 
          "Quantile value for the robust average\n"
          "[default 0.1]"   )
-    
     arg( '--ignore_markers', type=str, default = None, help = 
          "File containing a list of markers to ignore. \n")
-
     arg( '--avoid_disqm', action="store_true", help = 
          "Descrivate the procedure of disambiguating the quasi-markers based on the \n"
          "marker abundance pattern found in the sample. It is generally recommended \n"
          "too keep the disambiguation procedure in order to minimize false positives\n")
+    arg( '--stat', metavar="", choices=stat_choices, default="tavg_g", type=str, help = 
+         "EXPERIMENTAL! Statistical approach for converting marker abundances into clade abundances\n"
+         "'avg_g'  : clade global (i.e. normalizing all markers together) average\n"
+         "'avg_l'  : average of length-normalized marker counts\n"
+         "'tavg_g' : truncated clade global average at --stat_q quantile\n"
+         "'tavg_l' : trunated average of length-normalized marker counts (at --stat_q)\n"
+         "'wavg_g' : winsorized clade global average (at --stat_q)\n"
+         "'wavg_l' : winsorized average of length-normalized marker counts (at --stat_q)\n"
+         "'med'    : median of length-normalized marker counts\n"
+         "[default tavg_g]"   ) 
+    
+    arg = p.add_argument
 
-    arg( '--bowtie2_exe', type=str, default = None, help =
-         'Full path and name of the BowTie2 executable. This option allows \n'
-         'MetaPhlAn to reach the executable even when it is not in the system \n'
-         'PATH or the system PATH is unreachable\n' )
 
-    arg( '--bowtie2out', metavar="FILE_NAME", type=str, default = None, help = 
-         "The file for saving the output of BowTie2\n" )
-    arg( '--no_map', action='store_true', help=
-         "Avoid storing the --bowtie2out map file\n" )
+    
+    g = p.add_argument_group('Additional analysis types and arguments')
+    arg = g.add_argument
+    analysis_types = ['rel_ab', 'reads_map', 'clade_profiles', 'marker_ab_table', 'marker_pres_table', 'clade_specific_strain_tracker']
+    arg( '-t', metavar='ANALYSIS TYPE', type=str, choices = analysis_types, 
+         default='rel_ab', help = 
+         "Type of analysis to perform: \n"
+         " * rel_ab: profiling a metagenomes in terms of relative abundances\n"
+         " * reads_map: mapping from reads to clades (only reads hitting a marker)\n"
+         " * clade_profiles: normalized marker counts for clades with at least a non-null marker\n"
+         " * marker_ab_table: normalized marker counts (only when > 0.0 and normalized by metagenome size if --nreads is specified)\n"
+         " * marker_pres_table: list of markers present in the sample (threshold at 1.0 if not differently specified with --pres_th\n"
+         "[default 'rel_ab']" )
+    arg( '--nreads', metavar="NUMBER_OF_READS", type=int, default = None, help =
+         "The total number of reads in the original metagenome. It is used only when \n"
+         "-t marker_table is specified for normalizing the length-normalized counts \n"
+         "with the metagenome size as well. No normalization applied if --nreads is not \n"
+         "specified" )
+    arg( '--pres_th', metavar="PRESENCE_THRESHOLD", type=int, default = 1.0, help =
+         'Threshold for calling a marker present by the -t marker_pres_table option' )
+    arg( '--clade', metavar="", default=None, type=str, help = 
+         "The clade for clade_specific_strain_tracker analysis\n"  )
+    arg( '--min_ab', metavar="", default=0.1, type=float, help = 
+         "The minimum percentage abundace for the clade in the clade_specific_strain_tracker analysis\n"  )
+    arg( "-h", "--help", action="help", help="show this help message and exit")
 
+    g = p.add_argument_group('Output arguments')
+    arg = g.add_argument
     arg( '-o', '--output_file',  metavar="output file", type=str, default=None, help = 
          "The output file (if not specified as positional argument)\n")
-
-    arg( '--nproc', metavar="N", type=int, default=1, help = 
-         "The number of CPUs to use for parallelizing the mapping\n"
-         "[default 1, i.e. no parallelism]\n" ) 
-
     #*************************************************************
     #* Parameters related to biom file generation                *
     #*************************************************************         
@@ -264,6 +269,15 @@ def read_params(args):
     #*************************************************************
     #* End parameters related to biom file generation            *
     #*************************************************************    
+    
+    g = p.add_argument_group('Other arguments')
+    arg = g.add_argument
+    arg( '--nproc', metavar="N", type=int, default=1, help = 
+         "The number of CPUs to use for parallelizing the mapping\n"
+         "[default 1, i.e. no parallelism]\n" ) 
+    arg( '-v','--version', action='version', version="MetaPhlAn version "+__version__+"\t("+__date__+")",
+         help="Prints the current MetaPhlAn version and exit\n" )
+    
 
     return vars(p.parse_args()) 
 
