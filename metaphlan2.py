@@ -90,7 +90,12 @@ def read_params(args):
             " We assume here that metaphlan2.py is in the system path and that mpa_dir bash variable contains the\n"
             " main MetaPhlAn folder. Also BowTie2 should be in the system path with execution and read\n"
             " permissions, and Perl should be installed)\n\n"
-            
+           
+            "\n========== MetaPhlAn 2 clade-abundance estimation ================= \n\n"
+            "The basic usage of MetaPhlAn 2 consists in the identification of the clades (from phyla to species and \n"
+            "strains in particular cases) present in the metagenome obtained from a microbiome sample and their \n"
+            "relative abundance. This correspond to the default analysis type (--analysis_type rel_ab).\n\n"
+
             "*  Profiling a metagenome from raw reads:\n"
             "$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --input_type fastq\n\n"
             
@@ -115,10 +120,44 @@ def read_params(args):
             "$ metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 <(bzcat metagenome.fastq.bz2)\n"
             "$ metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz)\n\n"
 
-            "* We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in \n"
+            "*  We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in \n"
             "  multiple files (but you need to specify the --bowtie2out parameter):\n"
             "$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
+            "\n------------------------------------------------------------------- \n \n\n"
+        
             
+            "\n========== MetaPhlAn 2 strain tracking ============================ \n\n"
+            "MetaPhlAn 2 introduces the capability of charachterizing organisms at the strain level using non\n"
+            "aggregated marker information. Such capability comes with several slightly different flavours and \n"
+            "are a way to perform strain tracking and comparison across multiple samples.\n"
+            "Usually, MetaPhlAn 2 is first ran with the default --analysis_type to profile the species present in\n"
+            "the community, and then a strain-level profiling can be performed to zoom-in into specific species\n"
+            "of interest. This operation can be performed quickly as it exploits the --bowtie2out intermediate \n"
+            "file saved during the execution of the default analysis type.\n\n"
+           
+            "*  The following command will output the abundance of each marker with a RPK (reads per kil-base) \n"
+            "   higher 0.0. (we are assuming that metagenome_outfmt.tar.bz2 has been generated before as \n"
+            "   shown above).\n"
+            "$ metaphlan2.py -t marker_ab_table metagenome_outfmt.tar.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
+            "   The obtained RPK can be optionally normalized by the total number of reads in the metagenome \n"
+            "   to guarantee fair comparisons of abundances across samples. The number of reads in the metagenome\n"
+            "   needs to be passed with the '--nreads' argument\n\n"
+
+            "*  The list of markers present in the sample can be obtained with '-t marker_pres_table'\n"
+            "$ metaphlan2.py -t marker_pres_table metagenome_outfmt.tar.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
+            "   The --pres_th argument (default 1.0) set the minimum RPK value to consider a marker present\n\n"
+            
+            "*  The list '-t clade_profiles' analysis type reports the same information of '-t marker_ab_table'\n"
+            "   but the markers are reported on a clade-by-clade basis.\n"
+            "$ metaphlan2.py -t clade_profiles metagenome_outfmt.tar.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n\n"
+            
+            "*  Finally, to obtain all markers present for a specific clade and all its subclades, the \n"
+            "   '-t clade_specific_strain_tracker' should be used. For example, the following command\n"
+            "   is reporting the presence/absence of the markers for the B. fragulis species and its strains\n"
+            "$ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.tar.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
+            "   the optional argument --min_ab specifies the minimum clade abundance for reporting the markers\n\n"
+            
+            "\n------------------------------------------------------------------- \n\n"
             "",
             formatter_class=ap.RawTextHelpFormatter,
             add_help=False )
