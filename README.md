@@ -133,7 +133,6 @@ For advanced options and other analysis types (such as strain tracking) please r
 
 
 ```
-#!cmd
 usage: metaphlan2.py --mpa_pkl MPA_PKL --input_type
                      {fastq,fasta,multifasta,multifastq,bowtie2out,sam}
                      [--bowtie2db METAPHLAN_BOWTIE2_DB]
