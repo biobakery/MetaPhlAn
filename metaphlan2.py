@@ -224,7 +224,7 @@ def read_params(args):
          choices='a'+tax_units, default='a', help = 
          "The taxonomic level for the relative abundance output:\n"
          "'a' : all taxonomic levels\n"
-         "'k' : kingdoms (Bacteria and Archaea) only\n"
+         "'k' : kingdoms\n"
          "'p' : phyla only\n"
          "'c' : classes only\n"
          "'o' : orders only\n"
