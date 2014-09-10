@@ -667,14 +667,23 @@ def map2bbh( mapping_f, input_type = 'bowtie2out'  ):
 #* k__Bacteria|p__Proteobacteria|c__Gammaproteobacteria|o__Vibrionales     *                   
 #*                                                                         *
 #* Updated by George Weingart george.weingart@gmail.com on 2013/11/23      *
+#***************************************************************************
+#*                                                                         *
+#*                                                                         *
+#* Update by George Weingart george.weingart@gmail.com on 2014/09/09       *
+#* -----------------------------------------------------------------       *
+#* Modified the code to match structure of metaphlan2 pars                 *
+#*                                                                         *
+#* lSampleIDs converted to a literal                                       *
+ 
 #*                                                                         *
 #***************************************************************************
 def generate_biom_file(pars):
     SPsInputFile =    pars['output'] 
-    cDelim = pars['metadata_delimiter_char']
+    cDelim = pars['mdelim']  #2014/09/09 Modified by GW to match pars structure in metaphlan2
     if  len(cDelim) != 1:   #If delimter length passed by user not 1 - use default
         cDelim = "|" 
-        lSampleIds = [pars['inp'].split('.')[0]]    #The first node of the dataset
+    lSampleIds = ["Metaphlan2_Analysis"]    #2014/09/09 - converted to literal by GW
     lSampleMetadata = list()    #No metadata for the samples
     dSampleMetadataEntry = dict()    
     dSampleMetadataEntry['metadata']  = None
@@ -708,7 +717,7 @@ def generate_biom_file(pars):
 
 
     jsonBiomResults  = biomResults.getBiomFormatObject('metaphlan_Biom_Output')
-    with open(pars['biom_output_file'], 'w') as outfile:
+    with open(pars['biom'], 'w') as outfile:  #2014/09/09 - This is the pars element in metaphlan2
         json.dump(jsonBiomResults, outfile)
     return 0
 
