@@ -26,7 +26,7 @@ try:
     import numpy as np 
 except ImportError:
     sys.stderr.write("Error! numpy python library not detected!!\n")
-    sys.exit()
+    sys.exit(1)
 import tempfile as tf
 import argparse as ap
 import subprocess as subp
@@ -783,7 +783,7 @@ if __name__ == '__main__':
             sys.stderr.write( "No MetaPhlAn BowTie2 database provided\n "
                               "[--bowtie2db options]!\n"
                               "Exiting...\n\n" )
-            sys.exit()
+            sys.exit(1)
         if pars['no_map']:
             pars['bowtie2out'] = tf.NamedTemporaryFile(dir=pars['tmp_dir']).name
             no_map = True
@@ -792,7 +792,7 @@ if __name__ == '__main__':
                 if pars['inp'] and "," in  pars['inp']:
                     sys.stderr.write( "Error! --bowtie2out needs to be specified when multiple "
                                       "fastq or fasta files (comma separated) are provided"  )
-                    sys.exit()
+                    sys.exit(1)
                 fname = pars['inp']
                 if fname is None:
                     fname = "stdin_map"
@@ -806,7 +806,7 @@ if __name__ == '__main__':
                     "Please use it as input or remove it if you want to "
                     "re-perform the BowTie2 run.\n"
                     "Exiting...\n\n" )
-                sys.exit()
+                sys.exit(1)
 
         if bow and not all([os.path.exists(".".join([str(pars['bowtie2db']),p]))
                         for p in ["1.bt2", "2.bt2", "3.bt2","4.bt2","1.bt2","2.bt2"]]):
