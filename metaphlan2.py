@@ -300,6 +300,13 @@ def read_params(args):
     arg = g.add_argument
     arg( '-o', '--output_file',  metavar="output file", type=str, default=None, help = 
          "The output file (if not specified as positional argument)\n")
+    arg('--sample_id_key',  metavar="name", type=str, default="#SampleID", 
+        help =("Specify the sample ID key for this analysis."
+               " Defaults to '#SampleID'."))
+    arg('--sample_id',  metavar="value", type=str, 
+        default="Metaphlan2_Analysis",
+        help =("Specify the sample ID for this analysis."
+               " Defaults to 'Metaphlan2_Analysis'."))
     #*************************************************************
     #* Parameters related to biom file generation                *
     #*************************************************************         
@@ -686,7 +693,7 @@ def generate_biom_file(pars):
     cDelim = pars['mdelim']  #2014/09/09 Modified by GW to match pars structure in metaphlan2
     if  len(cDelim) != 1:   #If delimter length passed by user not 1 - use default
         cDelim = "|" 
-    lSampleIds = ["Metaphlan2_Analysis"]    #2014/09/09 - converted to literal by GW
+    lSampleIds = [pars['sample_id']]    
     lSampleMetadata = list()    #No metadata for the samples
     dSampleMetadataEntry = dict()    
     dSampleMetadataEntry['metadata']  = None
@@ -697,6 +704,8 @@ def generate_biom_file(pars):
     lRowEntries = list()    #Row Entries (Samples)
     lObservationMetadata = list()                    
     lObservationIds = list()
+    # bump off the first line, which should be metadata
+    ResultsFile.readline() 
     for line1 in ResultsFile:
         iLineNum+=1
         sBugId = line1.split()[0]
@@ -852,6 +861,7 @@ if __name__ == '__main__':
         pars['output'] = pars['output_file']
 
     with (open(pars['output'],"w") if pars['output'] else sys.stdout) as outf:
+        outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
         if pars['t'] == 'reads_map':
             outf.write( "\n".join( map_out ) + "\n" )
         elif pars['t'] == 'rel_ab':
