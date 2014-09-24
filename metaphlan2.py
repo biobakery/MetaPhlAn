@@ -59,7 +59,7 @@ from numpy import array
 
 # This set contains the markers that after careful validation are found to have low precision or recall
 # We esclude the markers here to avoid generating a new marker DB when changing just few markers
-markers_to_exclude = set(['NC_001782.1'])
+markers_to_exclude = set(['NC_001782.1','GeneID:17099689','gi|419819595|ref|NZ_AJRE01000517.1|:1-118'])
 
 tax_units = "kpcofgst"
 
