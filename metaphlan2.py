@@ -13,8 +13,8 @@ from __future__ import with_statement
 # ==============================================================================
 
 __author__ = 'Nicola Segata (nicola.segata@unitn.it)'
-__version__ = '2.0.0 beta3'
-__date__ = '13 August 2014'
+__version__ = '2.0.0'
+__date__ = '26 September 2014'
 
 
 import sys
