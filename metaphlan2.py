@@ -26,7 +26,7 @@ try:
     import numpy as np 
 except ImportError:
     sys.stderr.write("Error! numpy python library not detected!!\n")
-    sys.exit()
+    sys.exit(1)
 import tempfile as tf
 import argparse as ap
 import subprocess as subp
@@ -300,6 +300,13 @@ def read_params(args):
     arg = g.add_argument
     arg( '-o', '--output_file',  metavar="output file", type=str, default=None, help = 
          "The output file (if not specified as positional argument)\n")
+    arg('--sample_id_key',  metavar="name", type=str, default="#SampleID", 
+        help =("Specify the sample ID key for this analysis."
+               " Defaults to '#SampleID'."))
+    arg('--sample_id',  metavar="value", type=str, 
+        default="Metaphlan2_Analysis",
+        help =("Specify the sample ID for this analysis."
+               " Defaults to 'Metaphlan2_Analysis'."))
     #*************************************************************
     #* Parameters related to biom file generation                *
     #*************************************************************         
@@ -686,7 +693,7 @@ def generate_biom_file(pars):
     cDelim = pars['mdelim']  #2014/09/09 Modified by GW to match pars structure in metaphlan2
     if  len(cDelim) != 1:   #If delimter length passed by user not 1 - use default
         cDelim = "|" 
-    lSampleIds = ["Metaphlan2_Analysis"]    #2014/09/09 - converted to literal by GW
+    lSampleIds = [pars['sample_id']]    
     lSampleMetadata = list()    #No metadata for the samples
     dSampleMetadataEntry = dict()    
     dSampleMetadataEntry['metadata']  = None
@@ -697,6 +704,8 @@ def generate_biom_file(pars):
     lRowEntries = list()    #Row Entries (Samples)
     lObservationMetadata = list()                    
     lObservationIds = list()
+    # bump off the first line, which should be metadata
+    ResultsFile.readline() 
     for line1 in ResultsFile:
         iLineNum+=1
         sBugId = line1.split()[0]
@@ -783,7 +792,7 @@ if __name__ == '__main__':
             sys.stderr.write( "No MetaPhlAn BowTie2 database provided\n "
                               "[--bowtie2db options]!\n"
                               "Exiting...\n\n" )
-            sys.exit()
+            sys.exit(1)
         if pars['no_map']:
             pars['bowtie2out'] = tf.NamedTemporaryFile(dir=pars['tmp_dir']).name
             no_map = True
@@ -792,7 +801,7 @@ if __name__ == '__main__':
                 if pars['inp'] and "," in  pars['inp']:
                     sys.stderr.write( "Error! --bowtie2out needs to be specified when multiple "
                                       "fastq or fasta files (comma separated) are provided"  )
-                    sys.exit()
+                    sys.exit(1)
                 fname = pars['inp']
                 if fname is None:
                     fname = "stdin_map"
@@ -806,7 +815,7 @@ if __name__ == '__main__':
                     "Please use it as input or remove it if you want to "
                     "re-perform the BowTie2 run.\n"
                     "Exiting...\n\n" )
-                sys.exit()
+                sys.exit(1)
 
         if bow and not all([os.path.exists(".".join([str(pars['bowtie2db']),p]))
                         for p in ["1.bt2", "2.bt2", "3.bt2","4.bt2","1.bt2","2.bt2"]]):
@@ -852,6 +861,7 @@ if __name__ == '__main__':
         pars['output'] = pars['output_file']
 
     with (open(pars['output'],"w") if pars['output'] else sys.stdout) as outf:
+        outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
         if pars['t'] == 'reads_map':
             outf.write( "\n".join( map_out ) + "\n" )
         elif pars['t'] == 'rel_ab':
