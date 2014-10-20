@@ -43,8 +43,8 @@ except:
 #*************************************************************
 try:
     from biom.table import  * 
-    from biom.util import biom_open  				#2014/09/11  Updated by George Weingart: Added the biom_open utility for biom2 support
-	
+    from biom.util import biom_open                  #2014/09/11  Updated by George Weingart: Added the biom_open utility for biom2 support
+    
 
 except ImportError:
     sys.stderr.write("Warning! Biom python library not detected! Exporting to biom format will not work!\n")
@@ -719,42 +719,42 @@ def generate_biom_file(pars):
     ResultsFile.close()
     aAbundanceData = array(lAbundanceData)
 
-	
-	#***************************************************************************************************
-	#* Update  by George Weingart george.weingart@gmail.com on 2014/09/1                               *
-	#***************************************************************************************************
-	#*                                                                                                 *
-	#*    Implemented support for biom2:                                                               *  
-	#*                                                                                                 *
-	#*    In biom2,  table-factory was discontinued in favor of HDF5,  so we try to use                *
-	#*    biom1 table factory, but if it fails,  we invoke the HDF5 compatible code                    *	
-	#*                                                                                                 *
-	#*    The biom1 code is left for installations that are still using biom1, therefore the code      *
-	#*    is compliant now with biom1 and biom2                                                        *
-	#***************************************************************************************************
-    try:								#20140911  Table factory is for biom1
-			biomResults = table_factory(aAbundanceData,
-					lSampleIds,
-					lObservationIds,
-					lSampleMetadata,
-					lObservationMetadata,
-					constructor=DenseOTUTable)
-			jsonBiomResults  = biomResults.getBiomFormatObject('metaphlan_Biom_Output')
-			with open(pars['biom'], 'w') as outfile:  
-				json.dump(jsonBiomResults, outfile)		
-    except:								#20140911  Below is the biom2 compatible code
-			biomResults = Table(aAbundanceData,
-				lObservationIds, lSampleIds,
-				lObservationMetadata,
-				lSampleMetadata,
-				table_id='MetaPhlAn2_Analysis')	 #2014/09/09 - This is the pars element in metaphlan2
-				
-			jsonBiomResults = biomResults.to_json("MetaPhlAn2_Analysis_Results", direct_io=None)
-			with open(pars['biom'], 'w') as outfile:  
-				outfile.write(jsonBiomResults)
-			
+    
+    #***************************************************************************************************
+    #* Update  by George Weingart george.weingart@gmail.com on 2014/09/1                               *
+    #***************************************************************************************************
+    #*                                                                                                 *
+    #*    Implemented support for biom2:                                                               *  
+    #*                                                                                                 *
+    #*    In biom2,  table-factory was discontinued in favor of HDF5,  so we try to use                *
+    #*    biom1 table factory, but if it fails,  we invoke the HDF5 compatible code                    *    
+    #*                                                                                                 *
+    #*    The biom1 code is left for installations that are still using biom1, therefore the code      *
+    #*    is compliant now with biom1 and biom2                                                        *
+    #***************************************************************************************************
+    try:                                #20140911  Table factory is for biom1
+            biomResults = table_factory(aAbundanceData,
+                    lSampleIds,
+                    lObservationIds,
+                    lSampleMetadata,
+                    lObservationMetadata,
+                    constructor=DenseOTUTable)
+            jsonBiomResults  = biomResults.getBiomFormatObject('metaphlan_Biom_Output')
+            with open(pars['biom'], 'w') as outfile:  
+                json.dump(jsonBiomResults, outfile)        
+    except:                                #20140911  Below is the biom2 compatible code
+            biomResults = Table(aAbundanceData,
+                lObservationIds, lSampleIds,
+                lObservationMetadata,
+                lSampleMetadata,
+                table_id='MetaPhlAn2_Analysis')     #2014/09/09 - This is the pars element in metaphlan2
+                
+            jsonBiomResults = biomResults.to_json("MetaPhlAn2_Analysis_Results", direct_io=None)
+            with open(pars['biom'], 'w') as outfile:  
+                outfile.write(jsonBiomResults)
+            
 
-				
+                
     return 0
 
     
