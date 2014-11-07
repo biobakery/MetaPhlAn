@@ -3,7 +3,7 @@
 from __future__ import with_statement 
 
 # ==============================================================================
-# MetaPhlAn v2.x: METAgenomic PHyLogenetic ANalysis for taxonomic classification 
+# MetaPhlAn v2.x: METAgenomic PHyLogenetic ANalysis for taxonomic classification
 #                 of metagenomic data
 #
 # Authors: Nicola Segata (nicola.segata@unitn.it)
@@ -33,29 +33,25 @@ import subprocess as subp
 import multiprocessing as mp
 from collections import defaultdict as defdict
 import bz2 
+import itertools
+from distutils.version import LooseVersion
 try:
     import cPickle as pickle
 except:
     import pickle
 
-#*************************************************************
-#*  Imports related to biom file generation                  *
-#*************************************************************
 try:
-    from biom.table import  * 
-    from biom.util import biom_open                  #2014/09/11  Updated by George Weingart: Added the biom_open utility for biom2 support
-    
-
+    import biom
+    import biom.table
+    import numpy as np
 except ImportError:
-    sys.stderr.write("Warning! Biom python library not detected! Exporting to biom format will not work!\n")
+    sys.stderr.write("Warning! Biom python library not detected!"
+                     "\n Exporting to biom format will not work!\n")
 try:
     import json
 except ImportError:
-    sys.stderr.write("Warning! json python library not detected! Exporting to biom format will not work!\n")
-from numpy import array
-#*************************************************************
-#*  End imports related to biom file generation              *
-#*************************************************************
+    sys.stderr.write("Warning! json python library not detected!"
+                     "\n Exporting to biom format will not work!\n")
 
 # This set contains the markers that after careful validation are found to have low precision or recall
 # We esclude the markers here to avoid generating a new marker DB when changing just few markers
@@ -394,14 +390,15 @@ class TaxClade:
     quantile = None
     avoid_disqm = False
 
-    def __init__( self, name, uncl = False ):
+    def __init__( self, name, uncl = False, id_int = 0 ):
         self.children, self.markers2nreads = {}, {}
         self.name, self.father = name, None
         self.uncl, self.subcl_uncl = uncl, False
         self.abundance, self.uncl_abundance = None, 0 
+        self.id = id_int
 
-    def add_child( self, name ):
-        new_clade = TaxClade( name )
+    def add_child( self, name, id_int ):
+        new_clade = TaxClade( name, id_int=id_int )
         self.children[name] = new_clade
         new_clade.father = self
         return new_clade
@@ -544,13 +541,14 @@ class TaxTree:
         TaxClade.markers2lens = self.markers2lens
         TaxClade.markers2exts = self.markers2exts
         TaxClade.taxa2clades = self.taxa2clades
+        self.id_gen = itertools.count(1)
 
         clades_txt = (l.strip().split("|") for l in mpa_pkl['taxonomy'])        
         for clade in clades_txt:
             father = self.root
             for clade_lev in clade: # !!!!! [:-1]:
                 if not clade_lev in father.children:
-                    father.add_child( clade_lev )
+                    father.add_child( clade_lev, id_int=self.id_gen.next() )
                     self.all_clades[clade_lev] = father.children[clade_lev]
                 if clade_lev[0] == "t":
                     self.taxa2clades[clade_lev[3:]] = father 
@@ -662,102 +660,69 @@ def map2bbh( mapping_f, input_type = 'bowtie2out'  ):
 
     return markers2reads
     
-    
-#***************************************************************************
-#*                                                                         *
-#*  Generate biom output if user required it                               *
-#*  Parameters : In pars                                                   *
-#*  --biom_output_file : Name of the output biom file generated            *
-#*       .....Note :  This is an additional file generated                 *
-#*                    in addition to the regular output requested          *
-#*  --metadata_delimiter_char: This is the metadata taxonomy               *
-#*       separator, defaulting to pipe.                                    *
-#*  Example:                                                               *
-#*  The pipe | in:                                                         *
-#* k__Bacteria|p__Proteobacteria|c__Gammaproteobacteria|o__Vibrionales     *                   
-#*                                                                         *
-#* Updated by George Weingart george.weingart@gmail.com on 2013/11/23      *
-#***************************************************************************
-#*                                                                         *
-#*                                                                         *
-#* Update by George Weingart george.weingart@gmail.com on 2014/09/09       *
-#* -----------------------------------------------------------------       *
-#* Modified the code to match structure of metaphlan2 pars                 *
-#*                                                                         *
-#* lSampleIDs converted to a literal                                       *
- 
-#*                                                                         *
-#***************************************************************************
-def generate_biom_file(pars):
-    SPsInputFile =    pars['output'] 
-    cDelim = pars['mdelim']  #2014/09/09 Modified by GW to match pars structure in metaphlan2
-    if  len(cDelim) != 1:   #If delimter length passed by user not 1 - use default
-        cDelim = "|" 
-    lSampleIds = [pars['sample_id']]    
-    lSampleMetadata = list()    #No metadata for the samples
-    dSampleMetadataEntry = dict()    
-    dSampleMetadataEntry['metadata']  = None
-    lSampleMetadata.append(dSampleMetadataEntry)
-    ResultsFile = open(SPsInputFile,'r')
-    iLineNum = 0    #Set up counter
-    lAbundanceData = list() #Define the Abundance data Table
-    lRowEntries = list()    #Row Entries (Samples)
-    lObservationMetadata = list()                    
-    lObservationIds = list()
-    # bump off the first line, which should be metadata
-    ResultsFile.readline() 
-    for line1 in ResultsFile:
-        iLineNum+=1
-        sBugId = line1.split()[0]
-        lAbundance = [float(line1.split()[1])]  #The Abundance for this bug
-        lAbundanceData.append(lAbundance)   #Add the Abundance of this bug to the table 
-        dRowEntry=dict()    #This row entry is a dictionary
-        lObservationIds.append(str(iLineNum))   #The record number
-        lRowMetaData = sBugId.split(cDelim) #Define list of the Taxonomies for the bug    
-        dRowEntry['taxonomy'] = lRowMetaData    #The Metadata
-        lObservationMetadata.append(dRowEntry)   #Add row entry to the obs metadata
-    ResultsFile.close()
-    aAbundanceData = array(lAbundanceData)
 
-    
-    #***************************************************************************************************
-    #* Update  by George Weingart george.weingart@gmail.com on 2014/09/1                               *
-    #***************************************************************************************************
-    #*                                                                                                 *
-    #*    Implemented support for biom2:                                                               *  
-    #*                                                                                                 *
-    #*    In biom2,  table-factory was discontinued in favor of HDF5,  so we try to use                *
-    #*    biom1 table factory, but if it fails,  we invoke the HDF5 compatible code                    *    
-    #*                                                                                                 *
-    #*    The biom1 code is left for installations that are still using biom1, therefore the code      *
-    #*    is compliant now with biom1 and biom2                                                        *
-    #***************************************************************************************************
-    try:                                #20140911  Table factory is for biom1
-            biomResults = table_factory(aAbundanceData,
-                    lSampleIds,
-                    lObservationIds,
-                    lSampleMetadata,
-                    lObservationMetadata,
-                    constructor=DenseOTUTable)
-            jsonBiomResults  = biomResults.getBiomFormatObject('metaphlan_Biom_Output')
-            with open(pars['biom'], 'w') as outfile:  
-                json.dump(jsonBiomResults, outfile)        
-    except:                                #20140911  Below is the biom2 compatible code
-            biomResults = Table(aAbundanceData,
-                lObservationIds, lSampleIds,
-                lObservationMetadata,
-                lSampleMetadata,
-                table_id='MetaPhlAn2_Analysis')     #2014/09/09 - This is the pars element in metaphlan2
-                
-            jsonBiomResults = biomResults.to_json("MetaPhlAn2_Analysis_Results", direct_io=None)
-            with open(pars['biom'], 'w') as outfile:  
-                outfile.write(jsonBiomResults)
-            
+def maybe_generate_biom_file(pars, abundance_predictions):
+    if not pars['biom']:
+        return None
+    if not abundance_predictions:
+        return open(pars['biom'], 'w').close()
 
-                
-    return 0
+    delimiter = "|" if len(pars['mdelim']) > 1 else pars['mdelim']
+    def istip(clade_name):
+        end_name = clade_name.split(delimiter)[-1]
+        return end_name.startswith("t__") or end_name.endswith("_unclassified")
 
-    
+    def findclade(clade_name):
+        if clade_name.endswith('_unclassified'):
+            name = clade_name.split(delimiter)[-2]
+        else:
+            name = clade_name.split(delimiter)[-1]
+        return tree.all_clades[name]
+
+    def to_biomformat(clade_name):
+        return { 'taxonomy': clade_name.split(delimiter) }
+
+    clades = iter( (abundance, findclade(name)) 
+                   for (name, abundance) in abundance_predictions
+                   if istip(name) )
+    packed = iter( ([abundance], clade.get_full_name(), clade.id)
+                   for (abundance, clade) in clades )
+
+    #unpack that tuple here to stay under 80 chars on a line
+    data, clade_names, clade_ids = zip(*packed)
+    # biom likes column vectors, so we give it an array like this:
+    # np.array([a],[b],[c])
+    data = np.array(data)
+    sample_ids = [pars['sample_id']]
+    table_id='MetaPhlAn2_Analysis'
+    json_key = "MetaPhlAn2"
+
+    if LooseVersion(biom.__version__) < LooseVersion("2.0.0"):
+        biom_table = biom.table.table_factory(
+            data, sample_ids, clade_ids,
+            sample_metadata      = None,
+            observation_metadata = map(to_biomformat, clade_names),
+            table_id             = table_id,
+            constructor          = biom.table.DenseOTUTable
+        )
+        with open(pars['biom'], 'w') as outfile:
+            json.dump( biom_table.getBiomFormatObject(json_key),
+                           outfile )
+    else:  # Below is the biom2 compatible code
+        biom_table = biom.table.Table(
+            data, sample_ids, clade_ids,
+            sample_metadata      = None,
+            observation_metadata = map(to_biomformat, clade_names),
+            table_id             = table_id,
+            input_is_dense       = True
+        )
+        
+        with open(pars['biom'], 'w') as outfile:  
+            biom_table.to_json( json_key,
+                                direct_io = outfile )
+
+    return True
+
 
 if __name__ == '__main__':
     pars = read_params( sys.argv )
@@ -874,6 +839,7 @@ if __name__ == '__main__':
                     outf.write( "\t".join( [k,str(v)] ) + "\n" )   
             else:
                 outf.write( "unclassified\t100.0\n" )
+            maybe_generate_biom_file(pars, outpred)
         elif pars['t'] == 'clade_profiles':
             cl2pr = tree.clade_profiles( pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None  )
             for c,p in cl2pr.items():
@@ -907,12 +873,3 @@ if __name__ == '__main__':
             else:
                 sys.stderr.write("Clade "+pars['clade']+" not present at an abundance >"+str(round(pars['min_ab'],2))+"%, "
                                  "so no clade specific markers are reported\n")
-                    
-    #***************************************************************************
-    #* Check if the User requested biom output - if so, generate it            *
-    #***************************************************************************
-    if pars['biom'] is not None:
-        generate_biom_file(pars)
-                    
-
-
