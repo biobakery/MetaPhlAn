@@ -710,7 +710,7 @@ def maybe_generate_biom_file(pars, abundance_predictions):
                            outfile )
     else:  # Below is the biom2 compatible code
         biom_table = biom.table.Table(
-            data, sample_ids, clade_ids,
+            data, clade_ids, sample_ids,
             sample_metadata      = None,
             observation_metadata = map(to_biomformat, clade_names),
             table_id             = table_id,
