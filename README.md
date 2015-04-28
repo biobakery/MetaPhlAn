@@ -139,26 +139,28 @@ usage: metaphlan2.py --mpa_pkl MPA_PKL --input_type
                      [--bt2_ps BowTie2 presets] [--bowtie2_exe BOWTIE2_EXE]
                      [--bowtie2out FILE_NAME] [--no_map] [--tmp_dir]
                      [--tax_lev TAXONOMIC_LEVEL] [--min_cu_len]
-                     [--ignore_viruses] [--ignore_eukaryotes]
-                     [--ignore_bacteria] [--ignore_archaea] [--stat_q]
+                     [--min_alignment_len] [--ignore_viruses]
+                     [--ignore_eukaryotes] [--ignore_bacteria]
+                     [--ignore_archaea] [--stat_q]
                      [--ignore_markers IGNORE_MARKERS] [--avoid_disqm]
                      [--stat] [-t ANALYSIS TYPE] [--nreads NUMBER_OF_READS]
                      [--pres_th PRESENCE_THRESHOLD] [--clade] [--min_ab] [-h]
-                     [-o output file] [--biom biom_output] [--mdelim mdelim]
-                     [--nproc N] [-v]
+                     [-o output file] [--sample_id_key name]
+                     [--sample_id value] [-s sam_output_file]
+                     [--biom biom_output] [--mdelim mdelim] [--nproc N] [-v]
                      [INPUT_FILE] [OUTPUT_FILE]
 
 DESCRIPTION
- MetaPhlAn version 2.0.0 beta3 (13 August 2014): 
+ MetaPhlAn version 2.1.0 (28 April 2015): 
  METAgenomic PHyLogenetic ANalysis for metagenomic taxonomic profiling.
 
-AUTHORS: Nicola Segata (nicola.segata@unitn.it)
+AUTHORS: Nicola Segata (nicola.segata@unitn.it), Duy Tin Truong (duytin.truong@unitn.it)
 
 COMMON COMMANDS
 
  We assume here that metaphlan2.py is in the system path and that mpa_dir bash variable contains the
  main MetaPhlAn folder. Also BowTie2 should be in the system path with execution and read
- permissions, and Perl should be installed)
+ permissions, and Perl should be installed.
 
 ========== MetaPhlAn 2 clade-abundance estimation ================= 
 
@@ -199,7 +201,7 @@ $ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --mpa_pkl ${mpa_dir}/db_v2
 
 ========== MetaPhlAn 2 strain tracking ============================ 
 
-MetaPhlAn 2 introduces the capability of charachterizing organisms at the strain level using non
+MetaPhlAn 2 introduces the capability of charaterizing organisms at the strain level using non
 aggregated marker information. Such capability comes with several slightly different flavours and 
 are a way to perform strain tracking and comparison across multiple samples.
 Usually, MetaPhlAn 2 is first ran with the default --analysis_type to profile the species present in
@@ -288,6 +290,9 @@ Post-mapping arguments:
   --min_cu_len          minimum total nucleotide length for the markers in a clade for
                         estimating the abundance without considering sub-clade abundances
                         [default 2000]
+  --min_alignment_len   The sam records for aligned reads with the longest subalignment
+                        length smaller than this threshold will be discarded.
+                        [default None]
   --ignore_viruses      Do not profile viral organisms
   --ignore_eukaryotes   Do not profile eukaryotic organisms
   --ignore_bacteria     Do not profile bacterial organisms
@@ -331,6 +336,10 @@ Additional analysis types and arguments:
 Output arguments:
   -o output file, --output_file output file
                         The output file (if not specified as positional argument)
+  --sample_id_key name  Specify the sample ID key for this analysis. Defaults to '#SampleID'.
+  --sample_id value     Specify the sample ID for this analysis. Defaults to 'Metaphlan2_Analysis'.
+  -s sam_output_file, --samout sam_output_file
+                        The sam output file
   --biom biom_output, --biom_output_file biom_output
                         If requesting biom file output: The name of the output file in biom format 
   --mdelim mdelim, --metadata_delimiter_char mdelim
