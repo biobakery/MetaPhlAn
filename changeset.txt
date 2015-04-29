@@ -1,13 +1,10 @@
 === Version 2.1.0
-- add min_alignment_len option to filter out short alignments in local mode and samout option to store sam output
+- added min_alignment_len option to filter out short alignments in local mode. For long reads (>150) it is now recommended to use local mapping together with "--min_alignment_len 100" to filter out very short alignments. (by Tin)
+- added "--samout" option to store the mapping file in SAM format (the SAM will be compressed if the extension of the specified output file ends with ".bz2") (by Tin)
+- fix: MetaPhlAn2 now ingores about ~300 markers that were a-specific (thanks to Eric)
 
 === Version 2.0.0
-- fix: can't believe that I just now caught this. Biom >= 2.0.0 has the clade
-  IDs second and the sample ids third'
-- close branch biom_ids
-- add extract_markers.py
+- fix: Biom >= 2.0.0 has the clade IDs second and the sample ids third'
+- added extract_markers.py
 - fix: #5; revamp biom generation; set clade IDs as enumeration
-- feature branch to fix issue #5
-- log to log10
-- chang tab to space
 - added utils/metaphlan2krona.py
