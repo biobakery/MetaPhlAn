@@ -548,7 +548,7 @@ def read_params(args):
     
     g = p.add_argument_group('Additional analysis types and arguments')
     arg = g.add_argument
-    analysis_types = ['rel_ab', 'reads_map', 'clade_profiles', 'marker_ab_table', 'marker_pres_table', 'clade_specific_strain_tracker']
+    analysis_types = ['rel_ab', 'reads_map', 'clade_profiles', 'marker_ab_table', 'marker_counts', 'marker_pres_table', 'clade_specific_strain_tracker']
     arg( '-t', metavar='ANALYSIS TYPE', type=str, choices = analysis_types, 
          default='rel_ab', help = 
          "Type of analysis to perform: \n"
@@ -556,6 +556,7 @@ def read_params(args):
          " * reads_map: mapping from reads to clades (only reads hitting a marker)\n"
          " * clade_profiles: normalized marker counts for clades with at least a non-null marker\n"
          " * marker_ab_table: normalized marker counts (only when > 0.0 and normalized by metagenome size if --nreads is specified)\n"
+         " * marker_counts: non-normalized marker counts [use with extreme caution]\n"
          " * marker_pres_table: list of markers present in the sample (threshold at 1.0 if not differently specified with --pres_th\n"
          "[default 'rel_ab']" )
     arg( '--nreads', metavar="NUMBER_OF_READS", type=int, default = None, help =
@@ -895,6 +896,14 @@ class TaxTree:
         cl.markers2nreads[marker] = n
         return cl.get_full_name()
    
+
+    def markers2counts( self ):
+        m2c = {}
+        for k,v in self.all_clades.items():
+            for m,c in v.markers2nreads.items():
+                m2c[m] = c
+        return m2c
+
     def clade_profiles( self, tax_lev, get_all = False  ):
         cl2pr = {}
         for k,v in self.all_clades.items():
@@ -1182,6 +1191,10 @@ if __name__ == '__main__':
                 strout = ["\t".join([str(a),"1"]) for a,b in v if b > pars['pres_th']]
                 if strout:
                     outf.write( "\n".join(strout) + "\n" )
+
+        elif pars['t'] == 'marker_counts':
+            outf.write( "\n".join( ["\t".join([m,str(c)]) for m,c in tree.markers2counts().items() ]) +"\n" )
+
         elif pars['t'] == 'clade_specific_strain_tracker':
             cl2pr = tree.clade_profiles( None, get_all = True  )
             cl2ab = tree.relative_abundances( None )
