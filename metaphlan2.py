@@ -410,26 +410,26 @@ def read_params(args):
             "file saved during the execution of the default analysis type.\n\n"
            
             "*  The following command will output the abundance of each marker with a RPK (reads per kil-base) \n"
-            "   higher 0.0. (we are assuming that metagenome_outfmt.tar.bz2 has been generated before as \n"
+            "   higher 0.0. (we are assuming that metagenome_outfmt.bz2 has been generated before as \n"
             "   shown above).\n"
-            "$ metaphlan2.py -t marker_ab_table metagenome_outfmt.tar.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
+            "$ metaphlan2.py -t marker_ab_table metagenome_outfmt.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
             "   The obtained RPK can be optionally normalized by the total number of reads in the metagenome \n"
             "   to guarantee fair comparisons of abundances across samples. The number of reads in the metagenome\n"
             "   needs to be passed with the '--nreads' argument\n\n"
 
             "*  The list of markers present in the sample can be obtained with '-t marker_pres_table'\n"
-            "$ metaphlan2.py -t marker_pres_table metagenome_outfmt.tar.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
+            "$ metaphlan2.py -t marker_pres_table metagenome_outfmt.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
             "   The --pres_th argument (default 1.0) set the minimum RPK value to consider a marker present\n\n"
             
             "*  The list '-t clade_profiles' analysis type reports the same information of '-t marker_ab_table'\n"
             "   but the markers are reported on a clade-by-clade basis.\n"
-            "$ metaphlan2.py -t clade_profiles metagenome_outfmt.tar.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n\n"
+            "$ metaphlan2.py -t clade_profiles metagenome_outfmt.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n\n"
             
             "*  Finally, to obtain all markers present for a specific clade and all its subclades, the \n"
             "   '-t clade_specific_strain_tracker' should be used. For example, the following command\n"
             "   is reporting the presence/absence of the markers for the B. fragulis species and its strains\n"
-            "$ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.tar.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
             "   the optional argument --min_ab specifies the minimum clade abundance for reporting the markers\n\n"
+            "$ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
             
             "\n------------------------------------------------------------------- \n\n"
             "",
