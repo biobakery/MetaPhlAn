@@ -465,6 +465,9 @@ optional arguments:
 
 ###**GraPhlAn Visualization**###
 
+The new tutorial on using GraPhlAn can be found from [the MetaPhlAn2 wiki](https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2).
+
+
 Utilities also features **metaphlan2graphlan.py** script that provides a way to automatically create the two input files to create a [GraPhlAn](http://huttenhower.sph.harvard.edu/graphlan) cladogram. To convert the MetaPhlAn output into input for GraPhlAn, please run the following script.
 
 ``$ python utils/metaphlan2graphlan2.py merged_abundance_table.txt --tree_file merged_table.tree --annot_file merged_table.annot``
