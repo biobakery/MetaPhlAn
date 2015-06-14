@@ -477,3 +477,22 @@ Utilities also features **metaphlan2graphlan.py** script that provides a way to 
 The above script will create the files **merged_table.tree** and **merged_table.annot** which you can then provide to GraPhlAn to create the cladogram.
 
 For details, please refer to GraPhlAn's documentation.
+
+
+###**Customizing database**###
+In order to add a marker to the database, the user needs the following steps:
+1. Reconstruct the marker sequences (in fasta format) from the MetaPhlAn2 bowtie2 database by:
+
+* bowtie2-inspect metaphlan2/db_v20/mpa_v20_m200 > markers.fasta
+
+2. Add the marker sequence stored in a file new_marker.fasta to the marker set:
+
+* cat new_marker.fasta >> markers.fasta
+
+3. Rebuild the bowtie2 database:
+
+* mkdir metaphlan2/db_v21/mpa_v21_m200
+
+* bowtie2-build markers.fasta metaphlan2/db_v21/mpa_v21_m200
+
+4. Update the taxonomy file from python console:
