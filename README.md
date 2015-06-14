@@ -479,20 +479,57 @@ The above script will create the files **merged_table.tree** and **merged_table.
 For details, please refer to GraPhlAn's documentation.
 
 
-###**Customizing database**###
+###**Customizing the database**###
 In order to add a marker to the database, the user needs the following steps:
-1. Reconstruct the marker sequences (in fasta format) from the MetaPhlAn2 bowtie2 database by:
 
-* bowtie2-inspect metaphlan2/db_v20/mpa_v20_m200 > markers.fasta
+* Reconstruct the marker sequences (in fasta format) from the MetaPhlAn2 bowtie2 database by:
 
-2. Add the marker sequence stored in a file new_marker.fasta to the marker set:
+```
+#!bash
 
-* cat new_marker.fasta >> markers.fasta
+bowtie2-inspect metaphlan2/db_v20/mpa_v20_m200 > metaphlan2/markers.fasta
 
-3. Rebuild the bowtie2 database:
+```
 
-* mkdir metaphlan2/db_v21/mpa_v21_m200
 
-* bowtie2-build markers.fasta metaphlan2/db_v21/mpa_v21_m200
+* Add the marker sequence stored in a file new_marker.fasta to the marker set:
 
-4. Update the taxonomy file from python console:
+```
+#!bash
+
+cat new_marker.fasta >> metaphlan2/markers.fasta
+
+```
+
+* Rebuild the bowtie2 database:
+
+```
+#!bash
+
+mkdir metaphlan2/db_v21/mpa_v21_m200
+bowtie2-build metaphlan2/markers.fasta metaphlan2/db_v21/mpa_v21_m200
+
+```
+
+* Assume that the new marker was extracted from GENOME1, GENOME2. Update the taxonomy file from python console as follows:
+
+```
+#!python
+
+import cPickle as pickl
+import bz2
+
+with open(args['mpa_pkl'], 'rb') as ifile:
+    db = pickle.loads(bz2.decompress(ifile.read()))
+
+# Add the taxonomy of the new genomes
+db['taxonomy']['TAXONOMY of GENOME1'] = LENGTH OF GENOME1
+db['taxonomy']['TAXONOMY of GENOME2'] = LENGTH OF GENOME2
+
+# Add the information of the new marker as the other markers
+db['markers'][NEW_MARKER_NAME] = ...
+
+pickle.dump(db, open('metaphlan2/db_v21/mpa_v21_m200.pkl'), pickle.HIGHEST_PROTOCOL)
+```
+
+* To use the new database, switch to metaphlan2/db_v21 instead of metaphlan2/db_v20.
