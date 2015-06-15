@@ -528,7 +528,7 @@ def read_params(args):
     arg( '--ignore_markers', type=str, default = None, help = 
          "File containing a list of markers to ignore. \n")
     arg( '--avoid_disqm', action="store_true", help = 
-         "Descrivate the procedure of disambiguating the quasi-markers based on the \n"
+         "Deactivate the procedure of disambiguating the quasi-markers based on the \n"
          "marker abundance pattern found in the sample. It is generally recommended \n"
          "too keep the disambiguation procedure in order to minimize false positives\n")
     arg( '--stat', metavar="", choices=stat_choices, default="tavg_g", type=str, help = 
