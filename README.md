@@ -529,8 +529,8 @@ db['taxonomy']['taxonomy of genome2'] = length of genome2
 # Add the information of the new marker as the other markers
 db['markers'][NEW_MARKER_NAME] = {
                                    'clade': the clade that the marker belongs to,
-                                   'ext': {the name of the external genome 1 where the marker appears, 
-                                           the name of the external genome 3 where the marker appears, 
+                                   'ext': {the name of the first external genome where the marker appears, 
+                                           the name of the second external genome where the marker appears, 
                                           },
                                    'len': length of the marker,
                                    'score': score of the marker,
