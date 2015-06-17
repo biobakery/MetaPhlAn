@@ -538,6 +538,7 @@ db['markers'][NEW_MARKER_NAME] = {
 # To see an example, try to print the first marker information:
 # print db['markers'].items()[0]
 
+# Save the new mpa_pkl file
 ofile = bz2.BZ2File('metaphlan2/db_v21/mpa_v21_m200.pkl', 'w')
 pickle.dump(db, ofile, pickle.HIGHEST_PROTOCOL)
 ofile.close()
