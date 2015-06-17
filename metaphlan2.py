@@ -548,7 +548,7 @@ def read_params(args):
     
     g = p.add_argument_group('Additional analysis types and arguments')
     arg = g.add_argument
-    analysis_types = ['rel_ab', 'reads_map', 'clade_profiles', 'marker_ab_table', 'marker_counts', 'marker_pres_table', 'clade_specific_strain_tracker']
+    analysis_types = ['rel_ab', 'rel_ab_w_read_stats', 'reads_map', 'clade_profiles', 'marker_ab_table', 'marker_counts', 'marker_pres_table', 'clade_specific_strain_tracker']
     arg( '-t', metavar='ANALYSIS TYPE', type=str, choices = analysis_types, 
          default='rel_ab', help = 
          "Type of analysis to perform: \n"
@@ -846,17 +846,29 @@ class TaxTree:
         TaxClade.taxa2clades = self.taxa2clades
         self.id_gen = itertools.count(1)
 
-        clades_txt = (l.strip().split("|") for l in mpa_pkl['taxonomy'])        
-        for clade in clades_txt:
+        clades_txt = ((l.strip().split("|"),n) for l,n in mpa_pkl['taxonomy'].items())        
+        for clade,lenc in clades_txt:
             father = self.root
             for clade_lev in clade: # !!!!! [:-1]:
                 if not clade_lev in father.children:
                     father.add_child( clade_lev, id_int=self.id_gen.next() )
                     self.all_clades[clade_lev] = father.children[clade_lev]
                 if clade_lev[0] == "t":
-                    self.taxa2clades[clade_lev[3:]] = father 
-                father = father.children[clade_lev]
+                    self.taxa2clades[clade_lev[3:]] = father
 
+                father = father.children[clade_lev]
+                if clade_lev[0] == "t":
+                    father.glen = lenc
+
+        def add_lens( node ):
+            if not node.children:
+                return node.glen
+            lens = [] 
+            for c in node.children.values():
+                lens.append( add_lens( c ) )
+            node.glen = sum(lens) / len(lens)
+            return node.glen
+        add_lens( self.root )
         
         for k,p in mpa_pkl['markers'].items():
             if k in markers_to_exclude:
@@ -919,7 +931,7 @@ class TaxTree:
         cl2ab_n = dict([(k,v) for k,v in self.all_clades.items() 
                     if k.startswith("k__") and not v.uncl])
      
-        cl2ab, tot_ab = {}, 0.0 
+        cl2ab, cl2glen, tot_ab = {}, {}, 0.0 
         for k,v in cl2ab_n.items():
             tot_ab += v.compute_abundance()
 
@@ -933,16 +945,21 @@ class TaxTree:
                         cl = self.all_clades[cl].get_full_name()
                         spl = cl.split("|")
                         cl = "|".join(spl+[tax_units[to]+spl[-1][1:]+"_unclassified"])
+                        glen = self.all_clades[spl[-1]].glen
                     else:
+                        glen = self.all_clades[cl].glen
                         cl = self.all_clades[cl].get_full_name() 
                 elif not cl.startswith(tax_lev):
                     continue
                 cl2ab[cl] = ab
+                cl2glen[cl] = glen 
 
         ret_d = dict([( k, float(v) / tot_ab if tot_ab else 0.0) for k,v in cl2ab.items()])
+        ret_r = dict([( k, (v,cl2glen[k],float(v)*cl2glen[k])) for k,v in cl2ab.items()])
+        #ret_r = dict([( k, float(v) / tot_ab if tot_ab else 0.0) for k,v in cl2ab.items()])
         if tax_lev:
             ret_d[tax_lev+"unclassified"] = 1.0 - sum(ret_d.values())
-        return ret_d
+        return ret_d, ret_r
 
 def map2bbh( mapping_f, input_type = 'bowtie2out', min_alignment_len = None):
     if not mapping_f:
@@ -1164,7 +1181,7 @@ if __name__ == '__main__':
         if pars['t'] == 'reads_map':
             outf.write( "\n".join( map_out ) + "\n" )
         elif pars['t'] == 'rel_ab':
-            cl2ab = tree.relative_abundances( 
+            cl2ab, _ = tree.relative_abundances( 
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
             outpred = [(k,round(v*100.0,5)) for k,v in cl2ab.items() if v > 0.0]
             if outpred:
@@ -1174,6 +1191,34 @@ if __name__ == '__main__':
             else:
                 outf.write( "unclassified\t100.0\n" )
             maybe_generate_biom_file(pars, outpred)
+        elif pars['t'] == 'rel_ab_w_read_stats':
+            cl2ab, rr = tree.relative_abundances( 
+                        pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
+            outpred = [(k,round(v*100.0,5)) for k,v in cl2ab.items() if v > 0.0]
+            totl = 0
+            if outpred:
+                outf.write( "\t".join( [    "#clade_name",
+                                            "relative_abundance",
+                                            "coverage",
+                                            "average_genome_length_in_the_clade",
+                                            "estimated_number_of_reads_from_the_clade" ]) +"\n" )
+
+                for k,v in sorted(  outpred, reverse=True,
+                                    key=lambda x:x[1]+(100.0*(8-x[0].count("|")))  ): 
+                    outf.write( "\t".join( [    k,
+                                                str(v),
+                                                str(rr[k][0]) if k in rr else "-",
+                                                str(rr[k][1]) if k in rr else "-",
+                                                str(int(round(rr[k][2],0)) if k in rr else "-")   
+                                                ] ) + "\n" )   
+                    if "|" not in k:
+                        totl += (int(round(rr[k][2],0)) if k in rr else 0)
+
+                outf.write( "#estimated total number of reads from known clades: " + str(totl)+"\n")
+            else:
+                outf.write( "unclassified\t100.0\n" )
+            maybe_generate_biom_file(pars, outpred)
+
         elif pars['t'] == 'clade_profiles':
             cl2pr = tree.clade_profiles( pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None  )
             for c,p in cl2pr.items():
