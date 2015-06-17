@@ -511,7 +511,7 @@ bowtie2-build metaphlan2/markers.fasta metaphlan2/db_v21/mpa_v21_m200
 
 ```
 
-* Assume that the new marker was extracted from GENOME1, GENOME2. Update the taxonomy file from python console as follows:
+* Assume that the new marker was extracted from genome1, genome2. Update the taxonomy file from python console as follows:
 
 ```
 #!python
@@ -523,13 +523,24 @@ with open(args['mpa_pkl'], 'rb') as ifile:
     db = pickle.loads(bz2.decompress(ifile.read()))
 
 # Add the taxonomy of the new genomes
-db['taxonomy']['TAXONOMY of GENOME1'] = LENGTH OF GENOME1
-db['taxonomy']['TAXONOMY of GENOME2'] = LENGTH OF GENOME2
+db['taxonomy']['taxonomy of genome1'] = length of genome1
+db['taxonomy']['taxonomy of genome2'] = length of genome2
 
 # Add the information of the new marker as the other markers
-db['markers'][NEW_MARKER_NAME] = ...
+db['markers'][NEW_MARKER_NAME] = {
+                                   'clade': the clade that the marker belongs to,
+                                   'ext': {the name of the external genome 1 where the marker appears, 
+                                           the name of the external genome 3 where the marker appears, 
+                                          },
+                                   'len': length of the marker,
+                                   'score': score of the marker,
+                                   'taxon': the taxon of the marker}
+# To see an example, try to print the first marker information:
+# print db['markers'].items()[0]
 
-pickle.dump(db, open('metaphlan2/db_v21/mpa_v21_m200.pkl', 'w'), pickle.HIGHEST_PROTOCOL)
+ofile = bz2.BZ2File('metaphlan2/db_v21/mpa_v21_m200.pkl', 'w')
+pickle.dump(db, ofile, pickle.HIGHEST_PROTOCOL)
+ofile.close()
 ```
 
-* To use the new database, switch to metaphlan2/db_v21 instead of metaphlan2/db_v20.
+* To use the new database, switch to metaphlan2/db_v21 instead of metaphlan2/db_v20 when running metaphlan2.py with option "--mpa_pkl".
