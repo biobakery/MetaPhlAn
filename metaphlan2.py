@@ -553,6 +553,7 @@ def read_params(args):
          default='rel_ab', help = 
          "Type of analysis to perform: \n"
          " * rel_ab: profiling a metagenomes in terms of relative abundances\n"
+         " * rel_ab_w_read_stats: profiling a metagenomes in terms of relative abundances and estimate the number of reads comming from each clade.\n"
          " * reads_map: mapping from reads to clades (only reads hitting a marker)\n"
          " * clade_profiles: normalized marker counts for clades with at least a non-null marker\n"
          " * marker_ab_table: normalized marker counts (only when > 0.0 and normalized by metagenome size if --nreads is specified)\n"
