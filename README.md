@@ -517,7 +517,7 @@ bowtie2-build metaphlan2/markers.fasta metaphlan2/db_v21/mpa_v21_m200
 ```
 #!python
 
-import cPickle as pickl
+import cPickle as pickle
 import bz2
 
 with open(args['mpa_pkl'], 'rb') as ifile:
