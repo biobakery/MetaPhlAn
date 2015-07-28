@@ -63,7 +63,7 @@ We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir``
 ```
 #!cmd
 $ export PATH=`pwd`:$PATH
-$ mpa_dir=`pwd`
+$ export mpa_dir=`pwd`
 ```
 
 Here is the basic example to profile a metagenome from raw reads (requires BowTie2 in the system path with execution and read permissions, Perl installed). 
