@@ -63,7 +63,7 @@ We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir``
 ```
 #!cmd
 $ export PATH=`pwd`:$PATH
-$ mpa_dir=`pwd`
+$ export mpa_dir=`pwd`
 ```
 
 Here is the basic example to profile a metagenome from raw reads (requires BowTie2 in the system path with execution and read permissions, Perl installed). 
@@ -468,16 +468,7 @@ optional arguments:
 
 ###**GraPhlAn Visualization**###
 
-The new tutorial on using GraPhlAn can be found from [the MetaPhlAn2 wiki](https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2).
-
-
-Utilities also features **metaphlan2graphlan.py** script that provides a way to automatically create the two input files to create a [GraPhlAn](http://huttenhower.sph.harvard.edu/graphlan) cladogram. To convert the MetaPhlAn output into input for GraPhlAn, please run the following script.
-
-``$ python utils/metaphlan2graphlan2.py merged_abundance_table.txt --tree_file merged_table.tree --annot_file merged_table.annot``
-
-The above script will create the files **merged_table.tree** and **merged_table.annot** which you can then provide to GraPhlAn to create the cladogram.
-
-For details, please refer to GraPhlAn's documentation.
+The tutorial of using GraPhlAn can be found from [the MetaPhlAn2 wiki](https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2).
 
 
 ##**Customizing the database**##
