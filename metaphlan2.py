@@ -951,6 +951,10 @@ class TaxTree:
                         glen = self.all_clades[cl].glen
                         cl = self.all_clades[cl].get_full_name() 
                 elif not cl.startswith(tax_lev):
+                    if cl in self.all_clades:
+                        glen = self.all_clades[cl].glen
+                    else:
+                        glen = 1.0
                     continue
                 cl2ab[cl] = ab
                 cl2glen[cl] = glen 
