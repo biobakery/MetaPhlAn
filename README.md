@@ -17,9 +17,9 @@ MetaPhlAn 2.0 relies on ~1M unique clade-specific marker genes ([the marker info
 
 If you use this software, please cite :
 
-[**Metagenomic microbial community profiling using unique clade-specific marker genes.**](http://www.nature.com/nmeth/journal/v9/n8/full/nmeth.2066.html)
- *Nicola Segata, Levi Waldron, Annalisa Ballarini, Vagheesh Narasimhan, Olivier Jousson, Curtis Huttenhower*. 
-Nature Methods, 8, 811–814, 2012
+[**MetaPhlAn2 for enhanced metagenomic taxonomic profiling.**](http://www.nature.com/nmeth/journal/v12/n10/pdf/nmeth.3589.pdf)
+ *Duy Tin Truong, Eric A Franzosa, Timothy L Tickle, Matthias Scholz, George Weingart, Edoardo Pasolli, Adrian Tett, Curtis Huttenhower & Nicola Segata*. 
+Nature Methods 12, 902–903 (2015)
 
 -------------
 
