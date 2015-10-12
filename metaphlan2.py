@@ -1247,7 +1247,7 @@ if __name__ == '__main__':
 
         elif pars['t'] == 'clade_specific_strain_tracker':
             cl2pr = tree.clade_profiles( None, get_all = True  )
-            cl2ab = tree.relative_abundances( None )
+            cl2ab, _ = tree.relative_abundances( None )
             strout = []
             for cl,v in cl2pr.items():
                 if cl.endswith(pars['clade']) and cl2ab[cl]*100.0 < pars['min_ab']:
