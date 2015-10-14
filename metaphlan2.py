@@ -670,6 +670,9 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc,
         sys.stderr.write( "Permission Denied Error: fatal error running BowTie2." 
           "Is the BowTie2 file in the path with execution and read permissions?\n" )
         sys.exit(1)
+    elif p.returncode != 0:
+        sys.stderr.write("Error while running bowtie2.\n")
+        sys.exit(1)
 
 #def guess_input_format( inp_file ):
 #    if "," in inp_file:
