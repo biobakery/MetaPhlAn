@@ -655,6 +655,7 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc,
         outf.close()
         if samout:
             sam_file.close()
+        p.wait()
 
 
     except OSError:
