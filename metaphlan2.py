@@ -902,7 +902,7 @@ class TaxTree:
             cn = cl.get_full_name()
             if ignore_viruses and cn.startswith("k__Viruses"):
                 return ""
-            if ignore_eukaryotes and cn.startswith("k__Eukaryotes"):
+            if ignore_eukaryotes and cn.startswith("k__Eukaryota"):
                 return ""
             if ignore_archaea and cn.startswith("k__Archaea"):
                 return ""
