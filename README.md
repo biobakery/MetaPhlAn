@@ -575,13 +575,26 @@ MetaPhlAn_Strainer requires *python 2.7* or higher with biopython, numpy. Beside
 
 * [pysam](http://pysam.readthedocs.org/en/latest/) for identifying polymorphic sites.
 
-##** Usage **##
+### Usage ###
 
-MetaPhlAn_Strainer can be used in the following scenarios. 
-Before starting, let us assume that we have 10 samples ("sample_x.fastq" where x is from 1 to 10) in fastq format in the folder "input" of the current directory.
+1. First of all, users need to download 6 HMP gut metagenomic samples and one reference genome from this link and unzip them to have the folder "metaphlan3_tutorial" under the metaphlan2 folder.
+2. Then, we need to obtain the sam files from these samples by mapping them against MetaPhlAn2 database:
 
-### Strain tracking based on MetaPhlAn's markers ###
-In this case, MetaPhlAn_Strainer's input is a set of samples in sam format, and MetaPhlAn 2.0's markers. Its output is a set of phylogenetic trees, each for a specific species.
+```
+#!python
+
+cd metaphlan3_tutorial
+for f in $(ls *.tar.bz2)
+do
+echo "running on sample ${f}#
+metaphlan2.py --mpa_pkl 
+done
+```
+
+
+
+
+In this case, MetaPhlAn_Strainer's input is a set of samples in sam format, and MetaPhlAn 2.0's markers. Its output is a set of phylogenetic trees, each for a specific species.****
 
 The input samples of MetaPhlAn_Strainers are in sam format and produced by MetaPhlAn 2.0 as follows (from a linux shell):
 
