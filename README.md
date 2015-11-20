@@ -2,7 +2,7 @@
 
 #**MetaPhlAn 2.0: Metagenomic Phylogenetic Analysis**#
 
-AUTHORS: Nicola Segata (nicola.segata@unitn.it)
+AUTHORS: Duy Tin Truong (duytin.truong@unitn.it), Nicola Segata (nicola.segata@unitn.it)
 
 ##**Description**##
 MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data with species level resolution. From version 2.0 MetaPhlAn is also able to identify specific strains (in the not-so-frequent cases in which the sample contains a previously sequenced strains) and to track strains across samples for all species.
@@ -537,3 +537,126 @@ ofile.close()
 ```
 
 * To use the new database, switch to metaphlan2/db_v21 instead of metaphlan2/db_v20 when running metaphlan2.py with option "--mpa_pkl".
+
+
+##**Metagenomic strain-level population genomics**##
+
+MetaPhlAn_Strainer is a computational tool for tracking individual strains across large set of samples. The input of MetaPhlAn_Strainer is a set of metagenomic samples and the output is a set of phylogenetic trees showing the strain evolution of the samples where each tree is corresponding to a species.
+
+In detail, let us start from a toy example with 6 HMP gut metagenomic samples (SRS055982-subjectID_638754422, SRS022137-subjectID_638754422, SRS019161-subjectID_763496533, SRS013951-subjectID_763496533, SRS014613-subjectID_763840445, SRS064276-subjectID_763840445) from 3 three subjects (each was sampled at two time points) and one *Bacteroides caccae* genome G000273725. 
+We would like to:
+
+* extract the *Bacteroides caccae* strains from these samples and compare them with the reference genome in a phylogenetic tree.
+* know how many snps between those strains and the reference genome.
+
+Running MetaPhlAn_Strainer on these samples, we will obtain the *Bacteroides caccae* phylogentic tree with the alignment in the following figure:
+
+![tree_alignment.png](https://bitbucket.org/repo/74yKEg/images/944768591-tree_alignment.png)
+
+We can see that the strains from the same subject are grouped together. The tree also highlights that the strains from subject "763840445" (red color) do not change between two sampling time points whereas the strains from the other subjects have slightly evolved. From the tree, we also know that the strains of subject "763496533" is closer to the reference genome than those of the others. 
+In addition, the table below shows the number of snps between the sample strains and the reference genome based on the strain alignment returned by MetaPhlAN_Strainer.
+
+![snp_distance.png](https://bitbucket.org/repo/74yKEg/images/3254696359-snp_distance.png)
+
+In the next sections, we will illustrate step by step how to run MetaPhlAn_Strainer on this toy example to reproduce the above figures.
+
+### Pre-requisites ###
+MetaPhlAn_Strainer requires *python 2.7* or higher with biopython, numpy. Besides, MetaPhlAn_Strainer also needs the following programs in the executable path:
+
+* [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml) for mapping reads against the marker database.
+
+* [MUSCLE](http://www.drive5.com/muscle/) for the alignment step.
+
+* [samtools, bcftools and vcfutils.pl](http://samtools.sourceforge.net/) for building consensus markers. Note that vcfutils.pl is included in bcftools and **StrainPhlAn only works with samtools version 0.1.19** as samtools has changed the output format after this version.
+
+* [blastn](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) for adding reference genomes to the phylogenetic tree.
+
+* [raxmlHPC and raxmlHPC-PTHREADS-SSE3](http://sco.h-its.org/exelixis/web/software/raxml/index.html) for building the phylogenetic trees.
+
+* [pysam](http://pysam.readthedocs.org/en/latest/) for identifying polymorphic sites.
+
+##** Usage **##
+
+MetaPhlAn_Strainer can be used in the following scenarios. 
+Before starting, let us assume that we have 10 samples ("sample_x.fastq" where x is from 1 to 10) in fastq format in the folder "input" of the current directory.
+
+### Strain tracking based on MetaPhlAn's markers ###
+In this case, MetaPhlAn_Strainer's input is a set of samples in sam format, and MetaPhlAn 2.0's markers. Its output is a set of phylogenetic trees, each for a specific species.
+
+The input samples of MetaPhlAn_Strainers are in sam format and produced by MetaPhlAn 2.0 as follows (from a linux shell):
+
+```
+#!python
+mkdir output
+samples="sample_1 sample_2 sample_3 sample_4 sample_5 sample_6 sample_7 sample_8 sample_9 sample_10"
+for s in ${samples}
+do
+python mpa3src/dump_file.py --input_file input/${s}.fastq | python pyphlan/fastx_len_filter.py --min_len 90 | python metaphlan3.py --mpa_pkl db_v20/mpa_v20_m200.pkl --bowtie2db db_v20/mpa_v20_m200 --bt2_ps very-sensitive --input_type multifastq -t rel_ab --bowtie2out output/${s}.bowtie2_out.bz2 -o output/${s}.profile --sam_ofn output/${s}.sam.bz2
+done
+```
+
+"dump_file.py" is a script that can dump the content of a fastq file to stdout. It can accepts several formats: bz2, gz, tar.bz2, tar.gz and text files (the files with extensions without matching to previous extensions). Otherwise, you can use any tool to dump the fastq file to stdout. "fastx_len_filter.py" is a script that can filter out the reads with length less than the number specified by "--min_len".
+
+After obtaining the sam files, we can start running MetaPhlAn_Strainer:
+
+```
+#!python
+python mpa3src/sample2markers.py --ifn_samples output/*.sam.bz2 --input_type sam --output_dir output --nprocs 2 &> output/sample2markers.log
+python metaphlan3_strainer.py --mpa_pkl db_v20/mpa_v20_m200.pkl --ifn_samples output/*.markers  --input_type consensus_markers  --output_dir output --nprocs_main 2 &> output/log_full.txt
+```
+
+You can change the number of processors to a higher number to increase the speed.
+After this step is done, you will find a set of *.markers files in the output folder and a set of trees (in newick format) where each is corresponding to a species. You can view the trees by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) or any other viewers.
+In order to add the metadata, we also provide a script called "add_metadata.py" which can be used as follows:
+
+```
+#!python
+python mpa3src/add_metadata.py --ifn_metadatas input/metadata.txt --ifn_trees output/RAxML_bestTree.*.tree
+
+```
+Note that "add_metadata.py" can accept multiple metadata files (space separated, wild card can also be used) and multiple trees. A metadata file is a tab separated file where the first row is the meta-headers, and the following rows contain the metadata for each sample. Multiple metadata files are used in the case where your samples come from more than one dataset and you do not want to merge the metadata files.
+For more details of using "add_metadata.py", please type:
+```
+#!python
+python mpa3src/add_metadata.py -h
+
+```
+
+An example of a metadata file is as follows:
+```
+#!python
+sampleID        subjectID       bodysite        Kit     Sample_group    Illumina_run
+sample1    subject1 stool   kit1        1       1
+sample2    subject2 stool   kit2        1       1
+
+```
+
+Note that "sampleID" is a compulsory field. 
+
+After adding the metadata, you will obtain the tree files "*.tree.metadata" with metadata and view them by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) as in the previous step.
+
+### Adding reference genomes ###
+After having all phylogenetic trees, we can add some reference genomes to a specific species. Assume that we want to do that for species s\_\_Bifidobacterium_longum and its reference genome files s__Bifidobacterium_longum_*.fna are stored in a "reference_genomes" folder. Then the following command will build a phylogenetic tree with those reference genomes:
+```
+#!python
+python mpa3src/extract_markers.py --ifn_markers db_v20/markers.fasta --mpa_pkl db_v20/mpa_v20_m200.pkl --clade s__Bifidobacterium_longum --ofn_markers db_v20/s__Bifidobacterium_longum.markers.fasta
+python metaphlan3_strainer.py --mpa_pkl db_v20/mpa_v20_m200.pkl --ifn_samples output/*.markers --input_type consensus_markers  --ifn_markers db_v20/s__Bifidobacterium_longum.markers.fasta --ifn_ref_genomes reference_genomes/s__Bifidobacterium_longum*.fna --output_dir output/s__Bifidobacterium_longum  --nprocs_main 2
+
+```
+
+
+### Tuning parameters ###
+In some cases, we need to tune some parameters of MetaPhlAn_Strainer to increase the robustness (against the noise) or the sensitivity (to reduce omitting too many samples).
+See the section "Full command-line options" for more details. 
+
+In order to rerun MetaPhlAn_Strainer quickly with new parameters, you can reuse the ".markers" files from previous step as follows:
+
+```
+#!python
+python metaphlan3_strainer.py --mpa_pkl db_v20/mpa_v20_m200.pkl --ifn_samples output/*.markers  --input_type consensus_markers  --output_dir output/new_parameters --marker_in_clade 0.5 --nprocs_main 2
+
+```
+In this example, we rerun MetaPhlAn_Strainer with the value of 0.5 for the option "--marker_in_clade" and store the new result in output_new_parameters.
+
+
+### Full command-line options ###
