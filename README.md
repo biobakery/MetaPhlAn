@@ -556,7 +556,7 @@ Running MetaPhlAn_Strainer on these samples, we will obtain the *Bacteroides cac
 We can see that the strains from the same subject are grouped together. The tree also highlights that the strains from subject "763840445" (red color) do not change between two sampling time points whereas the strains from the other subjects have slightly evolved. From the tree, we also know that the strains of subject "763496533" is closer to the reference genome than those of the others. 
 In addition, the table below shows the number of snps between the sample strains and the reference genome based on the strain alignment returned by MetaPhlAN_Strainer.
 
-![snp_distance.png](https://bitbucket.org/repo/74yKEg/images/3254696359-snp_distance.png)
+![snp_distance.png](https://bitbucket.org/repo/74yKEg/images/1683082367-snp_distance.png)
 
 In the next sections, we will illustrate step by step how to run MetaPhlAn_Strainer on this toy example to reproduce the above figures.
 
