@@ -593,7 +593,6 @@ tar xjfv xxx
 
 ```
 #!python
-```
 
 mkdir -p sams
 for f in $(ls fastqs)
@@ -608,9 +607,8 @@ After this step, we will have a folder "sams" containing the sam files and other
 
 3. From the sam files, we will produce the consensus-marker files which are the input for MetaPhlAn3_Strainer:
 
-
-#!python
 ```
+#!python
 
 mkdir -p consensus_markers
 cwd=$(pwd -P)
@@ -620,8 +618,8 @@ python ../mpa3src/sample2markers.py --ifn_samples sams/*.sam.bz2 --input_type sa
 
 4. As we will add the *Bacteroides_caccae* reference genome to the tree, we need to extract its markers from the database:
 
-#!python
 ```
+#!python
 
 mkdir -p db_markers
 bowtie2-inspect ../db_v20/mpa_v20_m200 > db_markers/all_markers.fasta
@@ -648,9 +646,11 @@ In order to add the metadata, we also provide a script called "add_metadata.py" 
 
 python ../mpa3src/add_metadata.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
 ```
+
 The script "add_metadata.py" can accept multiple metadata files (space separated, wild card can also be used) and multiple trees. A metadata file is a tab separated file where the first row is the meta-headers, and the following rows contain the metadata for each sample. Multiple metadata files are used in the case where your samples come from more than one dataset and you do not want to merge the metadata files.
 For more details of using "add_metadata.py", please see its help (with option "-h").
 An example of a metadata file is as follows:
+
 ```
 #!python
 
@@ -668,6 +668,7 @@ Note that "sampleID" is a compulsory field.
 After adding the metadata, you will obtain the tree files "*.tree.metadata" with metadata and view them by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) as in the previous step.
 
 6. If you want to remove the samples with high-probability containing multiple strains, you can rebuild the tree by removing the multiple strains:
+
 ```
 #!python
 
@@ -688,6 +689,8 @@ python metaphlan3_strainer.py --mpa_pkl db_v20/mpa_v20_m200.pkl --ifn_samples ou
 ```
 
 In this example, we rerun MetaPhlAn_Strainer with the value of 0.5 for the option "--marker_in_clade" and store the new result in output_new_parameters.
+
+
 
 
 
