@@ -577,70 +577,93 @@ MetaPhlAn_Strainer requires *python 2.7* or higher with biopython, numpy. Beside
 
 ### Usage ###
 
-1. First of all, users need to download 6 HMP gut metagenomic samples and one reference genome from this link and unzip them to have the folder "metaphlan3_tutorial" under the metaphlan2 folder.
+Let's reproduce the toy example result in the introduction section. Note that all the commands to run the below steps are in the "strainer_tutorial/step?*.sh" files (? corresponding to the step number). The steps are as follows:
+
+1. Download 6 HMP gut metagenomic samples and one reference genome from **this link** and unzip them to have the folder "fastqs" and "reference_genomes" under the "strainer_tutorial" folder.
+
+```
+#!python
+cd strainer_tutorial
+wget xxx
+tar xjfv xxx
+
+```
+
 2. Then, we need to obtain the sam files from these samples by mapping them against MetaPhlAn2 database:
 
 ```
 #!python
 
-cd metaphlan3_tutorial
-for f in $(ls *.tar.bz2)
+```
+mkdir -p sams
+for f in $(ls fastqs)
 do
-echo "running on sample ${f}#
-metaphlan2.py --mpa_pkl 
+    echo "Running metaphlan2 on ${f}"
+    bn=$(basename ${f} | cut -d . -f 1)
+    tar xjfO fastqs/${f} | metaphlan2.py --bowtie2db ../db_v20/mpa_v20_m200 --mpa_pkl ../db_v20/mpa_v20_m200.pkl --input_type multifastq --nproc 10 -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o sams/${bn}.profile
 done
+
+
 ```
 
+After this step, we will have a folder "sams" containing the sam files and other MetaPhlAn2 output files.
+
+3. From the sam files, we will produce the consensus-marker files which are the input for MetaPhlAn3_Strainer:
 
 
+#!python
 
-In this case, MetaPhlAn_Strainer's input is a set of samples in sam format, and MetaPhlAn 2.0's markers. Its output is a set of phylogenetic trees, each for a specific species.****
+```
+mkdir -p consensus_markers
+cwd=$(pwd -P)
+export PATH=${cwd}/../mpa3src:${PATH}
+python ../mpa3src/sample2markers.py --ifn_samples sams/*.sam.bz2 --input_type sam --output_dir consensus_markers --nprocs 10 &> consensus_markers/log.txt
 
-The input samples of MetaPhlAn_Strainers are in sam format and produced by MetaPhlAn 2.0 as follows (from a linux shell):
+```
+
+4. As we will add the *Bacteroides_caccae* reference genome to the tree, we need to extract its markers from the database:
+
+#!python
+
+```
+mkdir -p db_markers
+bowtie2-inspect ../db_v20/mpa_v20_m200 > db_markers/all_markers.fasta
+python ../mpa3src/extract_markers.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_markers db_markers/all_markers.fasta --clade s__Bacteroides_caccae --ofn_markers db_markers/s__Bacteroides_caccae.markers.fasta
+
+```
+
+Note that the "all_markers.fasta" file consists can be reused for extracting other reference genomes.
+
+5. Now, we will run MetaPhlAn3_Strainer for building the tree:
 
 ```
 #!python
-mkdir output
-samples="sample_1 sample_2 sample_3 sample_4 sample_5 sample_6 sample_7 sample_8 sample_9 sample_10"
-for s in ${samples}
-do
-python mpa3src/dump_file.py --input_file input/${s}.fastq | python pyphlan/fastx_len_filter.py --min_len 90 | python metaphlan3.py --mpa_pkl db_v20/mpa_v20_m200.pkl --bowtie2db db_v20/mpa_v20_m200 --bt2_ps very-sensitive --input_type multifastq -t rel_ab --bowtie2out output/${s}.bowtie2_out.bz2 -o output/${s}.profile --sam_ofn output/${s}.sam.bz2
-done
-```
-
-"dump_file.py" is a script that can dump the content of a fastq file to stdout. It can accepts several formats: bz2, gz, tar.bz2, tar.gz and text files (the files with extensions without matching to previous extensions). Otherwise, you can use any tool to dump the fastq file to stdout. "fastx_len_filter.py" is a script that can filter out the reads with length less than the number specified by "--min_len".
-
-After obtaining the sam files, we can start running MetaPhlAn_Strainer:
+mkdir -p output
+python ../mpa3src/metaphlan3_strainer.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_samples consensus_markers/*.markers --ifn_markers db_markers/s__Bacteroides_caccae.markers.fasta --ifn_ref_genomes reference_genomes/G000273725.fna.bz2 --output_dir output --nprocs_main 10 --clades s__Bacteroides_caccae &> output/log_full.txt
 
 ```
-#!python
-python mpa3src/sample2markers.py --ifn_samples output/*.sam.bz2 --input_type sam --output_dir output --nprocs 2 &> output/sample2markers.log
-python metaphlan3_strainer.py --mpa_pkl db_v20/mpa_v20_m200.pkl --ifn_samples output/*.markers  --input_type consensus_markers  --output_dir output --nprocs_main 2 &> output/log_full.txt
-```
 
-You can change the number of processors to a higher number to increase the speed.
-After this step is done, you will find a set of *.markers files in the output folder and a set of trees (in newick format) where each is corresponding to a species. You can view the trees by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) or any other viewers.
+The "add_metadata.py" script will add the subjectID information to the tree.
+After this step, you will find the trees RAxML_bestTree.s__Bacteroides_caccae.tree. You can view the trees by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) or any other viewers.
 In order to add the metadata, we also provide a script called "add_metadata.py" which can be used as follows:
 
 ```
 #!python
-python mpa3src/add_metadata.py --ifn_metadatas input/metadata.txt --ifn_trees output/RAxML_bestTree.*.tree
+python ../mpa3src/add_metadata.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
 
 ```
-Note that "add_metadata.py" can accept multiple metadata files (space separated, wild card can also be used) and multiple trees. A metadata file is a tab separated file where the first row is the meta-headers, and the following rows contain the metadata for each sample. Multiple metadata files are used in the case where your samples come from more than one dataset and you do not want to merge the metadata files.
-For more details of using "add_metadata.py", please type:
-```
-#!python
-python mpa3src/add_metadata.py -h
-
-```
-
+The script "add_metadata.py" can accept multiple metadata files (space separated, wild card can also be used) and multiple trees. A metadata file is a tab separated file where the first row is the meta-headers, and the following rows contain the metadata for each sample. Multiple metadata files are used in the case where your samples come from more than one dataset and you do not want to merge the metadata files.
+For more details of using "add_metadata.py", please see its help (with option "-h").
 An example of a metadata file is as follows:
 ```
 #!python
-sampleID        subjectID       bodysite        Kit     Sample_group    Illumina_run
-sample1    subject1 stool   kit1        1       1
-sample2    subject2 stool   kit2        1       1
+sampleID        subjectID
+SRS055982       638754422
+SRS022137       638754422
+SRS019161       763496533
+SRS013951       763496533
+SRS014613       763840445
+SRS064276       763840445
 
 ```
 
@@ -648,15 +671,13 @@ Note that "sampleID" is a compulsory field.
 
 After adding the metadata, you will obtain the tree files "*.tree.metadata" with metadata and view them by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) as in the previous step.
 
-### Adding reference genomes ###
-After having all phylogenetic trees, we can add some reference genomes to a specific species. Assume that we want to do that for species s\_\_Bifidobacterium_longum and its reference genome files s__Bifidobacterium_longum_*.fna are stored in a "reference_genomes" folder. Then the following command will build a phylogenetic tree with those reference genomes:
+6. If you want to remove the samples with high-probability containing multiple strains, you can rebuild the tree by removing the multiple strains:
 ```
 #!python
-python mpa3src/extract_markers.py --ifn_markers db_v20/markers.fasta --mpa_pkl db_v20/mpa_v20_m200.pkl --clade s__Bifidobacterium_longum --ofn_markers db_v20/s__Bifidobacterium_longum.markers.fasta
-python metaphlan3_strainer.py --mpa_pkl db_v20/mpa_v20_m200.pkl --ifn_samples output/*.markers --input_type consensus_markers  --ifn_markers db_v20/s__Bifidobacterium_longum.markers.fasta --ifn_ref_genomes reference_genomes/s__Bifidobacterium_longum*.fna --output_dir output/s__Bifidobacterium_longum  --nprocs_main 2
+python ../mpa3src/build_tree_single_strain.py --ifn_alignments output/s__Bacteroides_caccae.fasta --nprocs 10 --log_ofn output/build_tree_single_strain.log
+python ../mpa3src/add_metadata.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.remove_multiple_strains.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
 
 ```
-
 
 ### Tuning parameters ###
 In some cases, we need to tune some parameters of MetaPhlAn_Strainer to increase the robustness (against the noise) or the sensitivity (to reduce omitting too many samples).
