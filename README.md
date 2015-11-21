@@ -583,18 +583,18 @@ Let's reproduce the toy example result in the introduction section. Note that al
 
 ```
 #!python
+
 cd strainer_tutorial
 wget xxx
 tar xjfv xxx
-
 ```
 
 2. Then, we need to obtain the sam files from these samples by mapping them against MetaPhlAn2 database:
 
 ```
 #!python
-
 ```
+
 mkdir -p sams
 for f in $(ls fastqs)
 do
@@ -602,8 +602,6 @@ do
     bn=$(basename ${f} | cut -d . -f 1)
     tar xjfO fastqs/${f} | metaphlan2.py --bowtie2db ../db_v20/mpa_v20_m200 --mpa_pkl ../db_v20/mpa_v20_m200.pkl --input_type multifastq --nproc 10 -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o sams/${bn}.profile
 done
-
-
 ```
 
 After this step, we will have a folder "sams" containing the sam files and other MetaPhlAn2 output files.
@@ -612,24 +610,22 @@ After this step, we will have a folder "sams" containing the sam files and other
 
 
 #!python
-
 ```
+
 mkdir -p consensus_markers
 cwd=$(pwd -P)
 export PATH=${cwd}/../mpa3src:${PATH}
 python ../mpa3src/sample2markers.py --ifn_samples sams/*.sam.bz2 --input_type sam --output_dir consensus_markers --nprocs 10 &> consensus_markers/log.txt
-
 ```
 
 4. As we will add the *Bacteroides_caccae* reference genome to the tree, we need to extract its markers from the database:
 
 #!python
-
 ```
+
 mkdir -p db_markers
 bowtie2-inspect ../db_v20/mpa_v20_m200 > db_markers/all_markers.fasta
 python ../mpa3src/extract_markers.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_markers db_markers/all_markers.fasta --clade s__Bacteroides_caccae --ofn_markers db_markers/s__Bacteroides_caccae.markers.fasta
-
 ```
 
 Note that the "all_markers.fasta" file consists can be reused for extracting other reference genomes.
@@ -638,9 +634,9 @@ Note that the "all_markers.fasta" file consists can be reused for extracting oth
 
 ```
 #!python
+
 mkdir -p output
 python ../mpa3src/metaphlan3_strainer.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_samples consensus_markers/*.markers --ifn_markers db_markers/s__Bacteroides_caccae.markers.fasta --ifn_ref_genomes reference_genomes/G000273725.fna.bz2 --output_dir output --nprocs_main 10 --clades s__Bacteroides_caccae &> output/log_full.txt
-
 ```
 
 The "add_metadata.py" script will add the subjectID information to the tree.
@@ -649,14 +645,15 @@ In order to add the metadata, we also provide a script called "add_metadata.py" 
 
 ```
 #!python
-python ../mpa3src/add_metadata.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
 
+python ../mpa3src/add_metadata.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
 ```
 The script "add_metadata.py" can accept multiple metadata files (space separated, wild card can also be used) and multiple trees. A metadata file is a tab separated file where the first row is the meta-headers, and the following rows contain the metadata for each sample. Multiple metadata files are used in the case where your samples come from more than one dataset and you do not want to merge the metadata files.
 For more details of using "add_metadata.py", please see its help (with option "-h").
 An example of a metadata file is as follows:
 ```
 #!python
+
 sampleID        subjectID
 SRS055982       638754422
 SRS022137       638754422
@@ -664,7 +661,6 @@ SRS019161       763496533
 SRS013951       763496533
 SRS014613       763840445
 SRS064276       763840445
-
 ```
 
 Note that "sampleID" is a compulsory field. 
@@ -674,9 +670,9 @@ After adding the metadata, you will obtain the tree files "*.tree.metadata" with
 6. If you want to remove the samples with high-probability containing multiple strains, you can rebuild the tree by removing the multiple strains:
 ```
 #!python
+
 python ../mpa3src/build_tree_single_strain.py --ifn_alignments output/s__Bacteroides_caccae.fasta --nprocs 10 --log_ofn output/build_tree_single_strain.log
 python ../mpa3src/add_metadata.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.remove_multiple_strains.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
-
 ```
 
 ### Tuning parameters ###
@@ -687,10 +683,13 @@ In order to rerun MetaPhlAn_Strainer quickly with new parameters, you can reuse 
 
 ```
 #!python
-python metaphlan3_strainer.py --mpa_pkl db_v20/mpa_v20_m200.pkl --ifn_samples output/*.markers  --input_type consensus_markers  --output_dir output/new_parameters --marker_in_clade 0.5 --nprocs_main 2
 
+python metaphlan3_strainer.py --mpa_pkl db_v20/mpa_v20_m200.pkl --ifn_samples output/*.markers  --input_type consensus_markers  --output_dir output/new_parameters --marker_in_clade 0.5 --nprocs_main 2
 ```
+
 In this example, we rerun MetaPhlAn_Strainer with the value of 0.5 for the option "--marker_in_clade" and store the new result in output_new_parameters.
+
+
 
 
 ### Full command-line options ###
