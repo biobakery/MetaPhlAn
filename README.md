@@ -561,7 +561,7 @@ In addition, the table below shows the number of snps between the sample strains
 In the next sections, we will illustrate step by step how to run MetaPhlAn_Strainer on this toy example to reproduce the above figures.
 
 ### Pre-requisites ###
-MetaPhlAn_Strainer requires *python 2.7* or higher with biopython, numpy. Besides, MetaPhlAn_Strainer also needs the following programs in the executable path:
+MetaPhlAn_Strainer requires *python 2.7*. Besides, MetaPhlAn_Strainer also needs the following programs in the executable path:
 
 * [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml) for mapping reads against the marker database.
 
@@ -574,6 +574,12 @@ MetaPhlAn_Strainer requires *python 2.7* or higher with biopython, numpy. Beside
 * [raxmlHPC and raxmlHPC-PTHREADS-SSE3](http://sco.h-its.org/exelixis/web/software/raxml/index.html) for building the phylogenetic trees.
 
 * [pysam](http://pysam.readthedocs.org/en/latest/) for identifying polymorphic sites.
+
+* [biopython](http://biopython.org/wiki/Main_Page)
+
+* [numpy](http://www.numpy.org/)
+
+All dependence binaries on Linux 64 bit can be downloaded from **this link**.
 
 ### Usage ###
 
@@ -618,7 +624,7 @@ python ../mpa3src/sample2markers.py --ifn_samples sams/*.sam.bz2 --input_type sa
 
 This steps will take around 44 minutes.  If you want to skip this step, you can download the consensus marker files from **this link**.
 
-Step 4. As you will add the *Bacteroides_caccae* reference genome to the tree, you need to extract its markers from the database:
+Step 4. Extract the markers of *Bacteroides_caccae* from MetaPhlAn2 database (to add its reference genome later):
 
 ```
 #!python
@@ -628,9 +634,9 @@ bowtie2-inspect ../db_v20/mpa_v20_m200 > db_markers/all_markers.fasta
 python ../mpa3src/extract_markers.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_markers db_markers/all_markers.fasta --clade s__Bacteroides_caccae --ofn_markers db_markers/s__Bacteroides_caccae.markers.fasta
 ```
 
-Note that the "all_markers.fasta" file consists can be reused for extracting other reference genomes. This step will take around 1 minute.
+Note that the "all_markers.fasta" file consists can be reused for extracting other reference genomes. This step will take around 1 minute. This step can skipped if you do not need to add the reference genomes to the phylogenetic tree.
 
-Step 5. Now, you can run MetaPhlAn3_Strainer for building the tree:
+Step 5. Build the tree:
 
 ```
 #!python
@@ -639,7 +645,7 @@ mkdir -p output
 python ../mpa3src/metaphlan3_strainer.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_samples consensus_markers/*.markers --ifn_markers db_markers/s__Bacteroides_caccae.markers.fasta --ifn_ref_genomes reference_genomes/G000273725.fna.bz2 --output_dir output --nprocs_main 10 --clades s__Bacteroides_caccae &> output/log_full.txt
 ```
 
-This step will take around 2 minutes. After this step, you will find the trees "output/RAxML_bestTree.s__Bacteroides_caccae.tree". You can view the trees by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) or any other viewers.
+This step will take around 2 minutes. After this step, you will find the tree "output/RAxML_bestTree.s__Bacteroides_caccae.tree". You can view it by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) or any other viewers.
 In order to add the metadata, we also provide a script called "add_metadata.py" which can be used as follows:
 
 ```
