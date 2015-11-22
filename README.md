@@ -550,7 +550,7 @@ We would like to:
 * extract the *Bacteroides caccae* strains from these samples and compare them with the reference genome in a phylogenetic tree.
 * know how many snps between those strains and the reference genome.
 
-Running MetaPhlAn_Strainer on these samples, we will obtain the *Bacteroides caccae* phylogentic tree with the alignment in the following figure:
+Running MetaPhlAn_Strainer on these samples, we will obtain the *Bacteroides caccae* phylogentic tree with the alignment in the following figure (produced with [ete2](http://etetoolkit.org/) and [Jalview](http://www.jalview.org/)]:
 
 ![tree_alignment.png](https://bitbucket.org/repo/74yKEg/images/1860045700-tree_alignment.png)
 
