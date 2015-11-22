@@ -580,7 +580,7 @@ MetaPhlAn_Strainer requires *python 2.7*. Besides, MetaPhlAn_Strainer also needs
 
 * [numpy](http://www.numpy.org/)
 
-All dependence binaries on Linux 64 bit can be downloaded from **this link**.
+All dependence binaries on Linux 64 bit can be downloaded in the folder "bin" from [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 
 ### Usage ###
 
