@@ -562,7 +562,7 @@ In addition, the table below shows the number of snps between the sample strains
 In the next sections, we will illustrate step by step how to run MetaPhlAn_Strainer on this toy example to reproduce the above figures.
 
 ### Pre-requisites ###
-MetaPhlAn_Strainer requires *python 2.7*. Besides, MetaPhlAn_Strainer also needs the following programs in the executable path:
+MetaPhlAn3_Strainer requires *python 2.7* and the libraries [pysam](http://pysam.readthedocs.org/en/latest/), [biopython](http://biopython.org/wiki/Main_Page), and [numpy](http://www.numpy.org/). Besides, MetaPhlAn3_Strainer also needs the following programs in the executable path:
 
 * [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml) for mapping reads against the marker database.
 
@@ -573,12 +573,6 @@ MetaPhlAn_Strainer requires *python 2.7*. Besides, MetaPhlAn_Strainer also needs
 * [blastn](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) for adding reference genomes to the phylogenetic tree.
 
 * [raxmlHPC and raxmlHPC-PTHREADS-SSE3](http://sco.h-its.org/exelixis/web/software/raxml/index.html) for building the phylogenetic trees.
-
-* [pysam](http://pysam.readthedocs.org/en/latest/) for identifying polymorphic sites.
-
-* [biopython](http://biopython.org/wiki/Main_Page)
-
-* [numpy](http://www.numpy.org/)
 
 All dependence binaries on Linux 64 bit can be downloaded in the folder "bin" from [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 
