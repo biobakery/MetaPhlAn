@@ -2,7 +2,7 @@
 
 #**MetaPhlAn 2.0: Metagenomic Phylogenetic Analysis**#
 
-AUTHORS: Nicola Segata (nicola.segata@unitn.it)
+AUTHORS: Duy Tin Truong (duytin.truong@unitn.it), Nicola Segata (nicola.segata@unitn.it)
 
 ##**Description**##
 MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data with species level resolution. From version 2.0 MetaPhlAn is also able to identify specific strains (in the not-so-frequent cases in which the sample contains a previously sequenced strains) and to track strains across samples for all species.
@@ -537,3 +537,164 @@ ofile.close()
 ```
 
 * To use the new database, switch to metaphlan2/db_v21 instead of metaphlan2/db_v20 when running metaphlan2.py with option "--mpa_pkl".
+
+
+##**Metagenomic strain-level population genomics**##
+
+MetaPhlAn_Strainer is a computational tool for tracking individual strains across large set of samples. The input of MetaPhlAn_Strainer is a set of metagenomic samples and the output is a set of phylogenetic trees showing the strain evolution of the samples where each tree is corresponding to a species.
+
+In detail, let us start from a toy example with 6 HMP gut metagenomic samples (SRS055982-subjectID_638754422, SRS022137-subjectID_638754422, SRS019161-subjectID_763496533, SRS013951-subjectID_763496533, SRS014613-subjectID_763840445, SRS064276-subjectID_763840445) from 3 three subjects (each was sampled at two time points) and one *Bacteroides caccae* genome G000273725. 
+We would like to:
+
+* extract the *Bacteroides caccae* strains from these samples and compare them with the reference genome in a phylogenetic tree.
+* know how many snps between those strains and the reference genome.
+
+Running MetaPhlAn_Strainer on these samples, we will obtain the *Bacteroides caccae* phylogentic tree with the alignment in the following figure:
+
+![tree_alignment.png](https://bitbucket.org/repo/74yKEg/images/1860045700-tree_alignment.png)
+
+We can see that the strains from the same subject are grouped together. The tree also highlights that the strains from subject "763840445" (red color) do not change between two sampling time points whereas the strains from the other subjects have slightly evolved. From the tree, we also know that the strains of subject "763496533" is closer to the reference genome than those of the others. 
+In addition, the table below shows the number of snps between the sample strains and the reference genome based on the strain alignment returned by MetaPhlAN_Strainer.
+
+![snp_distance.png](https://bitbucket.org/repo/74yKEg/images/1683082367-snp_distance.png)
+
+In the next sections, we will illustrate step by step how to run MetaPhlAn_Strainer on this toy example to reproduce the above figures.
+
+### Pre-requisites ###
+MetaPhlAn_Strainer requires *python 2.7*. Besides, MetaPhlAn_Strainer also needs the following programs in the executable path:
+
+* [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml) for mapping reads against the marker database.
+
+* [MUSCLE](http://www.drive5.com/muscle/) for the alignment step.
+
+* [samtools, bcftools and vcfutils.pl](http://samtools.sourceforge.net/) for building consensus markers. Note that vcfutils.pl is included in bcftools and **StrainPhlAn only works with samtools version 0.1.19** as samtools has changed the output format after this version.
+
+* [blastn](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) for adding reference genomes to the phylogenetic tree.
+
+* [raxmlHPC and raxmlHPC-PTHREADS-SSE3](http://sco.h-its.org/exelixis/web/software/raxml/index.html) for building the phylogenetic trees.
+
+* [pysam](http://pysam.readthedocs.org/en/latest/) for identifying polymorphic sites.
+
+* [biopython](http://biopython.org/wiki/Main_Page)
+
+* [numpy](http://www.numpy.org/)
+
+All dependence binaries on Linux 64 bit can be downloaded from **this link**.
+
+### Usage ###
+
+Let's reproduce the toy example result in the introduction section. Note that all the commands to run the below steps are in the "strainer_tutorial/step?*.sh" files (? corresponding to the step number). 
+The steps are as follows:
+
+Step 1. Download 6 HMP gut metagenomic samples and one reference genome from **this link** and unzip them to have the folder "fastqs" and "reference_genomes" under the "strainer_tutorial" folder.
+```
+#!python
+
+cd strainer_tutorial
+wget xxx
+tar xjfv xxx
+```
+
+Step 2. Obtain the sam files from these samples by mapping them against MetaPhlAn2 database:
+
+```
+#!python
+
+mkdir -p sams
+for f in $(ls fastqs)
+do
+    echo "Running metaphlan2 on ${f}"
+    bn=$(basename ${f} | cut -d . -f 1)
+    tar xjfO fastqs/${f} | metaphlan2.py --bowtie2db ../db_v20/mpa_v20_m200 --mpa_pkl ../db_v20/mpa_v20_m200.pkl --input_type multifastq --nproc 10 -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o sams/${bn}.profile
+done
+```
+
+After this step, you will have a folder "sams" containing the sam files and other MetaPhlAn2 output files. This step will take around 270 minutes. If you want to skip this step, you can download the sam files from **this link**.
+
+Step 3. Produce the consensus-marker files which are the input for MetaPhlAn3_Strainer:
+
+```
+#!python
+
+mkdir -p consensus_markers
+cwd=$(pwd -P)
+export PATH=${cwd}/../mpa3src:${PATH}
+python ../mpa3src/sample2markers.py --ifn_samples sams/*.sam.bz2 --input_type sam --output_dir consensus_markers --nprocs 10 &> consensus_markers/log.txt
+```
+
+This steps will take around 44 minutes.  If you want to skip this step, you can download the consensus marker files from **this link**.
+
+Step 4. Extract the markers of *Bacteroides_caccae* from MetaPhlAn2 database (to add its reference genome later):
+
+```
+#!python
+
+mkdir -p db_markers
+bowtie2-inspect ../db_v20/mpa_v20_m200 > db_markers/all_markers.fasta
+python ../mpa3src/extract_markers.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_markers db_markers/all_markers.fasta --clade s__Bacteroides_caccae --ofn_markers db_markers/s__Bacteroides_caccae.markers.fasta
+```
+
+Note that the "all_markers.fasta" file consists can be reused for extracting other reference genomes. This step will take around 1 minute. This step can skipped if you do not need to add the reference genomes to the phylogenetic tree.
+
+Step 5. Build the tree:
+
+```
+#!python
+
+mkdir -p output
+python ../mpa3src/metaphlan3_strainer.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_samples consensus_markers/*.markers --ifn_markers db_markers/s__Bacteroides_caccae.markers.fasta --ifn_ref_genomes reference_genomes/G000273725.fna.bz2 --output_dir output --nprocs_main 10 --clades s__Bacteroides_caccae &> output/log_full.txt
+```
+
+This step will take around 2 minutes. After this step, you will find the tree "output/RAxML_bestTree.s__Bacteroides_caccae.tree". You can view it by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) or any other viewers.
+In order to add the metadata, we also provide a script called "add_metadata.py" which can be used as follows:
+
+```
+#!python
+
+python ../mpa3src/add_metadata.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
+```
+
+The script "add_metadata.py" can accept multiple metadata files (space separated, wild card can also be used) and multiple trees. A metadata file is a tab separated file where the first row is the meta-headers, and the following rows contain the metadata for each sample. Multiple metadata files are used in the case where your samples come from more than one dataset and you do not want to merge the metadata files.
+For more details of using "add_metadata.py", please see its help (with option "-h").
+An example of a metadata file is the "fastqs/metadata.txt" file with the below content:
+
+```
+#!python
+
+sampleID        subjectID
+SRS055982       638754422
+SRS022137       638754422
+SRS019161       763496533
+SRS013951       763496533
+SRS014613       763840445
+SRS064276       763840445
+```
+
+Note that "sampleID" is a compulsory field. 
+
+After adding the metadata, you will obtain the tree files "*.tree.metadata" with metadata and view them by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) as in the previous step.
+
+Step 6. If you want to remove the samples with high-probability of containing multiple strains, you can rebuild the tree by removing the multiple strains:
+
+```
+#!python
+
+python ../mpa3src/build_tree_single_strain.py --ifn_alignments output/s__Bacteroides_caccae.fasta --nprocs 10 --log_ofn output/build_tree_single_strain.log
+python ../mpa3src/add_metadata.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.remove_multiple_strains.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
+```
+
+You will obtain the refined tree "output/RAxML_bestTree.s__Bacteroides_caccae.remove_multiple_strains.tree.metadata".
+
+### Some useful options ###
+All option details can be viewed by MetaPhlAn3_Strainer help:
+```
+#!python
+
+python ../mpa3src/metaphlan3_strainer.py -h
+```
+
+The default setting can be stringent for some cases where you have very few samples left in the phylogenetic tree. You can relax some parameters to add more samples back:
+
+1. *marker_in_clade*: In each sample, the clades with the percentage of present markers less than this threshold are removed. Default "0.8". You can set this parameter to "0.5" to add some more samples.
+2. *sample_in_marker*: If the percentage of samples that a marker present in is less than this threhold, that marker is removed. Default "0.8". You can set this parameter to "0.5" to add some more samples.
+3. *N_in_marker*: The consensus markers with the percentage of N nucleotides greater than this threshold are removed. Default "0.2". You can set this parameter to "0.5" to add some more samples.
