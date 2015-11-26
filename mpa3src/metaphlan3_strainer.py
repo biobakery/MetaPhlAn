@@ -1,5 +1,5 @@
-#!/usr/bin/env python
 # Author: Duy Tin Truong (duytin.truong@unitn.it)
+#!/usr/bin/env python
 #		at CIBIO, University of Trento, Italy
 
 __author__ = 'Duy Tin Truong (duytin.truong@unitn.it)'
@@ -18,8 +18,8 @@ import which
 import argparse as ap
 import cPickle as pickle
 import glob
+from mixed_utils import statistics
 import ooSubprocess
-from ooSubprocess import statistics
 from ooSubprocess import trace_unhandled_exceptions
 import bz2
 import gzip
