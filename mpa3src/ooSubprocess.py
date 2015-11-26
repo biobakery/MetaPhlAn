@@ -293,49 +293,4 @@ def print_stdout(*args):
     sys.stdout.flush()
 
 
-def statistics(vals):
-    vals = numpy.array(vals)
-    result = {}
-    if len(vals.shape) == 1:
-        num_elems = len(vals)
-        nrows = num_elems
-        ncols = 1
-    else:
-        nrows, ncols = vals.shape
-        num_elems = nrows * ncols
-    if num_elems > 0:
-        result['nrows'] = nrows
-        result['ncols'] = ncols
-        result['size'] = num_elems
-        result['average'] = numpy.average(vals)
-        result['min'] = numpy.min(vals)
-        result['max'] = numpy.max(vals)
-        result['median'] = numpy.percentile(vals, 50)
-        result['percentile_25'] = numpy.percentile(vals, 25)
-        result['percentile_75'] = numpy.percentile(vals, 75)
-    else:
-        result['nrows'] = nrows
-        result['ncols'] = ncols
-        result['size'] = num_elems
-        result['average'] = 0
-        result['min'] = 0
-        result['max'] = 0
-        result['median'] = 0
-        result['percentile_25'] = 0
-        result['percentile_75'] = 0
-
-    str_result = ''
-    for key in ['nrows',
-                'ncols',
-                'size',
-                'average',
-                'min',
-                'max',
-                'median',
-                'percentile_25',
-                'percentile_75']:
-        str_result += '%s: %s\n'%(key, result[key])
-
-    return result, str_result
-
 
