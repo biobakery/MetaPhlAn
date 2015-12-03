@@ -17,6 +17,7 @@ sys.path.append(os.path.join(MAIN_DIR, 'mpa3src'))
 import which
 import argparse as ap
 import cPickle as pickle
+import msgpack
 import glob
 from mixed_utils import statistics
 import ooSubprocess
@@ -922,9 +923,7 @@ def load_sample(args):
     marker_in_clade = args['marker_in_clade']
 
     sample = ooSubprocess.splitext2(ifn_sample)[0]
-    #gc.disable()
-    marker2seq = pickle.load(open(ifn_sample, 'rb'))
-    #gc.enable()
+    marker2seq = msgpack.load(open(ifn_sample, 'rb'), use_list=False)
 
     if kept_clade:
         # remove redundant clades and markers
@@ -1183,7 +1182,6 @@ def strainer(args):
                 del sample2marker[sample]
 
         # build trees
-        logger.info('Build trees')
         shared_variables.sample2marker = sample2marker
         build_tree(
             clade=clade,

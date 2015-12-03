@@ -18,7 +18,7 @@ from ooSubprocess import print_stderr
 import ConfigParser
 from Bio import SeqIO, Seq, SeqRecord
 import cStringIO
-import pickle
+import msgpack
 import random
 import subprocess
 import bz2
@@ -344,9 +344,8 @@ def sam2markers(
         p1.close()
 
     if marker2file:
-        pickle.dump(marker2seq, 
-                    open(marker2file, 'wb'), 
-                    pickle.HIGHEST_PROTOCOL)
+        with open(marker2file, 'wb') as ofile:
+            msgpack.dump(marker2seq, ofile)
 
     return marker2seq
 
