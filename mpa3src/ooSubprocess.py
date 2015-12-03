@@ -196,7 +196,12 @@ def fdir(dir, ifn):
 
 def mkdir(dir):
     if not os.path.exists(dir):
-        os.makedirs(dir)
+        try:
+            os.makedirs(dir)
+        except OSError as e:
+            if e.errno != 17:
+                raise
+            pass
     elif not os.path.isdir(dir):
         raise ooSubprocessException('Error: %s is not a directory!' % dir)
 
