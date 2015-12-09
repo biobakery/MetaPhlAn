@@ -844,7 +844,7 @@ def build_tree(
         for sample in sample2fullfreq:
             freqs = [x[0] for x in sample2fullfreq[sample] if x[0] > 0 and x[0] < 1 and x[2] < p_value]
             coverages = [x[1] for x in sample2fullfreq[sample] if x[0] > 0 and x[0] < 1 and x[2] < p_value]
-            ofile.write('%s\t%f'%(sample, float(len(freqs)) / len(sample2fullfreq[sample])))
+            ofile.write('%s\t%f'%(sample, float(len(freqs)) * 100 / len(sample2fullfreq[sample])))
             for vals in [freqs, coverages]:
                 if len(vals):
                     ofile.write('\t%f\t%f\t%f\t%f\t%f\t%f\t%f'%(\
