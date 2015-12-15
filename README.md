@@ -576,6 +576,23 @@ MetaPhlAn3_Strainer requires *python 2.7* and the libraries [pysam](http://pysam
 
 All dependence binaries on Linux 64 bit can be downloaded in the folder "bin" from [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 
+The script files in folder "mpa3src" should be changed to executable mode by:
+
+
+```
+#!python
+
+chmod +x mpa3src/*.py
+```
+
+and add to the executable path:
+
+```
+#!python
+
+export PATH=$PATH:$(pwd -P)/mpa3src
+```
+
 ### Usage ###
 
 Let's reproduce the toy example result in the introduction section. Note that all the commands to run the below steps are in the "strainer_tutorial/step?*.sh" files (? corresponding to the step number). 
