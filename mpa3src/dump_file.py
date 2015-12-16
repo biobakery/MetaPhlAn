@@ -41,6 +41,9 @@ def dump_file(ifn):
     elif ifn[-6:] == '.fastq':
         ifile = open(ifn, 'r')
         file_ext = '.fastq'
+    elif ifn[-3:]:
+        ifile = open(ifn, 'r')
+        file_ext = '.sam'
     elif ifn[-4:] == '.sra':
         oosp = ooSubprocess.ooSubprocess()
         ifile = oosp.ex(
