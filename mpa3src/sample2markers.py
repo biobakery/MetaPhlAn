@@ -51,7 +51,7 @@ def read_params():
     p.add_argument('--min_base_quality', required=False, default=30, type=float)
     p.add_argument('--error_rate', required=False, default=0.01, type=float)
     p.add_argument('--marker2file_ext', required=False, default='.markers', type=str)
-    p.add_argument('--sam2file_ext', required=False, default='.sam.bz2', type=str)
+    p.add_argument('--sam2file_ext', required=False, default='.sam.bz2', type=str, choices=['.sam', '.sam.bz2'])
     p.add_argument(
         '--verbose', 
         required=False, 
