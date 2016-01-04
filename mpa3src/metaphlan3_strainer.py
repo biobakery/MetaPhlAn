@@ -249,6 +249,15 @@ def read_params():
              'Default "False".')
     p.set_defaults(print_clades_only=False)
     p.add_argument(
+        '--relaxed_params', 
+        required=False, 
+        dest='relaxed_params',
+        action='store_true',
+        help='Set marker_in_clade=0.5, sample_in_marker=0.5, '\
+             'N_in_marker=0.5, gap_in_sample=0.5. '\
+             'Default "False".')
+    p.set_defaults(relaxed_params=False)
+    p.add_argument(
         '--reduce_memory', 
         required=False, 
         dest='reduce_memory', 
@@ -1022,6 +1031,13 @@ def load_all_samples(args, kept_clade):
 
 
 def strainer(args):
+    # auto-set some params
+    if args['relaxed_params']:
+        args['marker_in_clade'] = 0.5
+        args['sample_in_marker'] = 0.5
+        args['N_in_marker'] = 0.5
+        args['gap_in_sample'] = 0.5
+
     # check conditions
     ooSubprocess.mkdir(args['output_dir'])
     with open(os.path.join(args['output_dir'], 'arguments.txt'), 'w') as ofile:
