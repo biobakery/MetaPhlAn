@@ -25,7 +25,7 @@ from ooSubprocess import trace_unhandled_exceptions
 import bz2
 import gzip
 from collections import defaultdict
-from tempfile import SpooledTemporaryFile
+from tempfile import SpooledTemporaryFile, NamedTemporaryFile
 from Bio import SeqIO, Seq, SeqRecord
 from Bio.Alphabet import IUPAC
 import pandas
@@ -248,23 +248,24 @@ def read_params():
              'all possible clades and rerun only for some specific ones. '\
              'Default "False".')
     p.set_defaults(print_clades_only=False)
+
     p.add_argument(
-        '--relaxed_params', 
+        '--alignment_program', 
         required=False, 
-        dest='relaxed_params',
+        default='muscle', 
+        choices=['muscle', 'mafft'],
+        type=str,
+        help='The alignment program. Default "muscle".')
+
+    p.add_argument(
+        '--relaxed_parameters', 
+        required=False, 
+        dest='relaxed_parameters',
         action='store_true',
         help='Set marker_in_clade=0.5, sample_in_marker=0.5, '\
              'N_in_marker=0.5, gap_in_sample=0.5. '\
              'Default "False".')
-    p.set_defaults(relaxed_params=False)
-    p.add_argument(
-        '--reduce_memory', 
-        required=False, 
-        dest='reduce_memory', 
-        action='store_true',
-        help='Do not run many threads in parallel to reduce memory. '\
-             'Default "not set".')
-    p.set_defaults(reduce_memory=False)
+    p.set_defaults(relaxed_parameters=False)
     p.add_argument(
         '--use_threads', 
         required=False, 
@@ -343,14 +344,23 @@ def get_db_clades(db):
 
 
 
-def align(marker_file):
+def align(marker_fn, alignment_program):
     oosp = ooSubprocess.ooSubprocess()
-    alignment_file = oosp.ex(
-        'muscle',
-        args=['-quiet', '-in', '-', '-out', '-'],
-        in_pipe=marker_file,
-        get_out_pipe=True,
-        verbose=False)
+    if alignment_program == 'muscle':
+        alignment_file = oosp.ex(
+            'muscle',
+            args=['-quiet', '-in', '-', '-out', '-'],
+            in_pipe=open(marker_fn, 'r'),
+            get_out_pipe=True,
+            verbose=False)
+    elif alignment_program == 'mafft':
+        alignment_file = oosp.ex(
+            'mafft',
+            args=['--auto', marker_fn],
+            get_out_pipe=True,
+            verbose=False)
+    else:
+        raise Exception('Unknown alignment_program %s!'%alignment_program)
     return alignment_file
 
 
@@ -567,9 +577,11 @@ def align_clean(args):
     N_count = args['N_count']
     sample_in_marker = args['sample_in_marker']
     tmp_dir = args['tmp_dir']
+    alignment_program = args['alignment_program']
 
     logger.debug('align and clean for marker: %s'%marker)
-    marker_file = SpooledTemporaryFile(dir=tmp_dir)
+    marker_file = NamedTemporaryFile(dir=tmp_dir, delete=False)
+    marker_fn = marker_file.name
     sample_count = 0
     for sample in iter(sample2marker.keys()):
         if marker in iter(sample2marker[sample].keys()):
@@ -587,8 +599,9 @@ def align_clean(args):
                      'it present is %f < sample_in_marker'%ratio)
         return {}, {}
 
-    marker_file.seek(0)
-    alignment_file = align(marker_file)
+    marker_file.close()
+    alignment_file = align(marker_fn, alignment_program)
+    os.remove(marker_fn)
 
     sample2seq = {}
     sample2freq = {}
@@ -644,6 +657,7 @@ def build_tree(
         p_value,
         output_dir,
         nprocs_align_clean,
+        alignment_program,
         nprocs_raxml,
         use_threads):
 
@@ -697,6 +711,7 @@ def build_tree(
         args_list[i]['N_col'] = N_col
         args_list[i]['sample_in_marker'] = sample_in_marker
         args_list[i]['tmp_dir'] = output_dir
+        args_list[i]['alignment_program'] = alignment_program
 
     logger.debug('start to align_clean for all markers')
     results = ooSubprocess.parallelize(
@@ -1032,7 +1047,7 @@ def load_all_samples(args, kept_clade):
 
 def strainer(args):
     # auto-set some params
-    if args['relaxed_params']:
+    if args['relaxed_parameters']:
         args['marker_in_clade'] = 0.5
         args['sample_in_marker'] = 0.5
         args['N_in_marker'] = 0.5
@@ -1216,6 +1231,7 @@ def strainer(args):
             p_value=args['p_value'],
             output_dir=args['output_dir'],
             nprocs_align_clean=args['nprocs_align_clean'],
+            alignment_program=args['alignment_program'],
             nprocs_raxml=args['nprocs_raxml'],
             use_threads=args['use_threads'])
         del shared_variables.sample2marker
