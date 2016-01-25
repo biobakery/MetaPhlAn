@@ -266,6 +266,17 @@ def read_params():
              'N_in_marker=0.5, gap_in_sample=0.5. '\
              'Default "False".')
     p.set_defaults(relaxed_parameters=False)
+
+    p.add_argument(
+        '--relaxed_parameters2', 
+        required=False, 
+        dest='relaxed_parameters2',
+        action='store_true',
+        help='Set marker_in_clade=0.2, sample_in_marker=0.2, '\
+             'N_in_marker=0.8, gap_in_sample=0.8. '\
+             'Default "False".')
+    p.set_defaults(relaxed_parameters2=False)
+
     p.add_argument(
         '--use_threads', 
         required=False, 
@@ -347,12 +358,14 @@ def get_db_clades(db):
 def align(marker_fn, alignment_program):
     oosp = ooSubprocess.ooSubprocess()
     if alignment_program == 'muscle':
+        ifile = open(marker_fn, 'r')
         alignment_file = oosp.ex(
             'muscle',
             args=['-quiet', '-in', '-', '-out', '-'],
-            in_pipe=open(marker_fn, 'r'),
+            in_pipe=ifile,
             get_out_pipe=True,
             verbose=False)
+        ifile.close()
     elif alignment_program == 'mafft':
         alignment_file = oosp.ex(
             'mafft',
@@ -593,13 +606,14 @@ def align_clean(args):
                     seq=Seq.Seq(sample2marker[sample][marker]['seq'])),
                 marker_file,
                 'fasta')
+    marker_file.close()
     ratio = float(sample_count) / len(sample2marker)
     if  ratio < sample_in_marker:
+        os.remove(marker_fn)
         logger.debug('skip this marker because percentage of samples '\
                      'it present is %f < sample_in_marker'%ratio)
         return {}, {}
 
-    marker_file.close()
     alignment_file = align(marker_fn, alignment_program)
     os.remove(marker_fn)
 
@@ -1052,6 +1066,11 @@ def strainer(args):
         args['sample_in_marker'] = 0.5
         args['N_in_marker'] = 0.5
         args['gap_in_sample'] = 0.5
+    elif args['relaxed_parameters2']:
+        args['marker_in_clade'] = 0.2
+        args['sample_in_marker'] = 0.2
+        args['N_in_marker'] = 0.8
+        args['gap_in_sample'] = 0.8
 
     # check conditions
     ooSubprocess.mkdir(args['output_dir'])
