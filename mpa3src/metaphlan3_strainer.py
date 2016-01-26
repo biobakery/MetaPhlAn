@@ -237,7 +237,18 @@ def read_params():
         type=str,
         help='The clades (space seperated) for which the script will compute '\
                 'the marker alignments in fasta format and the phylogenetic '\
-                'trees. Default "all".')
+                'trees. If a file name is specified, the clade list in that '\
+                'file where each clade name is on a line will be read.'
+                'Default "automatically identify all clades".')
+
+    p.add_argument(
+        '--marker_list_fn', 
+        required=False, 
+        default=None, 
+        type=str,
+        help='The file name containing the list of considered markers. '\
+                'The other markers will be discarded. '\
+                'Default "None".')
     p.add_argument(
         '--print_clades_only', 
         required=False, 
@@ -690,9 +701,10 @@ def build_tree(
     logger.debug('number of samples: %d', len(sample2marker))
     ofile_cladeinfo.write('number of samples: %d\n'\
                           %len(sample2marker))
-    logger.debug('number of markers of the clade in db: %d'\
-                 %clade2num_markers[clade])
-    ofile_cladeinfo.write('number of markers of the clade in db: %d\n'\
+    if clade in clade2num_markers:
+        logger.debug('number of markers of the clade in db: %d'\
+                     %clade2num_markers[clade])
+        ofile_cladeinfo.write('number of markers of the clade in db: %d\n'\
                           %clade2num_markers[clade])
 
     # align sequences in each marker
@@ -705,10 +717,11 @@ def build_tree(
 
     logger.debug('number of used markers: %d'%len(markers))
     ofile_cladeinfo.write('number of used markers: %d\n'%len(markers))
-    logger.debug('fraction of used markers: %f'\
-                %(float(len(markers)) / clade2num_markers[clade]))
-    ofile_cladeinfo.write('fraction of used markers: %f\n'\
-                %(float(len(markers)) / clade2num_markers[clade]))
+    if clade in clade2num_markers:
+        logger.debug('fraction of used markers: %f'\
+                    %(float(len(markers)) / clade2num_markers[clade]))
+        ofile_cladeinfo.write('fraction of used markers: %f\n'\
+                    %(float(len(markers)) / clade2num_markers[clade]))
 
     logger.debug('align and clean')
     args_list = []
@@ -757,11 +770,13 @@ def build_tree(
     ofile_cladeinfo.write('number of markers after deleting '\
                           'empty markers: %d\n'%
                           (len(markers) - len(empty_markers)))
-    logger.debug('fraction of used markers after deleting empty markers: '\
-            '%f'%(float(len(markers) - len(empty_markers)) / clade2num_markers[clade]))
-    ofile_cladeinfo.write('fraction of used markers after deleting empty '\
-            'markers: %f\n'\
-            %(float(len(markers) - len(empty_markers)) / clade2num_markers[clade]))
+
+    if clade in clade2num_markers:
+        logger.debug('fraction of used markers after deleting empty markers: '\
+                '%f'%(float(len(markers) - len(empty_markers)) / clade2num_markers[clade]))
+        ofile_cladeinfo.write('fraction of used markers after deleting empty '\
+                'markers: %f\n'\
+                %(float(len(markers) - len(empty_markers)) / clade2num_markers[clade]))
 
 
     if len(sample2fullseq) == 0:
@@ -959,7 +974,7 @@ def load_sample(args):
     sing_clades = shared_variables.sing_clades
     clade2num_markers = shared_variables.clade2num_markers
     marker_in_clade = args['marker_in_clade']
-
+    kept_markers = args['kept_markers']
     sample = ooSubprocess.splitext2(ifn_sample)[0]
     marker2seq = msgpack.load(open(ifn_sample, 'rb'), use_list=False)
 
@@ -968,12 +983,18 @@ def load_sample(args):
         nmarkers = 0
         for marker in marker2seq.keys():
             clade = db['markers'][marker]['taxon'].split('|')[-1]
-            if clade == kept_clade:
+            if kept_markers:
+                if marker in kept_markers:
+                    nmarkers += 1
+                else:
+                    del marker2seq[marker]
+            elif clade == kept_clade:
                 nmarkers += 1
             else:
                 del marker2seq[marker]
-        if float(nmarkers) / clade2num_markers[kept_clade] < marker_in_clade:
-            marker2seq = {}
+        if not kept_markers:
+            if float(nmarkers) / clade2num_markers[kept_clade] < marker_in_clade:
+                marker2seq = {}
 
         # reformat 'pileup'
         for m in marker2seq:
@@ -1013,7 +1034,7 @@ def load_sample(args):
 
 
 
-def load_all_samples(args, kept_clade):
+def load_all_samples(args, kept_clade, kept_markers):
     ifn_samples = args['ifn_samples']
     if ifn_samples == ['None']:
         ifn_samples = None
@@ -1026,6 +1047,7 @@ def load_all_samples(args, kept_clade):
             func_args = {}
             func_args['ifn_sample'] = ifn_sample
             func_args['kept_clade'] = kept_clade
+            func_args['kept_markers'] = kept_markers
             for k in [ 
                       'output_dir',
                       'ifn_markers', 'nprocs_load_samples', 
@@ -1061,17 +1083,26 @@ def load_all_samples(args, kept_clade):
 
 def strainer(args):
     # auto-set some params
+    if args['marker_list_fn']:
+        args['marker_in_clade'] = 0
     if args['relaxed_parameters']:
-        args['marker_in_clade'] = 0.5
+        if not args['marker_list_fn']:
+            args['marker_in_clade'] = 0.5
         args['sample_in_marker'] = 0.5
         args['N_in_marker'] = 0.5
         args['gap_in_sample'] = 0.5
     elif args['relaxed_parameters2']:
-        args['marker_in_clade'] = 0.2
+        if not args['marker_list_fn']:
+            args['marker_in_clade'] = 0.2
         args['sample_in_marker'] = 0.2
         args['N_in_marker'] = 0.8
         args['gap_in_sample'] = 0.8
+        
+    if os.path.isfile(args['clades'][0]):
+        with open(args['clades'][0], 'r') as ifile:
+            args['clades'] = [line.strip() for line in ifile]
 
+ 
     # check conditions
     ooSubprocess.mkdir(args['output_dir'])
     with open(os.path.join(args['output_dir'], 'arguments.txt'), 'w') as ofile:
@@ -1107,6 +1138,7 @@ def strainer(args):
     if args['nprocs_raxml'] == None:
         args['nprocs_raxml'] = args['nprocs_main']
 
+    '''
     # logging config
     # create a file handler
     handler = logging.FileHandler(
@@ -1131,6 +1163,7 @@ def strainer(args):
 
     # add the handlers to the logger
     logger.addHandler(handler)
+    '''
 
     # load mpa_pkl
     logger.info('Load mpa_pkl')
@@ -1154,11 +1187,19 @@ def strainer(args):
     shared_variables.sing_clades = sing_clades
     shared_variables.clade2num_markers = clade2num_markers
 
+    kept_markers = []
+    if args['marker_list_fn']:
+        with open(args['marker_list_fn'], 'r') as ifile:
+            for line in ifile:
+                kept_markers.append(line.strip())
+    kept_markers = set(kept_markers)
 
     # get clades from samples
     if args['clades'] == ['all']:
         logger.info('Get clades from samples')
-        args['clades'] = load_all_samples(args, kept_clade=None)
+        args['clades'] = load_all_samples(args, 
+                                          kept_clade=None,
+                                          kept_markers=kept_markers)
 
     if args['print_clades_only']:
         for c in args['clades']:
@@ -1199,7 +1240,9 @@ def strainer(args):
         if clade == 'singleton':
             sample2marker = {}
         else:
-            sample2marker = load_all_samples(args, kept_clade=clade)
+            sample2marker = load_all_samples(args, 
+                                             kept_clade=clade,
+                                             kept_markers=kept_markers)
 
         for r in ref2marker:
             sample2marker[r] = ref2marker[r]
@@ -1224,9 +1267,9 @@ def strainer(args):
         for sample in sample2marker.keys():
             if len(sample2marker[sample]):
                 marker = sample2marker[sample].keys()[0]
-                clade = db['markers'][marker]['taxon'].split('|')[-1]
+                c = db['markers'][marker]['taxon'].split('|')[-1]
                 if len(sample2marker[sample]) / \
-                    float(clade2num_markers[clade]) < args['marker_in_clade']:
+                    float(clade2num_markers[c]) < args['marker_in_clade']:
                         del sample2marker[sample]
             else:
                 del sample2marker[sample]
