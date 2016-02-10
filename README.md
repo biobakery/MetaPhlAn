@@ -1,19 +1,20 @@
 [TOC]
 
-#**MetaPhlAn 2.0: Metagenomic Phylogenetic Analysis**#
+#**MetaPhlAn 3.0: Metagenomic Phylogenetic Analysis**#
 
 AUTHORS: Duy Tin Truong (duytin.truong@unitn.it), Nicola Segata (nicola.segata@unitn.it)
 
 ##**Description**##
-MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data with species level resolution. From version 2.0 MetaPhlAn is also able to identify specific strains (in the not-so-frequent cases in which the sample contains a previously sequenced strains) and to track strains across samples for all species.
+MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data with species level resolution. From version 3.0 MetaPhlAn is also able to identify specific strains (in the not-so-frequent cases in which the sample contains a previously sequenced strains) and to track strains across samples for all species.
 
-MetaPhlAn 2.0 relies on ~1M unique clade-specific marker genes ([the marker information file can be found at src/utils/markers_info.txt.bz2 or here](https://bitbucket.org/biobakery/metaphlan2/src/473a41eba501df5f750da032d4f04b38db98dde1/utils/markers_info.txt.bz2?at=default)) identified from ~17,000 reference genomes (~13,500 bacterial and archaeal, ~3,500 viral, and ~110 eukaryotic), allowing:
+MetaPhlAn 3.0 relies on ~1M unique clade-specific marker genes ([the marker information file can be found at src/utils/markers_info.txt.bz2 or here](https://bitbucket.org/biobakery/metaphlan2/src/473a41eba501df5f750da032d4f04b38db98dde1/utils/markers_info.txt.bz2?at=default)) identified from ~17,000 reference genomes (~13,500 bacterial and archaeal, ~3,500 viral, and ~110 eukaryotic), allowing:
 
 * unambiguous taxonomic assignments;
 * accurate estimation of organismal relative abundance;
 * species-level resolution for bacteria, archaea, eukaryotes and viruses;
 * strain identification and tracking
 * orders of magnitude speedups compared to existing methods.
+* metagenomic strain-level population genomics
 
 If you use this software, please cite :
 
@@ -43,14 +44,14 @@ MetaPhlAn requires *python 2.7* or higher with argparse, tempfile and [*numpy*](
 
 ##**Installation**##
 
-MetaPhlAn 2.0 can be obtained by either
+MetaPhlAn 3.0 can be obtained by either
 
-[Downloading MetaPhlAn v2.0](https://bitbucket.org/biobakery/metaphlan2/get/default.zip)  
+[Downloading MetaPhlAn v3.0](https://bitbucket.org/CibioCM/metaphlan3_dev/downloads)  
 
 **OR**
 
 Cloning the repository via the following commands
-``$ hg clone https://bitbucket.org/biobakery/metaphlan2``
+``$ hg clone https://duytin@bitbucket.org/CibioCM/metaphlan3_dev``
 
 --------------------------
 
@@ -59,7 +60,7 @@ Cloning the repository via the following commands
 
 This section presents some basic usages of MetaPhlAn2, for more advanced usages, please see at [its wiki](https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2).
 
-We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir`` bash variable contains the main MetaPhlAn folder. You can set this two variables moving to your MetaPhlAn2 local folder and type:
+We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir`` bash variable contains the main MetaPhlAn folder. You can set this two variables moving to your MetaPhlAn3 local folder and type:
 ```
 #!cmd
 $ export PATH=`pwd`:$PATH
