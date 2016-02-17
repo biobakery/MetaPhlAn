@@ -36,11 +36,12 @@ def read_params():
         type=int,
         help='Number of processors.')
     p.add_argument(
-                   '--boost_strap', 
-                   required=False, 
-                   dest='boost_strap',
-                   action='store_true')
-    p.set_defaults(boost_strap=False)
+        '--bootstrap_raxml', 
+        required=False, 
+        default=0, 
+        type=int,
+        help='The number of runs for bootstraping when building the tree. '\
+             'Default 0.')
     p.add_argument(
         '--verbose', 
         required=False, 
@@ -81,11 +82,18 @@ def main(args):
             if sample2polrate[s] <= median + std:
                 singles.add(s)
 
-        log_line = '%s\t%d\t%d\t%f\n'%\
-                    (os.path.basename(ifn_polymorphic).replace('.polymorphic', ''), 
-                    len(singles), 
-                    len(sample2polrate), 
-                    float(len(singles)) / len(sample2polrate))
+        if len(sample2polrate):
+            log_line = '%s\t%d\t%d\t%f\n'%\
+                        (os.path.basename(ifn_polymorphic).replace('.polymorphic', ''), 
+                        len(singles), 
+                        len(sample2polrate), 
+                        float(len(singles)) / len(sample2polrate))
+        else:
+            log_line = '%s\t%d\t%d\t%f\n'%\
+                        (os.path.basename(ifn_polymorphic).replace('.polymorphic', ''), 
+                        len(singles), 
+                        len(sample2polrate), 
+                        0)
         lfile.write(log_line)
 
         ifn_alignment2 = ifn_alignment.replace('.fasta', '') + '.remove_multiple_strains.fasta'
@@ -98,32 +106,34 @@ def main(args):
             ofile.write(log_line)
 
         output_suffix = os.path.basename(ifn_alignment2).replace('.polymorphic', '').replace('.fasta', '')
-        if args.boost_strap:
-            output_suffix += '.boost_strap.tree'
+        output_suffix += '.tree'
+        if args.bootstrap_raxml:
             cmd = 'raxmlHPC-PTHREADS-SSE3 '
             cmd += '-f a '
             cmd += '-m GTRGAMMA '
             #cmd += '-b 1234 '
             cmd += '-x 1234 '
-            cmd += '-N 100 '
+            cmd += '-N %d '%(args.bootstrap_raxml)
             cmd += '-s %s '%os.path.abspath(ifn_alignment2)
             cmd += '-w %s '%os.path.abspath(os.path.dirname(ifn_alignment2))
             cmd += '-n %s '%output_suffix 
             cmd += '-p 1234 '
-            cmd += '-T %d '%(args.nprocs)
         else:
-            output_suffix += '.tree'
             cmd = 'raxmlHPC-PTHREADS-SSE3 '
             cmd += '-m GTRCAT '
             cmd += '-s %s '%os.path.abspath(ifn_alignment2)
             cmd += '-w %s '%os.path.abspath(os.path.dirname(ifn_alignment2))
             cmd += '-n %s '%output_suffix
             cmd += '-p 1234 '
+        if args.nprocs:
             cmd += '-T %d '%(args.nprocs)
         raxfns = glob.glob('%s/RAxML_*%s*'%(os.path.dirname(ifn_alignment2), output_suffix))
+        '''
         for fn in raxfns:
             os.remove(fn)
-        run(cmd)
+        '''
+        if len(raxfns) == 0:
+            run(cmd)
     lfile.close()
      
 

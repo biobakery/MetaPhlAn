@@ -106,6 +106,14 @@ def read_params():
         help='The number of processors are used for running raxml. '\
              'Default nprocs_main.')
     p.add_argument(
+        '--bootstrap_raxml', 
+        required=False, 
+        default=0, 
+        type=int,
+        help='The number of runs for bootstraping when building the tree. '\
+             'Default 0.')
+ 
+    p.add_argument(
         '--ifn_ref_genomes',
         nargs='+',
         required=False,
@@ -709,6 +717,7 @@ def build_tree(
         alignment_program,
         nprocs_raxml,
         keep_alignment_files,
+        bootstrap_raxml,
         use_threads):
 
     # build the tree for each clade
@@ -967,12 +976,18 @@ def build_tree(
                     %(os.path.abspath(output_dir), ofn_tree)):
             os.remove(fn)
         raxml_args = [
-                            '-m', 'GTRCAT', 
                             '-s', os.path.abspath(ofn_align), 
                             '-w', os.path.abspath(output_dir),
                             '-n', ofn_tree,
                             '-p', '1234'
                         ]
+        if bootstrap_raxml:
+            raxml_args += ['-f', 'a',
+                           '-m', 'GTRGAMMA',
+                           '-x', '1234',
+                           '-N', str(bootstrap_raxml)]
+        else:
+            raxml_args += ['-m', 'GTRCAT']
 
         if nprocs_raxml > 1:
             raxml_args += ['-T', str(nprocs_raxml)]
@@ -1328,6 +1343,7 @@ def strainer(args):
             alignment_program=args['alignment_program'],
             nprocs_raxml=args['nprocs_raxml'],
             keep_alignment_files=args['keep_alignment_files'],
+            bootstrap_raxml=args['bootstrap_raxml'],
             use_threads=args['use_threads'])
         del shared_variables.sample2marker
         del sample2marker
