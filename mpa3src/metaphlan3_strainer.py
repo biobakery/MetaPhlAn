@@ -8,6 +8,7 @@ __date__ = '1st Sep 2014'
 
 import sys
 import os
+import shutil
 ABS_PATH = os.path.abspath(sys.argv[0])
 MAIN_DIR = os.path.dirname(ABS_PATH)
 os.environ['PATH'] += ':' + MAIN_DIR
@@ -116,7 +117,7 @@ def read_params():
         required=False,
         default=0.2,
         type=float,
-        help='The consensus markers with the percentage of N nucleotides greater than '\
+        help='The consensus markers with the rate of N nucleotides greater than '\
                 'this threshold are removed. Default 0.2.')
     p.add_argument(
         '--marker_strip_length',
@@ -130,7 +131,7 @@ def read_params():
         required=False,
         default=0.8,
         type=float,
-        help='In each sample, the clades with the percentage of present markers less than '\
+        help='In each sample, the clades with the rate of present markers less than '\
                 'this threshold are removed. Default 0.8.')
     p.add_argument(
         '--sample_in_clade',
@@ -287,6 +288,25 @@ def read_params():
              'N_in_marker=0.8, gap_in_sample=0.8. '\
              'Default "False".')
     p.set_defaults(relaxed_parameters2=False)
+
+    p.add_argument(
+        '--keep_alignment_files', 
+        required=False, 
+        dest='keep_alignment_files',
+        action='store_true',
+        help='Keep the alignment files of all markers before cleaning step.')
+    p.set_defaults(keep_alignment_files=False)
+
+    p.add_argument(
+        '--keep_full_alignment_files', 
+        required=False, 
+        dest='keep_full_alignment_files',
+        action='store_true',
+        help='Keep the alignment files of all markers before '\
+             'truncating the starting and ending parts, and cleaning step. '
+             'This is equivalent to '\
+             '--keep_alignment_files --marker_strip_length 0')
+    p.set_defaults(keep_full_alignment_files=False)
 
     p.add_argument(
         '--use_threads', 
@@ -602,6 +622,7 @@ def align_clean(args):
     sample_in_marker = args['sample_in_marker']
     tmp_dir = args['tmp_dir']
     alignment_program = args['alignment_program']
+    alignment_fn = args['alignment_fn']
 
     logger.debug('align and clean for marker: %s'%marker)
     marker_file = NamedTemporaryFile(dir=tmp_dir, delete=False)
@@ -641,6 +662,9 @@ def align_clean(args):
                         sample,
                         len(sample2seq[sample]),
                         len(sample2freq[sample])))
+    if alignment_fn:
+        shutil.copyfile(alignment_file.name, alignment_fn)
+
     alignment_file.close()
     logger.debug('alignment for marker %s is done'%marker)
 
@@ -684,6 +708,7 @@ def build_tree(
         nprocs_align_clean,
         alignment_program,
         nprocs_raxml,
+        keep_alignment_files,
         use_threads):
 
     # build the tree for each clade
@@ -739,6 +764,10 @@ def build_tree(
         args_list[i]['sample_in_marker'] = sample_in_marker
         args_list[i]['tmp_dir'] = output_dir
         args_list[i]['alignment_program'] = alignment_program
+        if keep_alignment_files:
+            args_list[i]['alignment_fn'] = os.path.join(output_dir, markers[i] + '.marker_aligned')
+        else:
+            args_list[i]['alignment_fn'] = None
 
     logger.debug('start to align_clean for all markers')
     results = ooSubprocess.parallelize(
@@ -1097,6 +1126,9 @@ def strainer(args):
         args['sample_in_marker'] = 0.2
         args['N_in_marker'] = 0.8
         args['gap_in_sample'] = 0.8
+    if args['keep_full_alignment_files']:
+        args['keep_alignment_files'] = True
+        args['marker_strip_length'] = 0
         
     if os.path.isfile(args['clades'][0]):
         with open(args['clades'][0], 'r') as ifile:
@@ -1295,6 +1327,7 @@ def strainer(args):
             nprocs_align_clean=args['nprocs_align_clean'],
             alignment_program=args['alignment_program'],
             nprocs_raxml=args['nprocs_raxml'],
+            keep_alignment_files=args['keep_alignment_files'],
             use_threads=args['use_threads'])
         del shared_variables.sample2marker
         del sample2marker
