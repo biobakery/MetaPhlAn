@@ -72,7 +72,7 @@ def main(args):
                     continue
                 line = line.strip().split()
                 val = float(line[1])
-                if line[0][:3] in ['s__', 'g__']:
+                if line[0][:3] in ['k__', 'p__', 'c__', 'o__', 'f__', 'g__', 's__', 't__']:
                     singles.add(line[0])
                     continue
                 sample2polrate[line[0]] = val
@@ -128,12 +128,13 @@ def main(args):
         if args.nprocs:
             cmd += '-T %d '%(args.nprocs)
         raxfns = glob.glob('%s/RAxML_*%s*'%(os.path.dirname(ifn_alignment2), output_suffix))
-        '''
         for fn in raxfns:
             os.remove(fn)
         '''
         if len(raxfns) == 0:
             run(cmd)
+        '''
+        run(cmd)
     lfile.close()
      
 
