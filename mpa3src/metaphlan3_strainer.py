@@ -317,6 +317,14 @@ def read_params():
     p.set_defaults(keep_full_alignment_files=False)
 
     p.add_argument(
+        '--save_sample2fullfreq', 
+        required=False, 
+        dest='save_sample2fullfreq',
+        action='store_true',
+        help='Save sample2fullfreq to a msgpack file sample2fullfreq.msgpack.')
+    p.set_defaults(save_sample2fullfreq=False)
+
+    p.add_argument(
         '--use_threads', 
         required=False, 
         action='store_true',
@@ -718,6 +726,7 @@ def build_tree(
         nprocs_raxml,
         keep_alignment_files,
         bootstrap_raxml,
+        save_sample2fullfreq,
         use_threads):
 
     # build the tree for each clade
@@ -928,6 +937,10 @@ def build_tree(
     ofile_cladeinfo.close()
 
     # compute ppercentage of polymorphic sites
+    if save_sample2fullfreq:
+        with open(os.path.join(output_dir, 'sample2fullfreq.msgpack'), 'wb') as ofile:
+            msgpack.dump(sample2fullfreq, ofile)
+
     ofn_pol = os.path.join(output_dir, '%s.polymorphic'%clade)
     logger.debug('polymorphic file: %s'%ofn_pol)
     with open(ofn_pol, 'w') as ofile:
@@ -1344,6 +1357,7 @@ def strainer(args):
             nprocs_raxml=args['nprocs_raxml'],
             keep_alignment_files=args['keep_alignment_files'],
             bootstrap_raxml=args['bootstrap_raxml'],
+            save_sample2fullfreq=args['save_sample2fullfreq'],
             use_threads=args['use_threads'])
         del shared_variables.sample2marker
         del sample2marker
