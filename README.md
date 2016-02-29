@@ -713,7 +713,8 @@ The default setting can be stringent for some cases where you have very few samp
 2. *sample_in_marker*: If the percentage of samples that a marker present in is less than this threhold, that marker is removed. Default "0.8". You can set this parameter to "0.5" to add some more samples.
 3. *N_in_marker*: The consensus markers with the percentage of N nucleotides greater than this threshold are removed. Default "0.2". You can set this parameter to "0.5" to add some more samples.
 4. *gap_in_sample*: The samples with full sequences concatenated from all markers and having the percentage of gaps greater than this threshold will be removed. Default 0.2. You can set this parameter to "0.5" to add some more samples.
-5. *relaxed_parameters*: use this option to automatically set the above parameters to add some more samples by accepting some more gaps, Ns, etc.
+5. *relaxed_parameters*: use this option to automatically set the above parameters to add some more samples by accepting some more gaps, Ns, etc. This option is equivalent to set: marker_in_clade=0.5, sample_in_marker=0.5,                        N_in_marker=0.5, gap_in_sample=0.5. Default "False".
+6. *relaxed_parameters2*: use this option to add more samples by accepting some noise. This is equivalent to set marker_in_clade=0.2, sample_in_marker=0.2, N_in_marker=0.8, gap_in_sample=0.8. Default "False".
 
 ### Some other useful output files ###
 In the output folder, you can find the following files:
@@ -722,4 +723,3 @@ In the output folder, you can find the following files:
 3. *.marker_pos: this file shows the starting position of each marker in the strains.
 3. *.info: this file shows the general information like the total length of the concatenated markers (full sequence length), number of used markers, etc.
 4. *.polymorphic: this file shows the statistics on the polymorphic site, where "sample" is the sample name, "percentage_of_polymorphic_sites" is the percentage of sites that are suspected to be polymorphic, "avg_freq" is the average frequency of the dominant alleles on all polymorphic sites, "avg_coverage" is the average coverage at all polymorphic sites.
-
