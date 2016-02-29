@@ -714,3 +714,12 @@ The default setting can be stringent for some cases where you have very few samp
 3. *N_in_marker*: The consensus markers with the percentage of N nucleotides greater than this threshold are removed. Default "0.2". You can set this parameter to "0.5" to add some more samples.
 4. *gap_in_sample*: The samples with full sequences concatenated from all markers and having the percentage of gaps greater than this threshold will be removed. Default 0.2. You can set this parameter to "0.5" to add some more samples.
 5. *relaxed_parameters*: use this option to automatically set the above parameters to add some more samples by accepting some more gaps, Ns, etc.
+
+### Some other useful output files ###
+In the output folder, you can find the following files:
+
+1. *.fasta: the alignment file of all metagenomic strains.
+3. *.marker_pos: this file shows the starting position of each marker in the strains.
+3. *.info: this file shows the general information like the total length of the concatenated markers (full sequence length), number of used markers, etc.
+4. *.polymorphic: this file shows the statistics on the polymorphic site, where "sample" is the sample name, "percentage_of_polymorphic_sites" is the percentage of sites that are suspected to be polymorphic, "avg_freq" is the average frequency of the dominant alleles on all polymorphic sites, "avg_coverage" is the average coverage at all polymorphic sites.
+
