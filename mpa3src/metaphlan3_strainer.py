@@ -906,6 +906,7 @@ def build_tree(
         if float(sample2fullseq[sample].count('-')) / \
             len(sample2fullseq[sample]) > gap_in_sample:
             del sample2fullseq[sample]
+            del sample2fullfreq[sample]
     logger.debug(
             'number of samples after gap_in_sample: %d'\
             %len(sample2fullseq))
@@ -1036,19 +1037,22 @@ def load_sample(args):
     marker2seq = msgpack.load(open(ifn_sample, 'rb'), use_list=False)
 
     if kept_clade:
-        # remove redundant clades and markers
-        nmarkers = 0
-        for marker in marker2seq.keys():
-            clade = db['markers'][marker]['taxon'].split('|')[-1]
-            if kept_markers:
-                if marker in kept_markers:
+        if kept_clade == 'singleton':
+            nmarkers = len(marker2seq)
+        else:
+            # remove redundant clades and markers
+            nmarkers = 0
+            for marker in marker2seq.keys():
+                clade = db['markers'][marker]['taxon'].split('|')[-1]
+                if kept_markers:
+                    if marker in kept_markers:
+                        nmarkers += 1
+                    else:
+                        del marker2seq[marker]
+                elif clade == kept_clade:
                     nmarkers += 1
                 else:
                     del marker2seq[marker]
-            elif clade == kept_clade:
-                nmarkers += 1
-            else:
-                del marker2seq[marker]
         if not kept_markers:
             if float(nmarkers) / clade2num_markers[kept_clade] < marker_in_clade:
                 marker2seq = {}
@@ -1225,27 +1229,36 @@ def strainer(args):
     logger.addHandler(handler)
     '''
 
-    # load mpa_pkl
-    logger.info('Load mpa_pkl')
-    db = pickle.load(bz2.BZ2File(args['mpa_pkl']))
-    shared_variables.db = db
+    if args['clades'] == ['singleton']:
+        shared_variables.db = None
+        shared_variables.sing_clades = []
+        nmarkers = 0
+        for rec in SeqIO.parse(args['ifn_markers'], 'fasta'):
+            nmarkers += 1
+        clade2num_markers = {'singleton': nmarkers}
+        shared_variables.clade2num_markers = clade2num_markers
+    else:
+        # load mpa_pkl
+        logger.info('Load mpa_pkl')
+        db = pickle.load(bz2.BZ2File(args['mpa_pkl']))
+        shared_variables.db = db
 
-    # reduce and convert to shared memory
-    #logger.debug('converting db')
-    db['taxonomy'] = db['taxonomy'].keys()
-    for m in db['markers']:
-        del db['markers'][m]['clade']
-        del db['markers'][m]['ext']
-        del db['markers'][m]['len']
-        del db['markers'][m]['score']
-    gc.collect()
-    #logger.debug('converted db')
-    
-    # get clades from db
-    logger.info('Get clades from db')
-    sing_clades, clade2num_markers = get_db_clades(db)
-    shared_variables.sing_clades = sing_clades
-    shared_variables.clade2num_markers = clade2num_markers
+        # reduce and convert to shared memory
+        #logger.debug('converting db')
+        db['taxonomy'] = db['taxonomy'].keys()
+        for m in db['markers']:
+            del db['markers'][m]['clade']
+            del db['markers'][m]['ext']
+            del db['markers'][m]['len']
+            del db['markers'][m]['score']
+        gc.collect()
+        #logger.debug('converted db')
+        
+        # get clades from db
+        logger.info('Get clades from db')
+        sing_clades, clade2num_markers = get_db_clades(db)
+        shared_variables.sing_clades = sing_clades
+        shared_variables.clade2num_markers = clade2num_markers
 
     kept_markers = []
     if args['marker_list_fn']:
@@ -1297,12 +1310,9 @@ def strainer(args):
         logger.info('Build the tree for %s'%clade)
 
         # load samples and reference genomes
-        if clade == 'singleton':
-            sample2marker = {}
-        else:
-            sample2marker = load_all_samples(args, 
-                                             kept_clade=clade,
-                                             kept_markers=kept_markers)
+        sample2marker = load_all_samples(args, 
+                                         kept_clade=clade,
+                                         kept_markers=kept_markers)
 
         for r in ref2marker:
             sample2marker[r] = ref2marker[r]
@@ -1326,8 +1336,11 @@ def strainer(args):
                      'less than marker_in_clade')
         for sample in sample2marker.keys():
             if len(sample2marker[sample]):
-                marker = sample2marker[sample].keys()[0]
-                c = db['markers'][marker]['taxon'].split('|')[-1]
+                if clade == 'singleton':
+                    c = 'singleton'
+                else:
+                    marker = sample2marker[sample].keys()[0]
+                    c = db['markers'][marker]['taxon'].split('|')[-1]
                 if len(sample2marker[sample]) / \
                     float(clade2num_markers[c]) < args['marker_in_clade']:
                         del sample2marker[sample]
