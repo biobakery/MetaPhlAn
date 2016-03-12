@@ -51,7 +51,7 @@ def read_params():
     p.add_argument('--min_base_quality', required=False, default=30, type=float)
     p.add_argument('--error_rate', required=False, default=0.01, type=float)
     p.add_argument('--marker2file_ext', required=False, default='.markers', type=str)
-    p.add_argument('--sam2file_ext', required=False, default='.sam.bz2', type=str, choices=['.sam', '.sam.bz2'])
+    p.add_argument('--sam2file_ext', required=False, default='.sam.bz2', type=str)
     p.add_argument(
         '--verbose', 
         required=False, 
@@ -83,18 +83,42 @@ def read_params():
     return vars(p.parse_args())
 
 
+def build_bowtie2db(ifn_markers, tmp_dir, error_pipe=None):
+    # build bowtie2-index
+    if not os.path.isfile(ifn_markers):
+        error = 'ifn_markers %s does not exist!'%ifn_markers
+        logger.error(error)
+        raise Exception(error)
+
+    if not os.path.isdir(tmp_dir):
+        ooSubprocess.mkdir(tmp_dir)
+    bt2_base = ooSubprocess.splitext2(ifn_markers)[0]
+    index_fns = glob.glob('%s/%s.*'%(tmp_dir, bt2_base))
+    index_path = os.path.join(tmp_dir, bt2_base)
+    oosp = ooSubprocess.ooSubprocess(tmp_dir)
+    if index_fns == []:
+        oosp.ex(
+                'bowtie2-build', 
+                ['--quiet', ifn_markers, index_path],
+                stderr=error_pipe)
+    else:
+        logger.warning('bowtie2-indexes of %s are ready, skip rebuilding!'
+                        %(bt2_base))
+    return index_path
+
+
+
 def sample2markers(
-        lock,
         ifn_sample, 
         min_read_len,
         min_align_score,
         min_base_quality,
         error_rate,
         ifn_markers, 
+        index_path,
         nprocs=1, 
         sam2file=None,
         marker2file=None, 
-        index_dir='tmp',
         tmp_dir='tmp',
         quiet=False):
 
@@ -113,34 +137,7 @@ def sample2markers(
         error_pipe = open(os.devnull, 'w')
     else:
         error_pipe = None
-
-    # build bowtie2-index
-    try:
-        lock.acquire()
-        if not os.path.isfile(ifn_markers):
-            error = 'ifn_markers %s does not exist!'%ifn_markers
-            logger.error(error)
-            raise Exception(error)
-
-        ooSubprocess.mkdir(tmp_dir)
-        ofn_bam_sorted_prefix = os.path.join(
-                                    tmp_dir,
-                                    os.path.basename(ifn_sample) + '.bam.sorted')
-
-        bt2_base = ooSubprocess.splitext2(ifn_markers)[0]
-        index_fns = glob.glob('%s/%s.*'%(index_dir, bt2_base))
-        index_path = os.path.join(index_dir, bt2_base)
-        oosp = ooSubprocess.ooSubprocess(index_dir)
-        if index_fns == []:
-            oosp.ex(
-                    'bowtie2-build', 
-                    ['--quiet', ifn_markers, index_path],
-                    stderr=error_pipe)
-        else:
-            logger.warning('bowtie2-indexes of %s are ready, skip rebuilding!'
-                            %(bt2_base))
-    finally:
-        lock.release()
+    oosp = ooSubprocess.ooSubprocess(tmp_dir)
 
     # sample to sam
     sample_pipe = oosp.chain(
@@ -178,6 +175,9 @@ def sample2markers(
                                 'dump_file.py', 
                                 args=['--input_file', sam2file],
                                 stderr=error_pipe)
+    ofn_bam_sorted_prefix = os.path.join(
+                                tmp_dir,
+                                os.path.basename(ifn_sample) + '.bam.sorted')
 
     return sam2markers(
                        sam_file=sam_pipe, 
@@ -229,18 +229,6 @@ def sam2markers(
     # sam content to file object
     if oosp is None:
         oosp = ooSubprocess.ooSubprocess()
-
-    '''
-    try:
-        lock.acquire()
-        if ofn_bam_sorted_prefix is None:
-            ooSubprocess.mkdir(tmp_dir) 
-            ofn_bam_sorted_prefix = '%s/bam_sorted.%s'%(
-                                                        tmp_dir,
-                                                        str(random.random()))
-    finally:
-        lock.release()
-    '''
 
     if type(sam_file) == str:
         p1 = oosp.chain(
@@ -364,13 +352,13 @@ def run_sample(args_list):
     marker2file = output_prefix + args['marker2file_ext']
     if args['input_type'] == 'fastq':
         sample2markers(
-                    lock=lock,
                     ifn_sample=ifn_sample, 
                     min_read_len=args['min_read_len'],
                     min_align_score=args['min_align_score'],
                     min_base_quality=args['min_base_quality'],
                     error_rate=args['error_rate'],
                     ifn_markers=args['ifn_markers'], 
+                    index_path=args['index_path'],
                     nprocs=args['nprocs'],
                     sam2file=sam2file,
                     marker2file=marker2file, 
@@ -401,13 +389,11 @@ def compute_polymorphic_sites(sample2pileup, ifn_alignment):
 
 def main(args):
     ooSubprocess.mkdir(args['output_dir'])
-    '''
-    if args['use_threads']:
-        lock = threading.Lock()
-    else:
-        manager = multiprocessing.Manager()
-        lock = manager.Lock()
-    '''
+    manager = multiprocessing.Manager()
+
+    if args['input_type'] == 'fastq':
+        index_path = build_bowtie2db(args['ifn_markers'], args['output_dir'])
+        args['index_path'] = index_path
 
     args_list = []
     for ifn_sample in args['ifn_samples']:
