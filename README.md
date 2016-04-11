@@ -607,11 +607,11 @@ Step 2. Obtain the sam files from these samples by mapping them against MetaPhlA
 #!python
 
 mkdir -p sams
-for f in $(ls fastqs)
+for f in $(ls fastqs/*.bz2)
 do
     echo "Running metaphlan2 on ${f}"
     bn=$(basename ${f} | cut -d . -f 1)
-    tar xjfO fastqs/${f} | ../metaphlan2.py --bowtie2db ../db_v20/mpa_v20_m200 --mpa_pkl ../db_v20/mpa_v20_m200.pkl --input_type multifastq --nproc 10 -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o sams/${bn}.profile
+    tar xjfO ${f} | ../metaphlan2.py --bowtie2db ../db_v20/mpa_v20_m200 --mpa_pkl ../db_v20/mpa_v20_m200.pkl --input_type multifastq --nproc 10 -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o sams/${bn}.profile
 done
 ```
 
