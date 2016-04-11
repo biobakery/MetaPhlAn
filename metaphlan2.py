@@ -353,6 +353,8 @@ else:
     def mybytes( val ):
         return bytes(val,encoding='utf-8')
     
+# get the directory that contains this script
+metaphlan2_script_install_folder=os.path.dirname(os.path.abspath(__file__))
 
 def read_params(args):
     p = ap.ArgumentParser( description= 
@@ -371,32 +373,32 @@ def read_params(args):
             "relative abundance. This correspond to the default analysis type (--analysis_type rel_ab).\n\n"
 
             "*  Profiling a metagenome from raw reads:\n"
-            "$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --input_type fastq\n\n"
+            "$ metaphlan2.py metagenome.fastq --input_type fastq\n\n"
             
             "*  You can take advantage of multiple CPUs and save the intermediate BowTie2 output for re-running\n"
             "   MetaPhlAn extremely quickly:\n"
-            "$ metaphlan2.py metagenome.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
+            "$ metaphlan2.py metagenome.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
             
             "*  If you already mapped your metagenome against the marker DB (using a previous MetaPhlAn run), you\n"
             "   can obtain the results in few seconds by using the previously saved --bowtie2out file and \n"
             "   specifying the input (--input_type bowtie2out):\n"
-            "$ metaphlan2.py metagenome.bowtie2.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --nproc 5 --input_type bowtie2out\n\n"
+            "$ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out\n\n"
             
             "*  You can also provide an externally BowTie2-mapped SAM if you specify this format with \n"
             "   --input_type. Two steps: first apply BowTie2 and then feed MetaPhlAn2 with the obtained sam:\n"
             "$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/db_v20/mpa_v20_m200 -U metagenome.fastq\n"
-            "$ metaphlan2.py metagenome.sam --input_type sam --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl > profiled_metagenome.txt\n\n"
+            "$ metaphlan2.py metagenome.sam --input_type sam > profiled_metagenome.txt\n\n"
             
             "*  Multiple alternative ways to pass the input are also available:\n"
-            "$ cat metagenome.fastq | metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200\n"
-            "$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200\n"
-            "$ metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 < metagenome.fastq\n"
-            "$ metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 <(bzcat metagenome.fastq.bz2)\n"
-            "$ metaphlan2.py --input_type fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz)\n\n"
+            "$ cat metagenome.fastq | metaphlan2.py --input_type fastq \n"
+            "$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type fastq \n"
+            "$ metaphlan2.py --input_type fastq < metagenome.fastq\n"
+            "$ metaphlan2.py --input_type fastq <(bzcat metagenome.fastq.bz2)\n"
+            "$ metaphlan2.py --input_type fastq <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz)\n\n"
 
             "*  We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in \n"
             "  multiple files (but you need to specify the --bowtie2out parameter):\n"
-            "$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
+            "$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
             "\n------------------------------------------------------------------- \n \n\n"
         
             
@@ -412,24 +414,24 @@ def read_params(args):
             "*  The following command will output the abundance of each marker with a RPK (reads per kil-base) \n"
             "   higher 0.0. (we are assuming that metagenome_outfmt.bz2 has been generated before as \n"
             "   shown above).\n"
-            "$ metaphlan2.py -t marker_ab_table metagenome_outfmt.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
+            "$ metaphlan2.py -t marker_ab_table metagenome_outfmt.bz2 --input_type bowtie2out > marker_abundance_table.txt\n"
             "   The obtained RPK can be optionally normalized by the total number of reads in the metagenome \n"
             "   to guarantee fair comparisons of abundances across samples. The number of reads in the metagenome\n"
             "   needs to be passed with the '--nreads' argument\n\n"
 
             "*  The list of markers present in the sample can be obtained with '-t marker_pres_table'\n"
-            "$ metaphlan2.py -t marker_pres_table metagenome_outfmt.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
+            "$ metaphlan2.py -t marker_pres_table metagenome_outfmt.bz2 --input_type bowtie2out > marker_abundance_table.txt\n"
             "   The --pres_th argument (default 1.0) set the minimum RPK value to consider a marker present\n\n"
             
             "*  The list '-t clade_profiles' analysis type reports the same information of '-t marker_ab_table'\n"
             "   but the markers are reported on a clade-by-clade basis.\n"
-            "$ metaphlan2.py -t clade_profiles metagenome_outfmt.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n\n"
+            "$ metaphlan2.py -t clade_profiles metagenome_outfmt.bz2 --input_type bowtie2out > marker_abundance_table.txt\n\n"
             
             "*  Finally, to obtain all markers present for a specific clade and all its subclades, the \n"
             "   '-t clade_specific_strain_tracker' should be used. For example, the following command\n"
             "   is reporting the presence/absence of the markers for the B. fragulis species and its strains\n"
             "   the optional argument --min_ab specifies the minimum clade abundance for reporting the markers\n\n"
-            "$ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --mpa_pkl ${mpa_dir}/db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt\n"
+            "$ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --input_type bowtie2out > marker_abundance_table.txt\n"
             
             "\n------------------------------------------------------------------- \n\n"
             "",
@@ -455,9 +457,6 @@ def read_params(args):
 
     g = p.add_argument_group('Required arguments')
     arg = g.add_argument
-    arg( '--mpa_pkl', type=str, required = 'True', 
-         help = "the metadata pickled MetaPhlAn file")
-    
     input_type_choices = ['fastq','fasta','multifasta','multifastq','bowtie2out','sam'] # !!!!
     arg( '--input_type', choices=input_type_choices, required = 'True', help =  
          "set wheter the input is the multifasta file of metagenomic reads or \n"
@@ -466,9 +465,13 @@ def read_params(args):
    
     g = p.add_argument_group('Mapping arguments')
     arg = g.add_argument
-    arg( '--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default = None,
+    arg( '--mpa_pkl', type=str,
+         default=os.path.join(metaphlan2_script_install_folder,"db_v20","mpa_v20_m200.pkl"), 
+         help = "the metadata pickled MetaPhlAn file")
+    arg( '--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str,
+         default = os.path.join(metaphlan2_script_install_folder,"db_v20","mpa_v20_m200"),
          help = "The BowTie2 database file of the MetaPhlAn database. \n"
-                "REQUIRED if --input_type is fastq, fasta, multifasta, or multifastq")
+                "Used if --input_type is fastq, fasta, multifasta, or multifastq")
     bt2ps = ['sensitive','very-sensitive','sensitive-local','very-sensitive-local']
     arg( '--bt2_ps', metavar="BowTie2 presets", default='very-sensitive', choices=bt2ps,
          help = "presets options for BowTie2 (applied only when a multifasta file is provided)\n"
@@ -1098,6 +1101,14 @@ if __name__ == '__main__':
     #                          "specify the --input_type parameter \n" )
     #        sys.exit(1) 
 
+    # check for the mpa_pkl file
+    if not os.path.isfile(pars['mpa_pkl']):
+        sys.stderr.write("Error: Unable to find the mpa_pkl file at: " + pars['mpa_pkl'] +
+                         "\nExpecting location ${mpa_dir}/db_v20/map_v20_m200.pkl "
+                         "\nSelect the file location with the option --mpa_pkl.\n"
+                         "Exiting...\n\n")
+        sys.exit(1)           
+
     if pars['ignore_markers']:
         with open(pars['ignore_markers']) as ignv:
             ignore_markers = set([l.strip() for l in ignv])
@@ -1141,6 +1152,7 @@ if __name__ == '__main__':
             sys.stderr.write( "No MetaPhlAn BowTie2 database found "
                               "[--bowtie2db option]! "
                               "(or wrong path provided)."
+                              "\nExpecting location ${mpa_dir}/db_v20/map_v20_m200 "
                               "\nExiting... " )
             sys.exit(1)
 
