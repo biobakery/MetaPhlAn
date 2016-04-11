@@ -12,8 +12,8 @@ import shutil
 ABS_PATH = os.path.abspath(sys.argv[0])
 MAIN_DIR = os.path.dirname(ABS_PATH)
 os.environ['PATH'] += ':' + MAIN_DIR
-os.environ['PATH'] += ':' + os.path.join(MAIN_DIR, 'mpa3src')
-sys.path.append(os.path.join(MAIN_DIR, 'mpa3src'))
+os.environ['PATH'] += ':' + os.path.join(MAIN_DIR, 'strainer_src')
+sys.path.append(os.path.join(MAIN_DIR, 'strainer_src'))
 
 import which
 import argparse as ap
@@ -43,7 +43,7 @@ import gc
 shared_variables = type('shared_variables', (object,), {})
 
 # logging config
-ifn_logging_config = '%s/logging.ini'%MAIN_DIR
+ifn_logging_config = '%s/strainer_src/logging.ini'%MAIN_DIR
 logging.config.fileConfig(ifn_logging_config, disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 

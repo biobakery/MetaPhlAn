@@ -8,8 +8,9 @@ import os
 ABS_PATH = os.path.abspath(sys.argv[0])
 MAIN_DIR = os.path.dirname(ABS_PATH)
 os.environ['PATH'] += ':%s'%MAIN_DIR
+os.environ['PATH'] += ':%s'%os.path.join(MAIN_DIR, 'strainer_src')
 sys.path.append(MAIN_DIR)
-
+sys.path.append(os.path.join(MAIN_DIR, 'strainer_src'))
 
 import argparse as ap
 import glob
@@ -33,7 +34,7 @@ from collections import defaultdict
 from scipy import stats
 import numpy
 
-ifn_logging_config = '%s/../logging.ini'%MAIN_DIR
+ifn_logging_config = '%s/strainer_src/logging.ini'%MAIN_DIR
 if not os.path.isfile(ifn_logging_config):
     ifn_logging_config = '%s/logging.ini'%MAIN_DIR
 logging.config.fileConfig(ifn_logging_config, disable_existing_loggers=False)
