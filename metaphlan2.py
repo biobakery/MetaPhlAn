@@ -631,11 +631,15 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc,
         p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE ) 
         lmybytes, outf = (mybytes,bz2.BZ2File(outfmt6_out, "w")) if outfmt6_out.endswith(".bz2") else (str,open( outfmt6_out, "w" ))
         
-        if samout:
-            if samout[-4:] == '.bz2':
-                sam_file = bz2.BZ2File(samout, 'w')
-            else:
-                sam_file = open(samout, 'w')
+        try:
+            if samout:
+                if samout[-4:] == '.bz2':
+                    sam_file = bz2.BZ2File(samout, 'w')
+                else:
+                    sam_file = open(samout, 'w')
+        except IOError:
+            sys.stderr.write( "IOError: Unable to open sam output file.\n" )
+            sys.exit(1)
 
         for line in p.stdout:
             if samout:
