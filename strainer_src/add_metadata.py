@@ -1,5 +1,5 @@
-#Author: Duy Tin Truong (duytin.truong@unitn.it)
 #!/usr/bin/env python
+#Author: Duy Tin Truong (duytin.truong@unitn.it)
 #        at CIBIO, University of Trento, Italy
 
 
