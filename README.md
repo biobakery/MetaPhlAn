@@ -512,8 +512,7 @@ bowtie2-build metaphlan2/markers.fasta metaphlan2/db_v21/mpa_v21_m200
 import cPickle as pickle
 import bz2
 
-with open(args['mpa_pkl'], 'rb') as ifile:
-    db = pickle.loads(bz2.decompress(ifile.read()))
+db = pickle.load(bz2.BZ2File('db_v20/mpa_v20_m200.pkl', 'r'))
 
 # Add the taxonomy of the new genomes
 db['taxonomy']['taxonomy of genome1'] = length of genome1
