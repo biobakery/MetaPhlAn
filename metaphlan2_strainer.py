@@ -60,9 +60,16 @@ def read_params():
         help='The list of sample files (space separated).'\
                 'The wildcard can also be used.')
     p.add_argument(
+        '--ifn_representative_sample',
+        required=False,
+        default=None,
+        type=str,
+        help='The representative sample. The marker list of each species '\
+             'extracted from this sample will be used for all other samples.')
+    p.add_argument(
         '--mpa_pkl', 
-        required=True, 
-        default=None, 
+        required=False, 
+        default='db_v20/mpa_v20_m200.pkl', 
         type=str, 
         help='The database of metaphlan3.py.')
     p.add_argument(
@@ -336,7 +343,7 @@ def read_params():
 
 
 
-def filter_sequence(marker2seq, marker_strip_length, N_in_marker):
+def filter_sequence(sample, marker2seq, marker_strip_length, N_in_marker):
     '''
     Filter markers with percentage of N-bases greater than a threshold.
 
@@ -349,8 +356,8 @@ def filter_sequence(marker2seq, marker_strip_length, N_in_marker):
                       len(marker2seq[marker]['seq']) > N_in_marker]
     for marker in remove_markers:
         del marker2seq[marker]
-    logger.debug('number of markers after N_in_marker: %d'\
-                    %(len(marker2seq)))
+    log_line = 'sample %s, number of markers after N_in_marker: %d\n'\
+               %(sample, len(marker2seq))
 
     remove_markers = []
     for marker in marker2seq:
@@ -364,8 +371,9 @@ def filter_sequence(marker2seq, marker_strip_length, N_in_marker):
             remove_markers.append(marker)
     for marker in remove_markers:
         del marker2seq[marker]
-    logger.debug('number of markers after marker_strip_length: %d'\
-                    %(len(marker2seq)))
+    logger.debug(log_line + \
+                 'sample %s, number of markers after marker_strip_length: %d'\
+                 %(sample, len(marker2seq)))
 
     return marker2seq
 
@@ -509,17 +517,17 @@ def clean_alignment(
 
 
 
-def add_ref_genomes(sample2marker, marker_records, ifn_ref_genomes, tmp_dir):
+def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir):
     logger.debug('add %d reference genomes'%len(ifn_ref_genomes))
-    logger.debug('Number of samples: %d'%len(sample2marker))
+    logger.debug('Number of samples: %d'%len(genome2marker))
 
     # marker list
-    if len(sample2marker) == 0:
+    if len(genome2marker) == 0:
         unique_markers = set(marker_records.keys())
     else:
         unique_markers = set([])
-        for sample in sample2marker:
-            for marker in sample2marker[sample]:
+        for sample in genome2marker:
+            for marker in genome2marker[sample]:
                 if marker not in unique_markers:
                     unique_markers.add(marker)
     logger.debug('Number of unique markers: %d'%len(unique_markers))
@@ -602,25 +610,25 @@ def add_ref_genomes(sample2marker, marker_records, ifn_ref_genomes, tmp_dir):
         pstart = int(line[8])-1
         pend = int(line[9])-1
         genome = contigs[target]['genome']
-        if query not in sample2marker[genome]:
-            sample2marker[genome][query] = {}
+        if query not in genome2marker[genome]:
+            genome2marker[genome][query] = {}
             if pstart < pend:
-                sample2marker[genome][query]['seq'] = contigs[target]['seq'][pstart:pend+1]
+                genome2marker[genome][query]['seq'] = contigs[target]['seq'][pstart:pend+1]
             else:
-                sample2marker[genome][query]['seq'] = \
+                genome2marker[genome][query]['seq'] = \
                      str(Seq.Seq(
                                 contigs[target]['seq'][pend:pstart+1],
                                 IUPAC.unambiguous_dna).reverse_complement())
-            sample2marker[genome][query]['freq'] = [(0.0, 0.0, 0.0) for i in \
-                                                    range(len(sample2marker[genome][query]['seq']))]
-            sample2marker[genome][query]['seq'] = sample2marker[genome][query]['seq'].upper()
+            genome2marker[genome][query]['freq'] = [(0.0, 0.0, 0.0) for i in \
+                                                    range(len(genome2marker[genome][query]['seq']))]
+            genome2marker[genome][query]['seq'] = genome2marker[genome][query]['seq'].upper()
 
     # remove database
     for fn in glob.glob('%s*'%blastdb_prefix):
         os.remove(fn)
 
-    logger.debug('Number of samples and genomes: %d'%len(sample2marker))
-    return sample2marker
+    logger.debug('Number of samples and genomes: %d'%len(genome2marker))
+    return genome2marker
 
 
 
@@ -1034,7 +1042,8 @@ def load_sample(args):
     marker_in_clade = args['marker_in_clade']
     kept_markers = args['kept_markers']
     sample = ooSubprocess.splitext2(ifn_sample)[0]
-    marker2seq = msgpack.load(open(ifn_sample, 'rb'), use_list=False)
+    with open(ifn_sample, 'rb') as ifile:
+        marker2seq = msgpack.load(ifile, use_list=False)
 
     if kept_clade:
         if kept_clade == 'singleton':
@@ -1045,7 +1054,7 @@ def load_sample(args):
             for marker in marker2seq.keys():
                 clade = db['markers'][marker]['taxon'].split('|')[-1]
                 if kept_markers:
-                    if marker in kept_markers:
+                    if marker in kept_markers and clade == kept_clade:
                         nmarkers += 1
                     else:
                         del marker2seq[marker]
@@ -1144,16 +1153,16 @@ def load_all_samples(args, kept_clade, kept_markers):
 
 def strainer(args):
     # auto-set some params
-    if args['marker_list_fn']:
+    if args['marker_list_fn'] or args['ifn_representative_sample']:
         args['marker_in_clade'] = 0
     if args['relaxed_parameters']:
-        if not args['marker_list_fn']:
+        if not args['marker_list_fn'] and not args['ifn_representative_sample']:
             args['marker_in_clade'] = 0.5
         args['sample_in_marker'] = 0.5
         args['N_in_marker'] = 0.5
         args['gap_in_sample'] = 0.5
     elif args['relaxed_parameters2']:
-        if not args['marker_list_fn']:
+        if not args['marker_list_fn'] and not args['ifn_representative_sample']:
             args['marker_in_clade'] = 0.2
         args['sample_in_marker'] = 0.2
         args['N_in_marker'] = 0.8
@@ -1260,13 +1269,24 @@ def strainer(args):
         shared_variables.sing_clades = sing_clades
         shared_variables.clade2num_markers = clade2num_markers
 
-    kept_markers = []
+    kept_markers = set([])
     if args['marker_list_fn']:
         with open(args['marker_list_fn'], 'r') as ifile:
             for line in ifile:
-                kept_markers.append(line.strip())
-    kept_markers = set(kept_markers)
-
+                kept_markers.add(line.strip())
+    elif args['ifn_representative_sample']:
+        with open(args['ifn_representative_sample'], 'rb') as ifile:
+            repr_marker2seq = msgpack.load(ifile, use_list=False)
+        if args['clades'] != ['all'] and args['clades'] != ['singleton']:
+            for marker in repr_marker2seq:
+                clade = db['markers'][marker]['taxon'].split('|')[-1]
+                if clade in args['clades']:
+                    kept_markers.add(marker)
+        else:
+            kept_markers = set(repr_marker2seq.keys())
+        logger.debug('Number of markers in the representative '\
+                     'sample: %d'%len(kept_markers))
+    
     # get clades from samples
     if args['clades'] == ['all']:
         logger.info('Get clades from samples')
@@ -1285,7 +1305,8 @@ def strainer(args):
         logger.info('Add reference genomes')
         marker_records = {}
         for rec in SeqIO.parse(open(args['ifn_markers'], 'r'), 'fasta'):
-            marker_records[rec.name] = rec
+            if rec.id in kept_markers or (not kept_markers):
+                marker_records[rec.id] = rec
         add_ref_genomes(
                         ref2marker, 
                         marker_records, 
@@ -1327,6 +1348,7 @@ def strainer(args):
         logger.debug('Filter consensus marker sequences')
         for sample in sample2marker:
             sample2marker[sample] = filter_sequence(
+                                                    sample,
                                                     sample2marker[sample],
                                                     args['marker_strip_length'],
                                                     args['N_in_marker'])
