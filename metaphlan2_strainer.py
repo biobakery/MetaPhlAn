@@ -1274,6 +1274,8 @@ def strainer(args):
         with open(args['marker_list_fn'], 'r') as ifile:
             for line in ifile:
                 kept_markers.add(line.strip())
+        if not kept_markers:
+            raise Exception('Number of markers in the marker_list_fn is 0!'%args['marker_list_fn'])
     elif args['ifn_representative_sample']:
         with open(args['ifn_representative_sample'], 'rb') as ifile:
             repr_marker2seq = msgpack.load(ifile, use_list=False)
@@ -1286,6 +1288,8 @@ def strainer(args):
             kept_markers = set(repr_marker2seq.keys())
         logger.debug('Number of markers in the representative '\
                      'sample: %d'%len(kept_markers))
+        if not kept_markers:
+            raise Exception('Number of markers in the representative sample is 0!')
     
     # get clades from samples
     if args['clades'] == ['all']:
