@@ -42,7 +42,6 @@ try:
 except:
     import pickle
 
-import cStringIO
 
 #*************************************************************
 #*  Imports related to biom file generation                  *
@@ -863,7 +862,7 @@ class TaxTree:
             father = self.root
             for clade_lev in clade: # !!!!! [:-1]:
                 if not clade_lev in father.children:
-                    father.add_child( clade_lev, id_int=self.id_gen.next() )
+                    father.add_child( clade_lev, id_int=next(self.id_gen) )
                     self.all_clades[clade_lev] = father.children[clade_lev]
                 if clade_lev[0] == "t":
                     self.taxa2clades[clade_lev[3:]] = father
