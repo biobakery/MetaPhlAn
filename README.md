@@ -123,7 +123,7 @@ $ metaphlan2.py --input_type fastq <(bzcat metagenome.fastq.bz2) > profiled_meta
 $ metaphlan2.py --input_type fastq <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz) > profiled_metagenome.txt
 ```
 
-MetaPhlAn 2 can also natively **handle paired-end metagenomes**, and, more generally, metagenomes stored in multiple files (but you need to specify the --bowtie2out parameter):
+MetaPhlAn 2 can also natively **handle paired-end metagenomes** (but does not use the paired-end information), and, more generally, metagenomes stored in multiple files (but you need to specify the --bowtie2out parameter):
 
 ```
 #!cmd
