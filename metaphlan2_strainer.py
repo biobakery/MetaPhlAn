@@ -54,11 +54,25 @@ def read_params():
     p.add_argument(
         '--ifn_samples',
         nargs='+',
-        required=True,
-        default=None,
+        required=False,
+        default=[],
         type=str,
         help='The list of sample files (space separated).'\
                 'The wildcard can also be used.')
+
+    p.add_argument(
+        '--ifn_second_samples',
+        nargs='+',
+        required=False,
+        default=[],
+        type=str,
+        help='The list of second sample files (space separated).'\
+             'Those samples will be added after identifying the '\
+             'markers from the samples specified by --ifn_samples '\
+             'or --ifn_representative_sample. The samples that do not '\
+             'have all markers identified before will be removed.'
+             'The wildcard can also be used.')
+
     p.add_argument(
         '--ifn_representative_sample',
         required=False,
@@ -66,24 +80,28 @@ def read_params():
         type=str,
         help='The representative sample. The marker list of each species '\
              'extracted from this sample will be used for all other samples.')
+
     p.add_argument(
         '--mpa_pkl', 
         required=False, 
         default='db_v20/mpa_v20_m200.pkl', 
         type=str, 
         help='The database of metaphlan3.py.')
+
     p.add_argument(
         '--output_dir', 
         required=True, 
         default='strainer_output', 
         type=str,
         help='The output directory.')
+
     p.add_argument(
         '--ifn_markers', 
         required=False, 
         default=None, 
         type=str,
         help='The marker file in fasta format.')
+
     p.add_argument(
         '--nprocs_main', 
         required=False, 
@@ -91,6 +109,7 @@ def read_params():
         type=int,
         help='The number of processors are used for the main threads. '\
              'Default 1.')
+
     p.add_argument(
         '--nprocs_load_samples', 
         required=False, 
@@ -98,6 +117,7 @@ def read_params():
         type=int,
         help='The number of processors are used for loading samples. '\
              'Default nprocs_main.')
+
     p.add_argument(
         '--nprocs_align_clean', 
         required=False, 
@@ -105,6 +125,7 @@ def read_params():
         type=int,
         help='The number of processors are used for aligning and cleaning markers. '\
              'Default nprocs_main.')
+
     p.add_argument(
         '--nprocs_raxml', 
         required=False, 
@@ -112,6 +133,7 @@ def read_params():
         type=int,
         help='The number of processors are used for running raxml. '\
              'Default nprocs_main.')
+
     p.add_argument(
         '--bootstrap_raxml', 
         required=False, 
@@ -119,7 +141,7 @@ def read_params():
         type=int,
         help='The number of runs for bootstraping when building the tree. '\
              'Default 0.')
- 
+
     p.add_argument(
         '--ifn_ref_genomes',
         nargs='+',
@@ -127,6 +149,18 @@ def read_params():
         default=None,
         type=str,
         help='The reference genome file names. They are separated by spaces.')
+
+    p.add_argument(
+        '--add_ref_genomes_after_samples', 
+        required=False, 
+        dest='add_ref_genomes_after_samples',
+        action='store_true',
+        help='Add reference genomes after identifying markers '\
+             'from samples specified by --ifn_samples. The reference '\
+             'genomes that do not have all markers will be removed. '
+             'Default "False".')
+    p.set_defaults(add_ref_genomes_after_samples=False)
+
     p.add_argument(
         '--N_in_marker',
         required=False,
@@ -134,6 +168,7 @@ def read_params():
         type=float,
         help='The consensus markers with the rate of N nucleotides greater than '\
                 'this threshold are removed. Default 0.2.')
+
     p.add_argument(
         '--marker_strip_length',
         required=False,
@@ -141,6 +176,7 @@ def read_params():
         type=int,
         help='The number of nucleotides will be deleted from each of two ends '\
                 'of a marker. Default 50.')
+
     p.add_argument(
         '--marker_in_clade',
         required=False,
@@ -148,6 +184,7 @@ def read_params():
         type=float,
         help='In each sample, the clades with the rate of present markers less than '\
                 'this threshold are removed. Default 0.8.')
+
     p.add_argument(
         '--sample_in_clade',
         required=False,
@@ -155,6 +192,7 @@ def read_params():
         type=int,
         help='Only clades present in at least sample_in_clade samples '\
              'are kept. Default 2.')
+
     p.add_argument(
         '--sample_in_marker',
         required=False,
@@ -162,6 +200,7 @@ def read_params():
         type=float,
         help='If the percentage of samples that a marker present in is '\
              'less than this threhold, that marker is removed. Default 0.8.')
+
     p.add_argument(
         '--gap_in_trailing_col',
         required=False,
@@ -172,6 +211,7 @@ def read_params():
               'gap_in_trailing_col is less than gap_trailing_col_limit, '\
               'these columns will be removed. '\
               'Default 0.2.')
+
     p.add_argument(
         '--gap_trailing_col_limit',
         required=False,
@@ -182,6 +222,7 @@ def read_params():
               'gap_in_trailing_col is less than gap_trailing_col_limit, '\
               'these columns will be removed. '\
               'Default 101.')
+
     p.add_argument(
         '--gap_in_internal_col',
         required=False,
@@ -191,6 +232,7 @@ def read_params():
               'markers with the percentage of gaps greater than '\
               'gap_in_internal_col will be removed. '\
               'Default 0.3.')
+
     p.add_argument(
         '--gap_in_sample',
         required=False,
@@ -199,6 +241,7 @@ def read_params():
         help='The samples with full sequences from all markers '\
             'and having the percentage of gaps greater than this threshold '\
             'will be removed. Default 0.2.')
+
     p.add_argument(
         '--N_col',
         required=False,
@@ -208,6 +251,7 @@ def read_params():
               'containing more than N_count Ns '\
               'less than this threshold, these columns will be removed. '
               'Default 0.8.')
+
     p.add_argument(
         '--N_count',
         required=False,
@@ -217,6 +261,7 @@ def read_params():
               'containing more than N_count Ns '\
               'less than N_col threshold, these columns will be removed. '\
               'Default 0.')
+
     p.add_argument(
         '--long_gap_length',
         required=False,
@@ -231,6 +276,7 @@ def read_params():
                 'length is less than long_gap_percentage, these positions '\
                 'will be removed from all concatenated sequences. '\
                 'Default 2.')
+
     p.add_argument(
         '--long_gap_percentage',
         required=False,
@@ -238,6 +284,7 @@ def read_params():
         type=float,
         help='Combining this threshold with long_gap_length to removed long '\
              'gaps. Default 0.8.')
+
     p.add_argument(
         '--p_value',
         required=False,
@@ -245,6 +292,7 @@ def read_params():
         type=float,
         help='The p_value to reject a non-polymorphic site.'\
              'Default 0.05.')
+
     p.add_argument(
         '--clades', 
         nargs='+',
@@ -716,6 +764,7 @@ def align_clean(args):
 def build_tree(
         clade,
         sample2marker, 
+        sample2order,
         clade2num_markers,
         sample_in_clade,
         sample_in_marker,
@@ -761,10 +810,22 @@ def build_tree(
     # align sequences in each marker
     markers = set([]) 
     for sample in sample2marker:
-        for marker in sample2marker[sample]:
-            if marker not in markers:
-                markers.add(marker)
+        if sample2order[sample] == 'first':
+            for marker in sample2marker[sample]:
+                if marker not in markers:
+                    markers.add(marker)
     markers = sorted(list(markers))
+
+    # remove second samples that do not have all markers
+    remove_samples = []
+    for sample in sample2marker:
+        if sample2order[sample] == 'second':
+            for marker in markers:
+                if marker not in sample2marker[sample]:
+                    remove_samples.append(sample)
+                    break
+    for sample in remove_samples:
+        del sample2marker[sample]
 
     logger.debug('number of used markers: %d'%len(markers))
     ofile_cladeinfo.write('number of used markers: %d\n'%len(markers))
@@ -1062,6 +1123,7 @@ def load_sample(args):
                     nmarkers += 1
                 else:
                     del marker2seq[marker]
+        print ifn_sample, nmarkers
         if not kept_markers:
             if float(nmarkers) / clade2num_markers[kept_clade] < marker_in_clade:
                 marker2seq = {}
@@ -1105,11 +1167,8 @@ def load_sample(args):
 
 
 def load_all_samples(args, kept_clade, kept_markers):
-    ifn_samples = args['ifn_samples']
-    if ifn_samples == ['None']:
-        ifn_samples = None
-
-    if ifn_samples == None:
+    ifn_samples = args['ifn_samples'] + args['ifn_second_samples']
+    if not ifn_samples:
         return None
     else:
         args_list = []
@@ -1199,7 +1258,7 @@ def strainer(args):
         logger.error('clades is set to singleton but ifn_markers is not set!')
         exit(1)
 
-    if args['ifn_samples'] == None:
+    if args['ifn_samples'] == []:
         args['clades'] = ['singleton']
 
     if args['nprocs_load_samples'] == None:
@@ -1338,6 +1397,20 @@ def strainer(args):
         sample2marker = load_all_samples(args, 
                                          kept_clade=clade,
                                          kept_markers=kept_markers)
+        # set order
+        sample2order = {}
+        for sample in sample2marker:
+            sample2order[sample] = 'first'
+
+        for ifn in args['ifn_second_samples']:
+            sample = ooSubprocess.splitext2(ifn)[0]
+            sample2order[sample] = 'second'
+        
+        for ref in ref2marker:
+            if args['add_ref_genomes_after_samples']:
+                sample2order[ref] = 'second'
+            else:
+                sample2order[ref] = 'first'
 
         for r in ref2marker:
             sample2marker[r] = ref2marker[r]
@@ -1378,6 +1451,7 @@ def strainer(args):
         build_tree(
             clade=clade,
             sample2marker=sample2marker, 
+            sample2order=sample2order,
             clade2num_markers=clade2num_markers,
             sample_in_clade=args['sample_in_clade'],
             sample_in_marker=args['sample_in_marker'],
