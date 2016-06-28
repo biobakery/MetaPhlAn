@@ -566,6 +566,7 @@ def clean_alignment(
 
 
 def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir):
+    ifn_ref_genomes = sorted(list(set(ifn_ref_genomes)))
     logger.debug('add %d reference genomes'%len(ifn_ref_genomes))
     logger.debug('Number of samples: %d'%len(genome2marker))
 
@@ -1168,6 +1169,7 @@ def load_sample(args):
 
 def load_all_samples(args, kept_clade, kept_markers):
     ifn_samples = args['ifn_samples'] + args['ifn_second_samples']
+    ifn_samples = sorted(list(set(ifn_samples)))
     if not ifn_samples:
         return None
     else:
