@@ -568,7 +568,7 @@ MetaPhlAn3_Strainer requires *python 2.7* and the libraries [pysam](http://pysam
 
 * [MUSCLE](http://www.drive5.com/muscle/) for the alignment step.
 
-* [samtools, bcftools and vcfutils.pl](http://samtools.sourceforge.net/) for building consensus markers. Note that vcfutils.pl is included in bcftools and **StrainPhlAn only works with samtools version 0.1.19** as samtools has changed the output format after this version.
+* [samtools, bcftools and vcfutils.pl](http://samtools.sourceforge.net/) which can be downloaded from [here](https://github.com/samtools) for building consensus markers. Note that vcfutils.pl is included in bcftools and **StrainPhlAn only works with samtools version 0.1.19** as samtools has changed the output format after this version.
 
 * [blastn](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) for adding reference genomes to the phylogenetic tree.
 
