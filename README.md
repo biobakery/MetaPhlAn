@@ -550,7 +550,7 @@ In detail, let us start from a toy example with 6 HMP gut metagenomic samples (S
 * extract the *Bacteroides caccae* strains from these samples and compare them with the reference genome in a phylogenetic tree.
 * know how many snps between those strains and the reference genome.
 
-Running MetaPhlAn_Strainer on these samples, we will obtain the *Bacteroides caccae* phylogentic tree with the multiple sequence alignment in the following figure (produced with [ete2](http://etetoolkit.org/) and [Jalview](http://www.jalview.org/)):
+Running MetaPhlAn2_Strainer on these samples, we will obtain the *Bacteroides caccae* phylogentic tree and its multiple sequence alignment in the following figure (produced with [ete2](http://etetoolkit.org/) and [Jalview](http://www.jalview.org/)):
 
 ![tree_alignment.png](https://bitbucket.org/repo/74yKEg/images/1860045700-tree_alignment.png)
 
@@ -602,7 +602,7 @@ Step 1. Download 6 HMP gut metagenomic samples, the metadata.txt file and one re
 
 Step 2. Obtain the sam files from these samples by mapping them against MetaPhlAn2 database:
 
-This step will run MetaPhlAn2 to map all metagenomic samples against the MetaPhlAn2 marker database and produce the sam files.
+This step will run MetaPhlAn2 to map all metagenomic samples against the MetaPhlAn2 marker database and produce the sam files (\*.sam.bz2).
 Each sam file (in SAM format) corresponding to each sample contains the reads mapped against the marker database of MetaPhlAn2.
 The commands to run are:
 
@@ -618,12 +618,12 @@ do
 done
 ```
 
-After this step, you will have a folder "sams" containing the sam files and other MetaPhlAn2 output files. 
+After this step, you will have a folder "sams" containing the sam files (\*.sam.bz2) and other MetaPhlAn2 output files. 
 This step will take around 270 minutes. If you want to skip this step, you can download the sam files from the folder "sams" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 
 Step 3. Produce the consensus-marker files which are the input for MetaPhlAn2_Strainer:
 
-This step will reconstruct all species strains found in each sample and store them in a marker file (\*.markers). Those strains are referred as *sample-reconstructed strains*. Additional details in generating consensus sequences can be found [here](http://samtools.sourceforge.net/mpileup.shtml).
+For each sample, this step will reconstruct all species strains found in it and store them in a marker file (\*.markers). Those strains are referred as *sample-reconstructed strains*. Additional details in generating consensus sequences can be found [here](http://samtools.sourceforge.net/mpileup.shtml).
 The commands to run are:
 
 
@@ -637,6 +637,7 @@ python ../strainer_src/sample2markers.py --ifn_samples sams/*.sam.bz2 --input_ty
 ```
 
 The result is the same if you want run several sample2markers.py scripts in parallel with each run for a sample (this maybe useful for some cluster-system settings).
+After this step, you will have a folder "consensus_markers" containing all sample-marker files (\*.markers).
 This steps will take around 44 minutes.  If you want to skip this step, you can download the consensus marker files from the folder "consensus_markers" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 
 Step 4. Extract the markers of *Bacteroides_caccae* from MetaPhlAn2 database (to add its reference genome later):
@@ -652,7 +653,9 @@ bowtie2-inspect ../db_v20/mpa_v20_m200 > db_markers/all_markers.fasta
 python ../strainer_src/extract_markers.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_markers db_markers/all_markers.fasta --clade s__Bacteroides_caccae --ofn_markers db_markers/s__Bacteroides_caccae.markers.fasta
 ```
 
-Note that the "all_markers.fasta" file consists can be reused for extracting other reference genomes. This step will take around 1 minute and can skipped if you do not need to add the reference genomes to the phylogenetic tree. Those markers can be found in the folder "db_markers" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0)
+Note that the "all_markers.fasta" file consists can be reused for extracting other reference genomes. 
+After this step, you should have two files: 'db_markers/all_markers.fasta' containing all marker sequences, and 'db_markers/s__Bacteroides_caccae.markers.fasta' containing the markers of *s__Bacteroides_caccae*.
+This step will take around 1 minute and can skipped if you do not need to add the reference genomes to the phylogenetic tree. Those markers can be found in the folder "db_markers" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0)
 
 Before building the trees, we should get the list of all clades detected from the samples and save them in the "output/clades.txt" file by the following command:
 ```
