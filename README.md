@@ -654,8 +654,8 @@ python ../strainer_src/extract_markers.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl -
 ```
 
 Note that the "all_markers.fasta" file consists can be reused for extracting other reference genomes. 
-After this step, you should have two files: 'db_markers/all_markers.fasta' containing all marker sequences, and 'db_markers/s__Bacteroides_caccae.markers.fasta' containing the markers of *s__Bacteroides_caccae*.
-This step will take around 1 minute and can skipped if you do not need to add the reference genomes to the phylogenetic tree. Those markers can be found in the folder "db_markers" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0)
+After this step, you should have two files in folder "db_markers": "all_markers.fasta" containing all marker sequences, and "s__Bacteroides_caccae.markers.fasta" containing the markers of *Bacteroides caccae*.
+This step will take around 1 minute and can skipped if you do not need to add the reference genomes to the phylogenetic tree. Those markers can be found in the folder "db_markers" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 
 Before building the trees, we should get the list of all clades detected from the samples and save them in the "output/clades.txt" file by the following command:
 ```
