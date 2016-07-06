@@ -669,7 +669,7 @@ The clade names in the output file "clades.txt" will be used for the next step.
 Step 5. Build the multiple sequence alignment and phylogenetic tree:
 
 This step will align and clean the *sample-reconstructed strains* (stored in the marker files produced in step 3) and *reference-genome-reconstructed strains* (extracted based on the database markers in step 4) to produce a multiple sequence alignment (MSA) and store it in the file "clade_name.fasta". From this MSA file, MetaPhlAn2_Strainer will call RAxML to build the phylogenetic tree.
-Note that: all marker files (\*.markers) *must be used together* as the input for the metaphlan2_strainer.py script because MetaPhlAn2_Strainer needs to align all of the strains at once.
+Note that: all marker files (\*.markers) **must be used together** as the input for the metaphlan2_strainer.py script because MetaPhlAn2_Strainer needs to align all of the strains at once.
 
 The commands to run are:
 
