@@ -541,16 +541,16 @@ ofile.close()
 
 ##**Metagenomic strain-level population genomics**##
 
-MetaPhlAn3_Strainer is a computational tool for tracking individual strains across large set of samples. The input of MetaPhlAn3_Strainer is a set of metagenomic samples and the output is a set of phylogenetic trees showing the strain evolution of the samples where each tree is corresponding to a species. 
-For each sample, MetaPhlAn3_Strainer extracts the strain of a specific species by merging and concatenating all reads mapped against that species markers in the MetaPhlAn2 database.
+MetaPhlAn2_Strainer is a computational tool for tracking individual strains across large set of samples. **The input** of MetaPhlAn2_Strainer is a set of metagenomic samples and for each species, **the output** is a multiple sequence alignment (MSA) file of all species strains reconstructed directly from the samples. From this MSA, MetaPhlAn2_Strainer calls RAxML (or other phylogenetic tree builders) to build the phylogenetic tree showing the strain evolution of the sample strains. 
+For each sample, MetaPhlAn2_Strainer extracts the strain of a specific species by merging and concatenating all reads mapped against that species markers in the MetaPhlAn2 database.
 
 In detail, let us start from a toy example with 6 HMP gut metagenomic samples (SRS055982-subjectID_638754422, SRS022137-subjectID_638754422, SRS019161-subjectID_763496533, SRS013951-subjectID_763496533, SRS014613-subjectID_763840445, SRS064276-subjectID_763840445) from 3 three subjects (each was sampled at two time points) and one *Bacteroides caccae* genome G000273725. 
-We would like to:
+**We would like to**:
 
 * extract the *Bacteroides caccae* strains from these samples and compare them with the reference genome in a phylogenetic tree.
 * know how many snps between those strains and the reference genome.
 
-Running MetaPhlAn_Strainer on these samples, we will obtain the *Bacteroides caccae* phylogentic tree with the alignment in the following figure (produced with [ete2](http://etetoolkit.org/) and [Jalview](http://www.jalview.org/)):
+Running MetaPhlAn_Strainer on these samples, we will obtain the *Bacteroides caccae* phylogentic tree with the multiple sequence alignment in the following figure (produced with [ete2](http://etetoolkit.org/) and [Jalview](http://www.jalview.org/)):
 
 ![tree_alignment.png](https://bitbucket.org/repo/74yKEg/images/1860045700-tree_alignment.png)
 
@@ -562,7 +562,7 @@ In addition, the table below shows the number of snps between the sample strains
 In the next sections, we will illustrate step by step how to run MetaPhlAn_Strainer on this toy example to reproduce the above figures.
 
 ### Pre-requisites ###
-MetaPhlAn3_Strainer requires *python 2.7* and the libraries [pysam](http://pysam.readthedocs.org/en/latest/), [biopython](http://biopython.org/wiki/Main_Page), [msgpack](https://pypi.python.org/pypi/msgpack-python) and [numpy](http://www.numpy.org/). Besides, MetaPhlAn3_Strainer also needs the following programs in the executable path:
+MetaPhlAn2_Strainer requires *python 2.7* and the libraries [pysam](http://pysam.readthedocs.org/en/latest/), [biopython](http://biopython.org/wiki/Main_Page), [msgpack](https://pypi.python.org/pypi/msgpack-python) and [numpy](http://www.numpy.org/). Besides, MetaPhlAn2_Strainer also needs the following programs in the executable path:
 
 * [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml) for mapping reads against the marker database.
 
@@ -602,6 +602,10 @@ Step 1. Download 6 HMP gut metagenomic samples, the metadata.txt file and one re
 
 Step 2. Obtain the sam files from these samples by mapping them against MetaPhlAn2 database:
 
+This step will run MetaPhlAn2 to map all metagenomic samples against the MetaPhlAn2 marker database and produce the sam files.
+Each sam file (in SAM format) corresponding to each sample contains the reads mapped against the marker database of MetaPhlAn2.
+The commands to run are:
+
 ```
 #!python
 
@@ -614,9 +618,14 @@ do
 done
 ```
 
-After this step, you will have a folder "sams" containing the sam files and other MetaPhlAn2 output files. This step will take around 270 minutes. If you want to skip this step, you can download the sam files from the folder "sams" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
+After this step, you will have a folder "sams" containing the sam files and other MetaPhlAn2 output files. 
+This step will take around 270 minutes. If you want to skip this step, you can download the sam files from the folder "sams" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 
-Step 3. Produce the consensus-marker files which are the input for MetaPhlAn3_Strainer:
+Step 3. Produce the consensus-marker files which are the input for MetaPhlAn2_Strainer:
+
+This step will reconstruct all species strains found in each sample and store them in a marker file (\*.markers). Those strains are referred as *sample-reconstructed strains*. Additional details in generating consensus sequences can be found [here](http://samtools.sourceforge.net/mpileup.shtml).
+The commands to run are:
+
 
 ```
 #!python
@@ -627,9 +636,13 @@ export PATH=${cwd}/../strainer_src:${PATH}
 python ../strainer_src/sample2markers.py --ifn_samples sams/*.sam.bz2 --input_type sam --output_dir consensus_markers --nprocs 10 &> consensus_markers/log.txt
 ```
 
+The result is the same if you want run several sample2markers.py scripts in parallel with each run for a sample (this maybe useful for some cluster-system settings).
 This steps will take around 44 minutes.  If you want to skip this step, you can download the consensus marker files from the folder "consensus_markers" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 
 Step 4. Extract the markers of *Bacteroides_caccae* from MetaPhlAn2 database (to add its reference genome later):
+
+This step will extract the markers of *Bacteroides_caccae* in the database and then MetaPhlAn2_Strainer will identify the sequences in the reference genomes that are closet to them (in the next step by using blast). Those will be concatenated and referred as *reference-genome-reconstructed strains*. 
+The commands to run are:
 
 ```
 #!python
@@ -641,14 +654,21 @@ python ../strainer_src/extract_markers.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl -
 
 Note that the "all_markers.fasta" file consists can be reused for extracting other reference genomes. This step will take around 1 minute and can skipped if you do not need to add the reference genomes to the phylogenetic tree. Those markers can be found in the folder "db_markers" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0)
 
-To get the list of all clades detected from the samples and save them in the "output/clades.txt" file, you can run:
+Before building the trees, we should get the list of all clades detected from the samples and save them in the "output/clades.txt" file by the following command:
 ```
 #!python
 
 python ../metaphlan2_strainer.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_samples consensus_markers/*.markers --output_dir output --nprocs_main 10 --print_clades_only > output/clades.txt
 ```
 
-Step 5. Build the tree:
+The clade names in the output file "clades.txt" will be used for the next step.
+
+Step 5. Build the multiple sequence alignment and phylogenetic tree:
+
+This step will align and clean the *sample-reconstructed strains* (stored in the marker files produced in step 3) and *reference-genome-reconstructed strains* (extracted based on the database markers in step 4) to produce a multiple sequence alignment (MSA) and store it in the file "clade_name.fasta". From this MSA file, MetaPhlAn2_Strainer will call RAxML to build the phylogenetic tree.
+Note that: all marker files (\*.markers) *must be used together* as the input for the metaphlan2_strainer.py script because MetaPhlAn2_Strainer needs to align all of the strains at once.
+
+The commands to run are:
 
 ```
 #!python
