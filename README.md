@@ -552,14 +552,12 @@ In detail, let us start from a toy example with 6 HMP gut metagenomic samples (S
 
 Running MetaPhlAn2_Strainer on these samples, we will obtain the *Bacteroides caccae* phylogentic tree and its multiple sequence alignment in the following figure (produced with [ete2](http://etetoolkit.org/) and [Jalview](http://www.jalview.org/)):
 
-![tree_alignment.png](https://bitbucket.org/repo/74yKEg/images/1860045700-tree_alignment.png)
-
 ![tree_alignment.png](https://bitbucket.org/repo/rM969K/images/476974413-tree_alignment.png)
 
 We can see that the strains from the same subject are grouped together. The tree also highlights that the strains from subject "763840445" (red color) do not change between two sampling time points whereas the strains from the other subjects have slightly evolved. From the tree, we also know that the strains of subject "763496533" is closer to the reference genome than those of the others. 
 In addition, the table below shows the number of snps between the sample strains and the reference genome based on the strain alignment returned by MetaPhlAN_Strainer.
 
-![snp_distance.png](https://bitbucket.org/repo/74yKEg/images/1683082367-snp_distance.png)
+![snp_distance.png](https://bitbucket.org/repo/rM969K/images/1771497600-snp_distance.png)
 
 In the next sections, we will illustrate step by step how to run MetaPhlAn_Strainer on this toy example to reproduce the above figures.
 
