@@ -682,6 +682,9 @@ python ../metaphlan2_strainer.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_samp
 
 This step will take around 2 minutes. After this step, you will find the tree "output/RAxML_bestTree.s__Bacteroides_caccae.tree". All the output files can be found in the folder "output" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 You can view it by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) or any other viewers.
+
+By default, if you do not specify reference genomes (by --ifn_ref_genomes) and any specific clade (by --clades), metaphlan2_strainer.py will build the phylogenetic trees for all species that it can detect.
+
 In order to add the metadata, we also provide a script called "add_metadata.py" which can be used as follows:
 
 ```
