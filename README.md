@@ -552,12 +552,12 @@ In detail, let us start from a toy example with 6 HMP gut metagenomic samples (S
 
 Running MetaPhlAn2_Strainer on these samples, we will obtain the *Bacteroides caccae* phylogentic tree and its multiple sequence alignment in the following figure (produced with [ete2](http://etetoolkit.org/) and [Jalview](http://www.jalview.org/)):
 
-![tree_alignment.png](https://bitbucket.org/repo/74yKEg/images/1860045700-tree_alignment.png)
+![tree_alignment.png](https://bitbucket.org/repo/rM969K/images/476974413-tree_alignment.png)
 
 We can see that the strains from the same subject are grouped together. The tree also highlights that the strains from subject "763840445" (red color) do not change between two sampling time points whereas the strains from the other subjects have slightly evolved. From the tree, we also know that the strains of subject "763496533" is closer to the reference genome than those of the others. 
 In addition, the table below shows the number of snps between the sample strains and the reference genome based on the strain alignment returned by MetaPhlAN_Strainer.
 
-![snp_distance.png](https://bitbucket.org/repo/74yKEg/images/1683082367-snp_distance.png)
+![snp_distance.png](https://bitbucket.org/repo/rM969K/images/1771497600-snp_distance.png)
 
 In the next sections, we will illustrate step by step how to run MetaPhlAn_Strainer on this toy example to reproduce the above figures.
 
@@ -682,6 +682,9 @@ python ../metaphlan2_strainer.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_samp
 
 This step will take around 2 minutes. After this step, you will find the tree "output/RAxML_bestTree.s__Bacteroides_caccae.tree". All the output files can be found in the folder "output" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 You can view it by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) or any other viewers.
+
+By default, if you do not specify reference genomes (by --ifn_ref_genomes) and any specific clade (by --clades), metaphlan2_strainer.py will build the phylogenetic trees for all species that it can detect.
+
 In order to add the metadata, we also provide a script called "add_metadata.py" which can be used as follows:
 
 ```
