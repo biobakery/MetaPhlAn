@@ -977,6 +977,7 @@ def build_tree(
             len(sample2fullseq[sample]) > gap_in_sample:
             del sample2fullseq[sample]
             del sample2fullfreq[sample]
+            logger.debug('remove sample %s by gap_in_sample'%sample)
     logger.debug(
             'number of samples after gap_in_sample: %d'\
             %len(sample2fullseq))
@@ -1401,12 +1402,19 @@ def strainer(args):
                                          kept_markers=kept_markers)
         # set order
         sample2order = {}
-        for sample in sample2marker:
+
+        if args['ifn_representative_sample']:
+            sample = ooSubprocess.splitext2(args['ifn_representative_sample'])[0]
+            sample2order[sample] = 'first'
+
+        for ifn in args['ifn_samples']:
+            sample = ooSubprocess.splitext2(ifn)[0]
             sample2order[sample] = 'first'
 
         for ifn in args['ifn_second_samples']:
             sample = ooSubprocess.splitext2(ifn)[0]
-            sample2order[sample] = 'second'
+            if sample not in sample2order:
+                sample2order[sample] = 'second'
         
         for ref in ref2marker:
             if args['add_ref_genomes_after_samples']:
