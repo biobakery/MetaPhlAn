@@ -15,6 +15,7 @@ import re
 from collections import defaultdict
 import ConfigParser
 import matplotlib.colors as colors
+import subprocess
 
 
 def read_params():
@@ -26,9 +27,9 @@ def read_params():
                    help='The input tree in newick format.')
     p.add_argument('--colorized_metadata', 
                    required=False, 
-                   default='country', 
+                   default='unset', 
                    type=str,
-                   help='The metadata field to colorize. Default "country".')
+                   help='The metadata field to colorize. Default "unset".')
     p.add_argument('--fig_size', 
                    required=False, 
                    default=8, 
@@ -86,7 +87,7 @@ def read_params():
 
 def run(cmd):
     print cmd
-    os.system(cmd)
+    subprocess.call(cmd.split())
     
 
 
