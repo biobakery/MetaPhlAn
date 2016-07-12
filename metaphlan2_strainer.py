@@ -973,11 +973,11 @@ def build_tree(
             'number of samples before gap_in_sample: %d\n'\
             %len(sample2fullseq))
     for sample in sample2marker:
-        if float(sample2fullseq[sample].count('-')) / \
-            len(sample2fullseq[sample]) > gap_in_sample:
+        ratio = float(sample2fullseq[sample].count('-')) / len(sample2fullseq[sample]) 
+        if ratio > gap_in_sample:
             del sample2fullseq[sample]
             del sample2fullfreq[sample]
-            logger.debug('remove sample %s by gap_in_sample'%sample)
+            logger.debug('remove sample %s by gap_in_sample %f'%(sample, ratio))
     logger.debug(
             'number of samples after gap_in_sample: %d'\
             %len(sample2fullseq))
