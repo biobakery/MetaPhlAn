@@ -685,16 +685,16 @@ You can view it by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/s
 
 By default, if you do not specify reference genomes (by --ifn_ref_genomes) and any specific clade (by --clades), metaphlan2_strainer.py will build the phylogenetic trees for all species that it can detect.
 
-In order to add the metadata, we also provide a script called "add_metadata.py" which can be used as follows:
+In order to add the metadata, we also provide a script called "add_metadata_tree.py" which can be used as follows:
 
 ```
 #!python
 
-python ../strainer_src/add_metadata.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
+python ../strainer_src/add_metadata_tree.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
 ```
 
-The script "add_metadata.py" can accept multiple metadata files (space separated, wild card can also be used) and multiple trees. A metadata file is a tab separated file where the first row is the meta-headers, and the following rows contain the metadata for each sample. Multiple metadata files are used in the case where your samples come from more than one dataset and you do not want to merge the metadata files.
-For more details of using "add_metadata.py", please see its help (with option "-h").
+The script "add_metadata_tree.py" can accept multiple metadata files (space separated, wild card can also be used) and multiple trees. A metadata file is a tab separated file where the first row is the meta-headers, and the following rows contain the metadata for each sample. Multiple metadata files are used in the case where your samples come from more than one dataset and you do not want to merge the metadata files.
+For more details of using "add_metadata_tree.py", please see its help (with option "-h").
 An example of a metadata file is the "fastqs/metadata.txt" file with the below content:
 
 ```
@@ -719,7 +719,7 @@ Step 6. If you want to remove the samples with high-probability of containing mu
 #!python
 
 python ../strainer_src/build_tree_single_strain.py --ifn_alignments output/s__Bacteroides_caccae.fasta --nprocs 10 --log_ofn output/build_tree_single_strain.log
-python ../strainer_src/add_metadata.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.remove_multiple_strains.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
+python ../strainer_src/add_metadata_tree.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.remove_multiple_strains.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
 ```
 
 You will obtain the refined tree "output/RAxML_bestTree.s__Bacteroides_caccae.remove_multiple_strains.tree.metadata". This tree can be found in the folder "output" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
