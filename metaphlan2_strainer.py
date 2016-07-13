@@ -47,6 +47,8 @@ ifn_logging_config = '%s/strainer_src/logging.ini'%MAIN_DIR
 logging.config.fileConfig(ifn_logging_config, disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
+# get the directory that contains this script
+metaphlan2_script_install_folder=os.path.dirname(os.path.abspath(__file__))
 
 # functions
 def read_params():
@@ -84,7 +86,7 @@ def read_params():
     p.add_argument(
         '--mpa_pkl', 
         required=False, 
-        default='db_v20/mpa_v20_m200.pkl', 
+        default=os.path.join(metaphlan2_script_install_folder,"db_v20","mpa_v20_m200.pkl"), 
         type=str, 
         help='The database of metaphlan3.py.')
 
