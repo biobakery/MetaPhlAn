@@ -238,6 +238,28 @@ def splitext2(ifn):
     return base, ext
 
 
+def splitext3(ifn):
+    basename = os.path.basename(ifn)
+    ext = ''
+    if ifn.endswith('.tar.bz2'):
+        ext = '.tar.bz2'
+    elif ifn.endswith('.tar.gz'):
+        ext = '.tar.gz'
+    elif ifn.endswith('.bz2'):
+        ext = '.bz2'
+    elif ifn.endswith('.gz'):
+        ext = '.gz'
+    else:
+        raise Exception('Unrecognized format! The format should be .bz2, .gz'\
+                '.tar.bz2, .tar.gz, .sra, .sam.bz2, .sam\n')
+    base = basename.replace(ext, '')
+    for t in ['.sam', '.fastq']:
+        if base.endswith(t):
+            ext = t + ext
+            base = base[:-len(t)]
+    return base, ext
+
+
 def trace_unhandled_exceptions(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):

@@ -344,7 +344,7 @@ def sam2markers(
 def run_sample(args_list):
     ifn_sample = args_list[0]
     args = args_list[1]
-    base_name = ooSubprocess.splitext2(ifn_sample)[0]
+    base_name = ooSubprocess.splitext3(ifn_sample)[0]
     output_prefix = os.path.join(args['output_dir'], base_name)
     if args['sam2file_ext'] != None:
         sam2file = output_prefix + args['sam2file_ext']
