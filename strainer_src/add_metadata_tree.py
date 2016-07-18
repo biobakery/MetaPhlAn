@@ -18,7 +18,7 @@ def read_params():
     p.add_argument('--ifn_trees', nargs='+', required=True, default=None, type=str)
     p.add_argument('--ifn_metadatas', nargs='+', required=True, default=None, type=str)
     p.add_argument('--string_to_remove', 
-                   required=False, default=None, type=str,
+                   required=False, default='', type=str,
                    help='string to be removed in the tree node names')
     p.add_argument(
                     '--metadatas', 
@@ -138,12 +138,11 @@ def main(args):
         count = 0
         with open(ifn_tree, 'r') as ifile:
             line = ifile.readline()
-        if args['string_to_remove']:
-            line = line.replace(args['string_to_remove'], '')
+        line = line.replace(args['string_to_remove'], '')
         tree = dendropy.Tree(stream=open(ifn_tree, 'r'), schema='newick')
-        #for sample in samples:
         for node in tree.leaf_nodes():
             sample = node.get_node_str().strip("'")
+            sample = sample.replace(args['string_to_remove'], '')
             prefixes = [prefix for prefix in 
                             ['k__', 'p__', 'c__', 'o__', 
                              'f__', 'g__', 's__'] \
