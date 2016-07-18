@@ -93,7 +93,7 @@ def build_bowtie2db(ifn_markers, tmp_dir, error_pipe=None):
 
     if not os.path.isdir(tmp_dir):
         ooSubprocess.mkdir(tmp_dir)
-    bt2_base = ooSubprocess.splitext2(ifn_markers)[0]
+    bt2_base = ooSubprocess.splitext(ifn_markers)[0]
     index_fns = glob.glob('%s/%s.*'%(tmp_dir, bt2_base))
     index_path = os.path.join(tmp_dir, bt2_base)
     oosp = ooSubprocess.ooSubprocess(tmp_dir)
@@ -344,7 +344,7 @@ def sam2markers(
 def run_sample(args_list):
     ifn_sample = args_list[0]
     args = args_list[1]
-    base_name = ooSubprocess.splitext3(ifn_sample)[0]
+    base_name = ooSubprocess.splitext(ifn_sample)[0]
     output_prefix = os.path.join(args['output_dir'], base_name)
     if args['sam2file_ext'] != None:
         sam2file = output_prefix + args['sam2file_ext']

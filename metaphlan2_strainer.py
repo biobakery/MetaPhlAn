@@ -589,7 +589,7 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir):
     p1 = SpooledTemporaryFile(dir=tmp_dir)
     contigs = defaultdict(dict)
     for ifn_genome in ifn_ref_genomes:
-        genome = ooSubprocess.splitext2(ifn_genome)[0]
+        genome = ooSubprocess.splitext(ifn_genome)[0]
         if ifn_genome[-4:] == '.bz2':
             ifile_genome = bz2.BZ2File(ifn_genome, 'r')
         elif ifn_genome[-3:] == '.gz':
@@ -1106,7 +1106,7 @@ def load_sample(args):
     clade2num_markers = shared_variables.clade2num_markers
     marker_in_clade = args['marker_in_clade']
     kept_markers = args['kept_markers']
-    sample = ooSubprocess.splitext2(ifn_sample)[0]
+    sample = ooSubprocess.splitext(ifn_sample)[0]
     with open(ifn_sample, 'rb') as ifile:
         marker2seq = msgpack.load(ifile, use_list=False)
 
@@ -1200,7 +1200,7 @@ def load_all_samples(args, kept_clade, kept_markers):
         if kept_clade:
             sample2marker = {}
             for i in range(len(ifn_samples)):
-                sample = ooSubprocess.splitext2(ifn_samples[i])[0]
+                sample = ooSubprocess.splitext(ifn_samples[i])[0]
                 if len(results[i]): # skip samples with no markers
                     sample2marker[sample] = results[i] 
             return sample2marker
@@ -1406,15 +1406,15 @@ def strainer(args):
         sample2order = {}
 
         if args['ifn_representative_sample']:
-            sample = ooSubprocess.splitext2(args['ifn_representative_sample'])[0]
+            sample = ooSubprocess.splitext(args['ifn_representative_sample'])[0]
             sample2order[sample] = 'first'
 
         for ifn in args['ifn_samples']:
-            sample = ooSubprocess.splitext2(ifn)[0]
+            sample = ooSubprocess.splitext(ifn)[0]
             sample2order[sample] = 'first'
 
         for ifn in args['ifn_second_samples']:
-            sample = ooSubprocess.splitext2(ifn)[0]
+            sample = ooSubprocess.splitext(ifn)[0]
             if sample not in sample2order:
                 sample2order[sample] = 'second'
         
