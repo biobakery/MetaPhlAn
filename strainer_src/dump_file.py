@@ -26,25 +26,25 @@ def read_params():
 
 def dump_file(ifn):
     file_ext = ''
-    if ifn[-8:] == '.tar.bz2':
+    if ifn.endswith('.tar.bz2'):
         ifile = tarfile.open(ifn, 'r:bz2')
         file_ext = '.tar.bz2'
-    elif ifn[-7:] == '.tar.gz':
+    elif ifn.endswith('.tar.gz'):
         ifile = tarfile.open(ifn, 'r:gz')
         file_ext = '.tar.gz'
-    elif ifn[-4:] == '.bz2':
+    elif ifn.endswith('.bz2'):
         ifile = bz2.BZ2File(ifn, 'r')
         file_ext = '.bz2'
-    elif ifn[-3:] == '.gz':
+    elif ifn.endswith('.gz'):
         ifile = gzip.GzipFile(ifn, 'r')
         file_ext = '.gz'
-    elif ifn[-6:] == '.fastq':
+    elif ifn.endswith('.fastq'):
         ifile = open(ifn, 'r')
         file_ext = '.fastq'
-    elif ifn[-3:]:
+    elif ifn.endswith('.sam'):
         ifile = open(ifn, 'r')
         file_ext = '.sam'
-    elif ifn[-4:] == '.sra':
+    elif ifn.endswith('.sra'):
         oosp = ooSubprocess.ooSubprocess()
         ifile = oosp.ex(
                         'fastq-dump',
@@ -54,9 +54,8 @@ def dump_file(ifn):
                         get_out_pipe=True)
         file_ext = '.sra'
     else:
-        sys.stderr.write('Unrecognized format! The format should be .bz2, .gz'\
-                '.tar.bz2, .tar.gz, .sra, or .fastq\n')
-        exit(1)
+        raise Exception('Unrecognized format! The format should be .bz2, .gz'\
+                '.tar.bz2, .tar.gz, .sra, .sam.bz2, .sam, or .fastq\n')
 
     try:
         if file_ext in ['.tar.bz2', '.tar.gz']:
