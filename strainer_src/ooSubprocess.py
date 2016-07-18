@@ -226,7 +226,9 @@ def splitext(ifn):
     elif ifn.endswith('.tar.gz'):
         ext = '.tar.gz'
     else:
-        ext = basename.split('.')[1]
+        ext = basename.split('.')[-1]
+        if ext != basename:
+            ext = '.' + ext
     base = basename[:-len(ext)]
     for t in ['.sam', '.fastq', '.fasta', '.fna']:
         if base.endswith(t):
