@@ -220,40 +220,15 @@ def replace_ext(ifn, old_ext, new_ext):
 
 
 def splitext(ifn):
-    base = ifn
-    ext = ''
-    while True:
-        base2, ext2 = os.path.splitext(base)
-        if ext2 == '':
-            break
-        else:
-            base = base2
-            ext = ext2 + ext
-    return base, ext
-
-
-def splitext2(ifn):
     basename = os.path.basename(ifn)
-    base, ext = splitext(basename)
-    return base, ext
-
-
-def splitext3(ifn):
-    basename = os.path.basename(ifn)
-    ext = ''
     if ifn.endswith('.tar.bz2'):
         ext = '.tar.bz2'
     elif ifn.endswith('.tar.gz'):
         ext = '.tar.gz'
-    elif ifn.endswith('.bz2'):
-        ext = '.bz2'
-    elif ifn.endswith('.gz'):
-        ext = '.gz'
     else:
-        raise Exception('Unrecognized format! The format should be .bz2, .gz'\
-                '.tar.bz2, .tar.gz, .sra, .sam.bz2, .sam\n')
-    base = basename.replace(ext, '')
-    for t in ['.sam', '.fastq']:
+        ext = basename.split('.')[1]
+    base = basename[:-len(ext)]
+    for t in ['.sam', '.fastq', '.fasta', '.fna']:
         if base.endswith(t):
             ext = t + ext
             base = base[:-len(t)]
