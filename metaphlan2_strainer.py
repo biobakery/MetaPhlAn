@@ -42,9 +42,9 @@ import gc
 
 shared_variables = type('shared_variables', (object,), {})
 
-# logging config
-ifn_logging_config = '%s/strainer_src/logging.ini'%MAIN_DIR
-logging.config.fileConfig(ifn_logging_config, disable_existing_loggers=False)
+logging.basicConfig(level=logging.DEBUG, stream=sys.stderr,
+                    disable_existing_loggers=False,
+                    format='%(asctime)s | %(levelname)s | %(name)s | %(funcName)s | %(lineno)d | %(message)s')
 logger = logging.getLogger(__name__)
 
 # get the directory that contains this script
@@ -60,7 +60,7 @@ def read_params():
         default=[],
         type=str,
         help='The list of sample files (space separated).'\
-                'The wildcard can also be used.')
+             'The wildcard can also be used.')
 
     p.add_argument(
         '--ifn_second_samples',
@@ -69,11 +69,14 @@ def read_params():
         default=[],
         type=str,
         help='The list of second sample files (space separated).'\
-             'Those samples will be added after identifying the '\
-             'markers from the samples specified by --ifn_samples '\
-             'or --ifn_representative_sample. The samples that do not '\
-             'have all markers identified before will be removed.'
-             'The wildcard can also be used.')
+             'The wildcard can also be used. '\
+             'Note that only the markers found in the samples or '\
+             'reference genomes '
+             'specified by --ifn_samples or --ifn_representative_sample '\
+             'or --ifn_ref_genomes with '\
+             'add_reference_genomes_as_second_samples=False '\
+             'will be used to build the phylogenetic trees. '
+             )
 
     p.add_argument(
         '--ifn_representative_sample',
@@ -153,15 +156,20 @@ def read_params():
         help='The reference genome file names. They are separated by spaces.')
 
     p.add_argument(
-        '--add_ref_genomes_after_samples', 
+        '--add_reference_genomes_as_second_samples', 
         required=False, 
-        dest='add_ref_genomes_after_samples',
+        dest='add_reference_genomes_as_second_samples',
         action='store_true',
-        help='Add reference genomes after identifying markers '\
-             'from samples specified by --ifn_samples. The reference '\
-             'genomes that do not have all markers will be removed. '
-             'Default "False".')
-    p.set_defaults(add_ref_genomes_after_samples=False)
+        help='Add reference genomes as second samples. '\
+             'Default "False". ' \
+             'Note that only the markers found in the samples or '\
+             'reference genomes '
+             'specified by --ifn_samples or --ifn_representative_sample '\
+             'or --ifn_ref_genomes with '\
+             'add_reference_genomes_as_second_samples=False '\
+             'will be used to build the phylogenetic trees. '
+             )
+    p.set_defaults(add_reference_genomes_as_second_samples=False)
 
     p.add_argument(
         '--N_in_marker',
@@ -186,6 +194,16 @@ def read_params():
         type=float,
         help='In each sample, the clades with the rate of present markers less than '\
                 'this threshold are removed. Default 0.8.')
+
+    p.add_argument(
+        '--second_marker_in_clade',
+        required=False,
+        default=0.8,
+        type=float,
+        help='In each sample/reference genomes specified by --ifn_second_samples, '\
+             'or --add_reference_genomes_as_second_samples, '\
+             'the clades with the rate of present markers less than '\
+             'this threshold are removed. Default 0.8.')
 
     p.add_argument(
         '--sample_in_clade',
@@ -241,6 +259,15 @@ def read_params():
         default=0.2,
         type=float,
         help='The samples with full sequences from all markers '\
+            'and having the percentage of gaps greater than this threshold '\
+            'will be removed. Default 0.2.')
+
+    p.add_argument(
+        '--second_gap_in_sample',
+        required=False,
+        default=0.2,
+        type=float,
+        help='The samples specified by --ifn_second_samples with full sequences from all markers '\
             'and having the percentage of gaps greater than this threshold '\
             'will be removed. Default 0.2.')
 
@@ -353,6 +380,18 @@ def read_params():
              'N_in_marker=0.8, gap_in_sample=0.8. '\
              'Default "False".')
     p.set_defaults(relaxed_parameters2=False)
+
+    p.add_argument(
+        '--relaxed_parameters3', 
+        required=False, 
+        dest='relaxed_parameters3',
+        action='store_true',
+        help='Set gap_in_trailing_col=0.9, gap_in_internal_col=0.9, '\
+             'gap_in_sample=0.9, second_gap_in_sample=0.5, '\
+             'sample_in_marker=0.1, marker_in_clade=0.1, '\
+             'second_marker_in_clade=0.1, '\
+             'Default "False".')
+    p.set_defaults(relaxed_parameters3=False)
 
     p.add_argument(
         '--keep_alignment_files', 
@@ -777,6 +816,7 @@ def build_tree(
         N_count,
         N_col,
         gap_in_sample,
+        second_gap_in_sample,
         long_gap_length,
         long_gap_percentage,
         p_value,
@@ -818,17 +858,6 @@ def build_tree(
                 if marker not in markers:
                     markers.add(marker)
     markers = sorted(list(markers))
-
-    # remove second samples that do not have all markers
-    remove_samples = []
-    for sample in sample2marker:
-        if sample2order[sample] == 'second':
-            for marker in markers:
-                if marker not in sample2marker[sample]:
-                    remove_samples.append(sample)
-                    break
-    for sample in remove_samples:
-        del sample2marker[sample]
 
     logger.debug('number of used markers: %d'%len(markers))
     ofile_cladeinfo.write('number of used markers: %d\n'%len(markers))
@@ -967,7 +996,7 @@ def build_tree(
         for m, p in marker_pos:
             ofile_clademarker.write('%s\t%d\n'%(m, p))
 
-    # remove samples with more than 10% of gaps
+    # remove samples with too many gaps
     logger.debug(
             'number of samples before gap_in_sample: %d'\
             %len(sample2fullseq))
@@ -976,10 +1005,14 @@ def build_tree(
             %len(sample2fullseq))
     for sample in sample2marker:
         ratio = float(sample2fullseq[sample].count('-')) / len(sample2fullseq[sample]) 
-        if ratio > gap_in_sample:
+        gap_ratio = gap_in_sample if (sample2order[sample] == 'first') else second_gap_in_sample
+        if ratio > gap_ratio:
             del sample2fullseq[sample]
             del sample2fullfreq[sample]
-            logger.debug('remove sample %s by gap_in_sample %f'%(sample, ratio))
+            if sample2order[sample] == 'first':
+                logger.debug('remove sample %s by gap_in_sample %f'%(sample, ratio))
+            else:
+                logger.debug('remove sample %s by second_gap_in_sample %f'%(sample, ratio))
     logger.debug(
             'number of samples after gap_in_sample: %d'\
             %len(sample2fullseq))
@@ -1127,10 +1160,9 @@ def load_sample(args):
                     nmarkers += 1
                 else:
                     del marker2seq[marker]
-        print ifn_sample, nmarkers
-        if not kept_markers:
-            if float(nmarkers) / clade2num_markers[kept_clade] < marker_in_clade:
-                marker2seq = {}
+        total_num_markers = clade2num_markers[kept_clade] if not kept_markers else len(kept_markers)
+        if float(nmarkers) / total_num_markers < marker_in_clade:
+            marker2seq = {}
 
         # reformat 'pileup'
         for m in marker2seq:
@@ -1170,8 +1202,10 @@ def load_sample(args):
 
 
 
-def load_all_samples(args, kept_clade, kept_markers):
-    ifn_samples = args['ifn_samples'] + args['ifn_second_samples']
+def load_all_samples(args, sample2order, kept_clade, kept_markers):
+    ifn_samples = args['ifn_samples'] + args['ifn_second_samples'] 
+    if args['ifn_representative_sample']:
+        ifn_samples.append(args['ifn_representative_sample'])
     ifn_samples = sorted(list(set(ifn_samples)))
     if not ifn_samples:
         return None
@@ -1186,10 +1220,14 @@ def load_all_samples(args, kept_clade, kept_markers):
                       'output_dir',
                       'ifn_markers', 'nprocs_load_samples', 
                       'clades',
-                      'marker_in_clade',
                       'mpa_pkl',
                       ]:
                 func_args[k] = args[k]
+            sample = ooSubprocess.splitext(ifn_sample)[0]
+            if sample2order[sample] == 'first':
+                func_args['marker_in_clade'] = args['marker_in_clade']
+            else:
+                func_args['marker_in_clade'] = args['second_marker_in_clade']
             args_list.append(func_args)
 
         results = ooSubprocess.parallelize(
@@ -1217,20 +1255,23 @@ def load_all_samples(args, kept_clade, kept_markers):
 
 def strainer(args):
     # auto-set some params
-    if args['marker_list_fn'] or args['ifn_representative_sample']:
-        args['marker_in_clade'] = 0
     if args['relaxed_parameters']:
-        if not args['marker_list_fn'] and not args['ifn_representative_sample']:
-            args['marker_in_clade'] = 0.5
         args['sample_in_marker'] = 0.5
         args['N_in_marker'] = 0.5
         args['gap_in_sample'] = 0.5
     elif args['relaxed_parameters2']:
-        if not args['marker_list_fn'] and not args['ifn_representative_sample']:
-            args['marker_in_clade'] = 0.2
         args['sample_in_marker'] = 0.2
         args['N_in_marker'] = 0.8
         args['gap_in_sample'] = 0.8
+    elif args['relaxed_parameters3']:
+        args['gap_in_trailing_col'] = 0.9
+        args['gap_in_internal_col'] = 0.9
+        args['gap_in_sample'] = 0.9
+        args['second_gap_in_sample'] = 0.5
+        args['sample_in_marker'] = 0.1
+        args['marker_in_clade'] = 0.1
+        args['second_marker_in_clade'] = 0.1
+
     if args['keep_full_alignment_files']:
         args['keep_alignment_files'] = True
         args['marker_strip_length'] = 0
@@ -1275,33 +1316,6 @@ def strainer(args):
     if args['nprocs_raxml'] == None:
         args['nprocs_raxml'] = args['nprocs_main']
 
-    '''
-    # logging config
-    # create a file handler
-    handler = logging.FileHandler(
-                                    os.path.join(
-                                                 args['output_dir'], 
-                                                 'log.txt'),
-                                'w')
-    handler.setLevel(logger.getEffectiveLevel())
-
-    # create a logging format
-    formatter = None
-    with open(ifn_logging_config, 'r') as ifile:
-        for line in ifile:
-            line=line.strip()
-            if 'format=' in line:
-                formatter = logging.Formatter(line.replace('format=', ''))
-                break
-    if formatter == None:
-        logger.error('Cannot find the FORMAT line in %s'%ifn_logging_config)
-        exit(1)
-    handler.setFormatter(formatter)
-
-    # add the handlers to the logger
-    logger.addHandler(handler)
-    '''
-
     if args['clades'] == ['singleton']:
         shared_variables.db = None
         shared_variables.sing_clades = []
@@ -1333,6 +1347,21 @@ def strainer(args):
         shared_variables.sing_clades = sing_clades
         shared_variables.clade2num_markers = clade2num_markers
 
+    # set order
+    sample2order = {}
+    if args['ifn_representative_sample']:
+        sample = ooSubprocess.splitext(args['ifn_representative_sample'])[0]
+        sample2order[sample] = 'first'
+
+    for ifn in args['ifn_samples']:
+        sample = ooSubprocess.splitext(ifn)[0]
+        sample2order[sample] = 'first'
+
+    for ifn in args['ifn_second_samples']:
+        sample = ooSubprocess.splitext(ifn)[0]
+        if sample not in sample2order:
+            sample2order[sample] = 'second'
+    
     kept_markers = set([])
     if args['marker_list_fn']:
         with open(args['marker_list_fn'], 'r') as ifile:
@@ -1359,6 +1388,7 @@ def strainer(args):
     if args['clades'] == ['all']:
         logger.info('Get clades from samples')
         args['clades'] = load_all_samples(args, 
+                                          sample2order,
                                           kept_clade=None,
                                           kept_markers=kept_markers)
 
@@ -1382,17 +1412,23 @@ def strainer(args):
                         args['output_dir'])
 
         # remove bad reference genomes
-        nmarkers = 0
-        for rec in SeqIO.parse(open(args['ifn_markers'], 'r'), 'fasta'):
-            nmarkers += 1
-
+        if not kept_markers:
+            nmarkers = shared_variables.clade2num_markers[args['clades'][0]]
+        else:
+            nmarkers = len(kept_markers)
         remove_ref = []
+        mic = args['second_marker_in_clade'] if args['add_reference_genomes_as_second_samples'] else args['marker_in_clade']
         for ref in ref2marker:
-            if float(len(ref2marker[ref])) / nmarkers < args['marker_in_clade']:
+            if float(len(ref2marker[ref])) / nmarkers < mic:
                 remove_ref.append(ref)
         for ref in remove_ref:
             del ref2marker[ref]
     ref2marker = dict(ref2marker)
+    for ref in ref2marker:
+        if args['add_reference_genomes_as_second_samples']:
+            sample2order[ref] = 'second'
+        else:
+            sample2order[ref] = 'first'
 
     # build tree for each clade
     for clade in args['clades']:
@@ -1400,29 +1436,9 @@ def strainer(args):
 
         # load samples and reference genomes
         sample2marker = load_all_samples(args, 
+                                         sample2order,
                                          kept_clade=clade,
                                          kept_markers=kept_markers)
-        # set order
-        sample2order = {}
-
-        if args['ifn_representative_sample']:
-            sample = ooSubprocess.splitext(args['ifn_representative_sample'])[0]
-            sample2order[sample] = 'first'
-
-        for ifn in args['ifn_samples']:
-            sample = ooSubprocess.splitext(ifn)[0]
-            sample2order[sample] = 'first'
-
-        for ifn in args['ifn_second_samples']:
-            sample = ooSubprocess.splitext(ifn)[0]
-            if sample not in sample2order:
-                sample2order[sample] = 'second'
-        
-        for ref in ref2marker:
-            if args['add_ref_genomes_after_samples']:
-                sample2order[ref] = 'second'
-            else:
-                sample2order[ref] = 'first'
 
         for r in ref2marker:
             sample2marker[r] = ref2marker[r]
@@ -1473,6 +1489,7 @@ def strainer(args):
             N_count=args['N_count'],
             N_col=args['N_col'],
             gap_in_sample=args['gap_in_sample'],
+            second_gap_in_sample=args['second_gap_in_sample'],
             long_gap_length=args['long_gap_length'],
             long_gap_percentage=args['long_gap_percentage'],
             p_value=args['p_value'],
