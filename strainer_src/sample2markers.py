@@ -34,11 +34,11 @@ from collections import defaultdict
 from scipy import stats
 import numpy
 
-ifn_logging_config = '%s/strainer_src/logging.ini'%MAIN_DIR
-if not os.path.isfile(ifn_logging_config):
-    ifn_logging_config = '%s/logging.ini'%MAIN_DIR
-logging.config.fileConfig(ifn_logging_config, disable_existing_loggers=False)
+logging.basicConfig(level=logging.DEBUG, stream=sys.stderr,
+                    disable_existing_loggers=False,
+                    format='%(asctime)s | %(levelname)s | %(name)s | %(funcName)s | %(lineno)d | %(message)s')
 logger = logging.getLogger(__name__)
+
 
 
 def read_params():
