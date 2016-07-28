@@ -562,7 +562,7 @@ In addition, the table below shows the number of snps between the sample strains
 In the next sections, we will illustrate step by step how to run MetaPhlAn_Strainer on this toy example to reproduce the above figures.
 
 ### Pre-requisites ###
-MetaPhlAn2_Strainer requires *python 2.7* and the libraries [pysam](http://pysam.readthedocs.org/en/latest/), [biopython](http://biopython.org/wiki/Main_Page), [msgpack](https://pypi.python.org/pypi/msgpack-python) and [numpy](http://www.numpy.org/). Besides, MetaPhlAn2_Strainer also needs the following programs in the executable path:
+MetaPhlAn2_Strainer requires *python 2.7* and the libraries [pysam](http://pysam.readthedocs.org/en/latest/) (tested on **version 0.8.3**), [biopython](http://biopython.org/wiki/Main_Page), [msgpack](https://pypi.python.org/pypi/msgpack-python) and [numpy](http://www.numpy.org/). Besides, MetaPhlAn2_Strainer also needs the following programs in the executable path:
 
 * [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml) for mapping reads against the marker database.
 
