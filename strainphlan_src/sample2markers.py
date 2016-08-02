@@ -8,9 +8,9 @@ import os
 ABS_PATH = os.path.abspath(sys.argv[0])
 MAIN_DIR = os.path.dirname(ABS_PATH)
 os.environ['PATH'] += ':%s'%MAIN_DIR
-os.environ['PATH'] += ':%s'%os.path.join(MAIN_DIR, 'strainer_src')
+os.environ['PATH'] += ':%s'%os.path.join(MAIN_DIR, 'strainphlan_src')
 sys.path.append(MAIN_DIR)
-sys.path.append(os.path.join(MAIN_DIR, 'strainer_src'))
+sys.path.append(os.path.join(MAIN_DIR, 'strainphlan_src'))
 
 import argparse as ap
 import glob
@@ -79,7 +79,7 @@ def read_params():
         help='The input type:'\
                 ' fastq, sam. Sam '\
                 ' files can be obtained from the previous run of'\
-                ' this script or metaphlan3_strainer.py).')
+                ' this script or strainphlan.py).')
 
     return vars(p.parse_args())
 

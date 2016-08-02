@@ -12,8 +12,8 @@ import shutil
 ABS_PATH = os.path.abspath(sys.argv[0])
 MAIN_DIR = os.path.dirname(ABS_PATH)
 os.environ['PATH'] += ':' + MAIN_DIR
-os.environ['PATH'] += ':' + os.path.join(MAIN_DIR, 'strainer_src')
-sys.path.append(os.path.join(MAIN_DIR, 'strainer_src'))
+os.environ['PATH'] += ':' + os.path.join(MAIN_DIR, 'strainphlan_src')
+sys.path.append(os.path.join(MAIN_DIR, 'strainphlan_src'))
 
 import which
 import argparse as ap
