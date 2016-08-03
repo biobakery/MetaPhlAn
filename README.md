@@ -252,7 +252,7 @@ positional arguments:
 Required arguments:
   --mpa_pkl MPA_PKL     the metadata pickled MetaPhlAn file
   --input_type {fastq,fasta,multifasta,multifastq,bowtie2out,sam}
-                        set wheter the input is the multifasta file of metagenomic reads or 
+                        set whether the input is the multifasta file of metagenomic reads or 
                         the SAM file of the mapping of the reads against the MetaPhlAn db.
                         [default 'automatic', i.e. the script will try to guess the input format]
 
