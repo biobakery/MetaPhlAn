@@ -219,7 +219,7 @@ def read_params():
         default=0.8,
         type=float,
         help='If the percentage of samples that a marker present in is '\
-             'less than this threhold, that marker is removed. Default 0.8.')
+             'less than this threshold, that marker is removed. Default 0.8.')
 
     p.add_argument(
         '--gap_in_trailing_col',

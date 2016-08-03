@@ -458,7 +458,7 @@ def read_params(args):
     arg = g.add_argument
     input_type_choices = ['fastq','fasta','multifasta','multifastq','bowtie2out','sam'] # !!!!
     arg( '--input_type', choices=input_type_choices, required = 'True', help =  
-         "set wheter the input is the multifasta file of metagenomic reads or \n"
+         "set whether the input is the multifasta file of metagenomic reads or \n"
          "the SAM file of the mapping of the reads against the MetaPhlAn db.\n"
          "[default 'automatic', i.e. the script will try to guess the input format]\n" )
    
