@@ -15,7 +15,7 @@ sys.path.append(os.path.join(MAIN_DIR, 'strainphlan_src'))
 import argparse as ap
 import glob
 import ooSubprocess
-from ooSubprocess import print_stderr
+from ooSubprocess import print_stderr, trace_unhandled_exceptions
 import ConfigParser
 from Bio import SeqIO, Seq, SeqRecord
 import cStringIO
@@ -325,6 +325,7 @@ def sam2markers(
     try:
         for rec in SeqIO.parse(p7, 'fastq'):
             marker2seq[rec.name]['seq'] = str(rec.seq).upper()
+        marker2seq = dict(marker2seq)
     except Exception as e:
         logger.error("sam2markers failed on file " + sam_file)
         raise 
@@ -341,6 +342,7 @@ def sam2markers(
 
 
 
+@trace_unhandled_exceptions
 def run_sample(args_list):
     ifn_sample = args_list[0]
     args = args_list[1]
