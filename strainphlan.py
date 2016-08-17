@@ -494,7 +494,7 @@ def get_db_clades(db):
             clade2num_markers[clade] = clade2num_markers[clade] + 1
     clade2num_markers = dict(clade2num_markers)
 
-    return sing_clades, clade2num_markers
+    return sing_clades, clade2num_markers, clade2subclades
 
 
 
@@ -1343,7 +1343,7 @@ def strainer(args):
         
         # get clades from db
         logger.info('Get clades from db')
-        sing_clades, clade2num_markers = get_db_clades(db)
+        sing_clades, clade2num_markers, clade2subclades = get_db_clades(db)
         shared_variables.sing_clades = sing_clades
         shared_variables.clade2num_markers = clade2num_markers
 
@@ -1394,7 +1394,10 @@ def strainer(args):
 
     if args['print_clades_only']:
         for c in args['clades']:
-            print c
+            if c.startswith('s__'):
+                print c
+            else:
+                print c, '(%s)'%(','.join(list(clade2subclades[c])))
         return
 
     # add reference genomes
