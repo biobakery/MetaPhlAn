@@ -707,11 +707,25 @@ SRS019161       763496533
 SRS013951       763496533
 SRS014613       763840445
 SRS064276       763840445
+G000273725  ReferenceGenomes
 ```
 
 Note that "sampleID" is a compulsory field. 
 
 After adding the metadata, you will obtain the tree files "*.tree.metadata" with metadata and view them by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) as in the previous step.
+
+If you have installed [graphlan](https://bitbucket.org/nsegata/graphlan/wiki/Home), you can plot the tree with the command:
+
+
+```
+#!python
+
+python ../strainphlan_src/plot_tree_graphlan.py --ifn_tree output/RAxML_bestTree.s__Bacteroides_caccae.tree.metadata --colorized_metadata subjectID
+```
+
+and obtain the following figure (output/RAxML_bestTree.s__Bacteroides_caccae.tree.metadata.png):
+
+![RAxML_bestTree.s__Bacteroides_caccae.tree.metadata.png](https://bitbucket.org/repo/rM969K/images/1574126761-RAxML_bestTree.s__Bacteroides_caccae.tree.metadata.png)
 
 Step 6. If you want to remove the samples with high-probability of containing multiple strains, you can rebuild the tree by removing the multiple strains:
 
@@ -744,7 +758,7 @@ The default setting can be stringent for some cases where you have very few samp
 ### Some other useful output files ###
 In the output folder, you can find the following files:
 
-1. *.fasta: the alignment file of all metagenomic strains.
+1. clade_name.fasta: the alignment file of all metagenomic strains.
 3. *.marker_pos: this file shows the starting position of each marker in the strains.
 3. *.info: this file shows the general information like the total length of the concatenated markers (full sequence length), number of used markers, etc.
 4. *.polymorphic: this file shows the statistics on the polymorphic site, where "sample" is the sample name, "percentage_of_polymorphic_sites" is the percentage of sites that are suspected to be polymorphic, "avg_freq" is the average frequency of the dominant alleles on all polymorphic sites, "avg_coverage" is the average coverage at all polymorphic sites.
