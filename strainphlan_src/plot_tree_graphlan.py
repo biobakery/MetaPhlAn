@@ -139,9 +139,9 @@ def main(args):
         ofile.write('class_legend_font_size\t%d\n'%args.legend_font_size)
 
         for md in metadata2color:
-            ofile.write('%s\tclade_marker_size\t%d\n'%(md.title(), args.legend_marker_size))
-            ofile.write('%s\tclade_marker_color\t%s\n'%(md.title(), metadata2color[md]))
-            ofile.write('%s\tclade_marker_edge_width\t%f\n'%(md.title(), args.legend_marker_edge_width))
+            ofile.write('%s\tclade_marker_size\t%d\n'%(md, args.legend_marker_size))
+            ofile.write('%s\tclade_marker_color\t%s\n'%(md, metadata2color[md]))
+            ofile.write('%s\tclade_marker_edge_width\t%f\n'%(md, args.legend_marker_edge_width))
 
         # remove intermedate nodes
         for node in tree.preorder_node_iter():

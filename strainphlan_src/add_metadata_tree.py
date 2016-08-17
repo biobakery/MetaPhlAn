@@ -93,7 +93,7 @@ def main(args):
                             if meta in df[sample]:
                                 metadata += '|%s-%s'%(
                                                 old_meta,
-                                                str(df[sample][meta]).replace(':','_').lower())
+                                                str(df[sample][meta]).replace(':','_'))
                                 break # take the first metadata
 
             line = line.replace(sample + ':', metadata + ':')
