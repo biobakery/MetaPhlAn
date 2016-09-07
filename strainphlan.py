@@ -359,7 +359,7 @@ def read_params():
         default='muscle', 
         choices=['muscle', 'mafft'],
         type=str,
-        help='The alignment program. Default "mafft".')
+        help='The alignment program. Default "muscle".')
 
     p.add_argument(
         '--relaxed_parameters', 
