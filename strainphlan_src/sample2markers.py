@@ -53,6 +53,8 @@ def read_params():
     p.add_argument('--error_rate', required=False, default=0.01, type=float)
     p.add_argument('--marker2file_ext', required=False, default='.markers', type=str)
     p.add_argument('--sam2file_ext', required=False, default='.sam.bz2', type=str)
+    p.add_argument('--samtools_exe', required=False, default='samtools', type=str)
+    p.add_argument('--bcftools_exe', required=False, default='bcftools', type=str)
     p.add_argument(
         '--verbose', 
         required=False, 
@@ -121,7 +123,9 @@ def sample2markers(
         sam2file=None,
         marker2file=None, 
         tmp_dir='tmp',
-        quiet=False):
+        quiet=False,
+        samtools_exe='samtools',
+        bcftools_exe='bcftools'):
 
     '''
     Compute the consensus markers in a sample file ifn_sample.
@@ -186,7 +190,9 @@ def sample2markers(
                        marker2file=marker2file, 
                        oosp=oosp, 
                        tmp_dir=tmp_dir,
-                       quiet=quiet)
+                       quiet=quiet,
+                       samtools_exe=samtools_exe,
+                       bcftools_exe=bcftools_exe)
 
 
 
@@ -208,7 +214,9 @@ def sam2markers(
                 marker2file=None, 
                 oosp=None, 
                 tmp_dir='tmp',
-                quiet=False):
+                quiet=False,
+                samtools_exe='samtools',
+                bcftools_exe='bcftools'):
     '''
     Compute the consensus markers in a sample from a sam content.
 
@@ -250,7 +258,7 @@ def sam2markers(
                                  stderr=error_pipe)
     # sam to bam
     p2 = oosp.chain(
-                    'samtools', 
+                    samtools_exe, 
                     args=['view', '-bS', '-'], 
                     in_pipe=p1_filtered,
                     stderr=error_pipe)
@@ -260,7 +268,7 @@ def sam2markers(
     for tmp_fn in tmp_fns:
         os.remove(tmp_fn)
     p3 = oosp.chain(
-                    'samtools', 
+                    samtools_exe, 
                     args=['sort', '-o', '-', ofn_bam_sorted_prefix], 
                     in_pipe=p2,
                     stderr=error_pipe)
@@ -293,14 +301,14 @@ def sam2markers(
     # bam to mpileup
     p3.seek(0)
     p4 = oosp.chain(
-                    'samtools', 
+                    samtools_exe, 
                     args=['mpileup', '-u', '-'], 
                     in_pipe=p3,
                     stderr=error_pipe)
 
     # mpileup to vcf
     p5 = oosp.chain(
-                    'bcftools', 
+                    bcftools_exe, 
                     args=['view', '-c', '-g', '-p', '1.1', '-'], 
                     in_pipe=p4,
                     stderr=error_pipe)
@@ -366,7 +374,9 @@ def run_sample(args_list):
                     sam2file=sam2file,
                     marker2file=marker2file, 
                     tmp_dir=args['output_dir'],
-                    quiet=args['quiet'])
+                    quiet=args['quiet'],
+                    samtools_exe=args['samtools_exe'],
+                    bcftools_exe=args['bcftools_exe'])
     else:
         ofn_bam_sorted_prefix = os.path.join(
                             args['output_dir'],
@@ -378,7 +388,9 @@ def run_sample(args_list):
                     min_base_quality=args['min_base_quality'],
                     error_rate=args['error_rate'],
                     marker2file=marker2file,
-                    quiet=args['quiet'])
+                    quiet=args['quiet'],
+                    samtools_exe=args['samtools_exe'],
+                    bcftools_exe=args['bcftools_exe'])
     return 0
 
 
