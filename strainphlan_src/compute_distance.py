@@ -44,7 +44,7 @@ def read_params():
                    required=False,
                    dest='overwrite', 
                    action='store_true')
-    p.set_defaults(overwrite=True)
+    p.set_defaults(overwrite=False)
 
     return vars(p.parse_args())
 
@@ -70,9 +70,9 @@ def get_dist(seq1, seq2, ignore_gaps):
     return abs_dist, rel_dist, abs_sim, rel_sim
     
 
-def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps):
+def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
     ofn_abs_dist = ofn_prefix + '.abs_dist'
-    if os.path.isfile(ofn_abs_dist):
+    if (not overwrite) and os.path.isfile(ofn_abs_dist.replace('.abs_dist', '.rel_dist')):
         print 'File %s exists, skip!'%ofn_abs_dist
         return
     else:
@@ -188,7 +188,8 @@ def main(args):
     compute_dist_matrix(
                         args['ifn_alignment'], 
                         args['ofn_prefix'],
-                        args['ignore_gaps']) 
+                        args['ignore_gaps'],
+                        args['overwrite']) 
     
 if __name__ == "__main__":
     args = read_params()
