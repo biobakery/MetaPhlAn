@@ -895,6 +895,10 @@ def build_tree(
                                        nprocs_align_clean,
                                        use_threads=use_threads)
 
+    if len(results) == 0:
+        logger.debug('No markers found!')
+        return
+
     sample2seqs, sample2freqs = zip(*results)
     sample2fullseq = defaultdict(list)
     sample2fullfreq = defaultdict(list)
