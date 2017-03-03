@@ -11,6 +11,7 @@ import copy
 import ConfigParser
 import dendropy
 import numpy
+import ipdb
 
 
 def read_params():
@@ -70,6 +71,7 @@ def main(args):
         tree = dendropy.Tree(stream=open(ifn_tree, 'r'), schema='newick')
         for node in tree.leaf_nodes():
             sample = node.get_node_str().strip("'")
+            sample = sample.replace(' ', '_')
             sample = sample.replace(args['string_to_remove'], '')
             prefixes = [prefix for prefix in 
                             ['k__', 'p__', 'c__', 'o__', 
