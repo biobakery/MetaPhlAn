@@ -50,6 +50,7 @@ def read_params():
     p.add_argument('--min_read_len', required=False, default=90, type=int)
     p.add_argument('--min_align_score', required=False, default=None, type=int)
     p.add_argument('--min_base_quality', required=False, default=30, type=float)
+    p.add_argument('--min_read_depth', required=False, default=0, type=int)
     p.add_argument('--error_rate', required=False, default=0.01, type=float)
     p.add_argument('--marker2file_ext', required=False, default='.markers', type=str)
     p.add_argument('--sam2file_ext', required=False, default='.sam.bz2', type=str)
@@ -116,6 +117,7 @@ def sample2markers(
         min_read_len,
         min_align_score,
         min_base_quality,
+        min_read_depth,
         error_rate,
         ifn_markers, 
         index_path,
@@ -185,15 +187,18 @@ def sample2markers(
                                 os.path.basename(ifn_sample) + '.bam.sorted')
 
     return sam2markers(
-                       sam_file=sam_pipe, 
-                       ofn_bam_sorted_prefix=ofn_bam_sorted_prefix,
-                       marker2file=marker2file, 
-                       oosp=oosp, 
-                       tmp_dir=tmp_dir,
-                       quiet=quiet,
-                       samtools_exe=samtools_exe,
-                       bcftools_exe=bcftools_exe)
-
+               sam_file=sam_pipe, 
+               ofn_bam_sorted_prefix=ofn_bam_sorted_prefix,
+               min_align_score=min_align_score,
+               min_base_quality=min_base_quality,
+               min_read_depth=min_read_depth,
+               error_rate=error_rate,
+               marker2file=marker2file, 
+               oosp=oosp, 
+               tmp_dir=tmp_dir,
+               quiet=quiet,
+               samtools_exe=samtools_exe,
+               bcftools_exe=bcftools_exe)
 
 
 def save2file(tmp_file, ofn):
@@ -210,6 +215,7 @@ def sam2markers(
                 ofn_bam_sorted_prefix,
                 min_align_score=None,
                 min_base_quality=30,
+                min_read_depth=0,
                 error_rate=0.01,
                 marker2file=None, 
                 oosp=None, 
@@ -286,7 +292,7 @@ def sam2markers(
                 q = pileupread.alignment.query_qualities[pileupread.query_position]
                 if q >= min_base_quality:
                     pileup[b] += 1
-        if len(pileup):
+        if len(pileup) and sum(pileup.values()) > min_read_depth:
             f = float(max(pileup.values())) / sum(pileup.values())
             p = stats.binom.cdf(max(pileup.values()), sum(pileup.values()), 1.0 - error_rate)
             freq = (f, sum(pileup.values()), p)
@@ -367,6 +373,7 @@ def run_sample(args_list):
                     min_read_len=args['min_read_len'],
                     min_align_score=args['min_align_score'],
                     min_base_quality=args['min_base_quality'],
+                    min_read_depth=args['min_read_depth'],
                     error_rate=args['error_rate'],
                     ifn_markers=args['ifn_markers'], 
                     index_path=args['index_path'],
@@ -386,6 +393,7 @@ def run_sample(args_list):
                     ofn_bam_sorted_prefix=ofn_bam_sorted_prefix,
                     min_align_score=args['min_align_score'],
                     min_base_quality=args['min_base_quality'],
+                    min_read_depth=args['min_read_depth'],
                     error_rate=args['error_rate'],
                     marker2file=marker2file,
                     quiet=args['quiet'],

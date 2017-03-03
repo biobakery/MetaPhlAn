@@ -56,7 +56,10 @@ def get_dist(seq1, seq2, ignore_gaps):
         exit(1)
 
     abs_dist = 0.0
+    abs_snp = 0
     for i in range(len(seq1)):
+        if seq1[i] != '-' and seq2[i] != '-':
+            abs_snp += 1
         if seq1[i] != seq2[i]:
             if ignore_gaps:
                 if seq1[i] != '-' and seq2[i] != '-':
@@ -67,7 +70,8 @@ def get_dist(seq1, seq2, ignore_gaps):
     abs_sim = len(seq1) - abs_dist
     rel_dist = abs_dist / float(len(seq1))
     rel_sim = 1.0 - rel_dist
-    return abs_dist, rel_dist, abs_sim, rel_sim
+    rel_snp = abs_snp / float(len(seq1))
+    return abs_dist, rel_dist, abs_sim, rel_sim, abs_snp, rel_snp
     
 
 def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
@@ -84,16 +88,22 @@ def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
     abs_dist_flat = []
     rel_dist = numpy.zeros((len(recs), len(recs)))
     rel_dist_flat = []
+
     abs_sim = numpy.zeros((len(recs), len(recs)))
     abs_sim_flat = []
     rel_sim = numpy.zeros((len(recs), len(recs)))
     rel_sim_flat = []
 
+    abs_snp = numpy.zeros((len(recs), len(recs)))
+    abs_snp_flat = []
+    rel_snp = numpy.zeros((len(recs), len(recs)))
+    rel_snp_flat = []
+
     for i in range(len(recs)):
-        for j in range(i+1, len(recs)):
-            abs_d, rel_d, abs_s, rel_s = get_dist(recs[i].seq, 
-                                                  recs[j].seq,
-                                                  ignore_gaps)
+        for j in range(i, len(recs)):
+            abs_d, rel_d, abs_s, rel_s, abs_sp, rel_sp = get_dist(recs[i].seq, 
+                                                                recs[j].seq,
+                                                                ignore_gaps)
 
             abs_dist[i][j] = abs_d
             abs_dist[j][i] = abs_d
@@ -111,6 +121,13 @@ def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
             rel_sim[j][i] = rel_s
             rel_sim_flat.append(rel_s)
 
+            abs_snp[i][j] = abs_sp
+            abs_snp[j][i] = abs_sp
+            abs_snp_flat.append(abs_sp)
+            
+            rel_snp[i][j] = rel_sp
+            rel_snp[j][i] = rel_sp
+            rel_snp_flat.append(rel_sp)
 
     labels = [rec.name for rec in recs]
     oosp = ooSubprocess()
@@ -182,6 +199,17 @@ def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
               '--slabel_size', '5',
               '--max_flabel_len', '200'])
     '''       
+
+    ofn_abs_snp = ofn_prefix + '.abs_snp'
+    dist2file(abs_snp, labels, ofn_abs_snp)
+    with open(ofn_abs_snp + '.info', 'w') as ofile:
+        ofile.write(statistics(abs_snp_flat)[1])
+    ofn_rel_snp = ofn_prefix + '.rel_snp'
+    dist2file(rel_snp, labels, ofn_rel_snp)
+    with open(ofn_rel_snp + '.info', 'w') as ofile:
+        ofile.write(statistics(rel_snp_flat)[1])
+ 
+
 
 
 def main(args):
