@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 
 from __future__ import with_statement 
 
@@ -41,6 +40,17 @@ try:
     import cPickle as pickle
 except:
     import pickle
+
+   
+#**********************************************************************************************
+#  Modification of Code :                                                                     *
+#  Modified the code so instead of using the current clade IDs, which are numbers, we will    *
+#      use the clade_names                                                                    *
+#      Users reported the biom output is invalid and also the IDs were changing from run to   *
+#      run.                                                                                   *
+#  George Weingart    05/22/2017   george.weingart@mail.com                                   *
+#**********************************************************************************************
+
 
 
 #*************************************************************
@@ -1043,10 +1053,23 @@ def maybe_generate_biom_file(pars, abundance_predictions):
     sample_ids = [pars['sample_id']]
     table_id='MetaPhlAn2_Analysis'
     json_key = "MetaPhlAn2"
+  
 
+
+    #**********************************************************************************************
+    #  Modification of Code :                                                                     *
+    #  Modified the code so instead of using the current clade IDs, which are numbers, we will    *
+    #      use the clade_names                                                                    *
+    #      Users reported the biom output is invalid and also the IDs were changing from run to   *
+    #      run.                                                                                   *
+    #  George Weingart    05/22/2017   george.weingart@mail.com                                   *
+    #**********************************************************************************************
     if LooseVersion(biom.__version__) < LooseVersion("2.0.0"):
         biom_table = biom.table.table_factory(
-            data, sample_ids, clade_ids,
+            data, 
+	    sample_ids,
+            ######## clade_ids,     #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
+            clade_names,            #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
             sample_metadata      = None,
             observation_metadata = map(to_biomformat, clade_names),
             table_id             = table_id,
@@ -1057,7 +1080,10 @@ def maybe_generate_biom_file(pars, abundance_predictions):
                            outfile )
     else:  # Below is the biom2 compatible code
         biom_table = biom.table.Table(
-            data, clade_ids, sample_ids,
+            data, 
+            #clade_ids,           #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
+            clade_names,          #Modified by George Weingart 5/22/2017 - We will use instead the clade_names 
+            sample_ids,
             sample_metadata      = None,
             observation_metadata = map(to_biomformat, clade_names),
             table_id             = table_id,
