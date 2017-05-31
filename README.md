@@ -20,7 +20,7 @@ If you use this software, please cite :
 
 [**MetaPhlAn2 for enhanced metagenomic taxonomic profiling.**](http://www.nature.com/nmeth/journal/v12/n10/pdf/nmeth.3589.pdf)
  *Duy Tin Truong, Eric A Franzosa, Timothy L Tickle, Matthias Scholz, George Weingart, Edoardo Pasolli, Adrian Tett, Curtis Huttenhower & Nicola Segata*. 
-Nature Methods 12, 902�903 (2015)
+Nature Methods 12, 902-903 (2015)
 
 -------------
 
@@ -61,8 +61,9 @@ Cloning the repository via the following commands
 This section presents some basic usages of MetaPhlAn2, for more advanced usages, please see at [its wiki](https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2).
 
 We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir`` bash variable contains the main MetaPhlAn folder. You can set this two variables moving to your MetaPhlAn2 local folder and type:
+
 ```
-#!cmd
+#!bash
 $ export PATH=`pwd`:$PATH
 $ export mpa_dir=`pwd`
 ```
@@ -70,28 +71,28 @@ $ export mpa_dir=`pwd`
 Here is the basic example to profile a metagenome from raw reads (requires BowTie2 in the system path with execution and read permissions, Perl installed). 
 
 ```
-#!cmd
+#!bash
 $ metaphlan2.py metagenome.fastq --input_type fastq > profiled_metagenome.txt
 ```
 
 It is highly recommended to save the intermediate BowTie2 output for re-running MetaPhlAn extremely quickly (--bowtie2out), and use multiple CPUs (--nproc) if available:
 
 ```
-#!cmd
+#!bash
 $ metaphlan2.py metagenome.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq > profiled_metagenome.txt
 ```
 
 If you already mapped your metagenome against the marker DB (using a previous  MetaPhlAn run), you can obtain the results in few seconds by using the previously saved --bowtie2out file and specifying the input (--input_type bowtie2out):
 
 ```
-#!cmd
+#!bash
 $ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out > profiled_metagenome.txt
 ```
 
 You can also provide an externally BowTie2-mapped SAM if you specify this format with --input_type. Two steps here: first map your metagenome with BowTie2 and then feed MetaPhlAn2 with the obtained sam:
 
 ```
-#!cmd
+#!bash
 $ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/db_v20/mpa_v20_m200 -U metagenome.fastq
 $ metaphlan2.py metagenome.sam --input_type sam > profiled_metagenome.txt
 ```
@@ -99,34 +100,34 @@ $ metaphlan2.py metagenome.sam --input_type sam > profiled_metagenome.txt
 In order to make MetaPhlAn 2 easily compatible with complex metagenomic pipeline, there are now multiple alternative ways to pass the input:
 
 ```
-#!cmd
+#!bash
 $ cat metagenome.fastq | metaphlan2.py --input_type fastq > profiled_metagenome.txt
 ```
 
 ```
-#!cmd
+#!bash
 $ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type fastq --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 > profiled_metagenome.txt
 ```
 
 ```
-#!cmd
+#!bash
 $ metaphlan2.py --input_type fastq < metagenome.fastq > profiled_metagenome.txt
 ```
 
 ```
-#!cmd
+#!bash
 $ metaphlan2.py --input_type fastq <(bzcat metagenome.fastq.bz2) > profiled_metagenome.txt
 ```
 
 ```
-#!cmd
+#!bash
 $ metaphlan2.py --input_type fastq <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz) > profiled_metagenome.txt
 ```
 
 MetaPhlAn 2 can also natively **handle paired-end metagenomes** (but does not use the paired-end information), and, more generally, metagenomes stored in multiple files (but you need to specify the --bowtie2out parameter):
 
 ```
-#!cmd
+#!bash
 $ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq > profiled_metagenome.txt
 ```
 
@@ -368,13 +369,14 @@ The script **merge_metaphlan_tables.py** allows to combine MetaPhlAn output from
 To merge multiple output files, run the script as below
 
 ```
-#!cmd
+#!bash
 $ python utils/merge_metaphlan_tables.py metaphlan_output1.txt metaphlan_output2.txt metaphlan_output3.txt > output/merged_abundance_table.txt
 ```
 
 Wildcards can be used as needed:
+
 ```
-#!cmd
+#!bash
 $ python utils/merge_metaphlan_tables.py metaphlan_output*.txt > output/merged_abundance_table.txt
 ```
 
@@ -385,7 +387,7 @@ $ python utils/merge_metaphlan_tables.py metaphlan_output*.txt > output/merged_a
 The script **metaphlan_hclust_heatmap.py** allows to visualize the MetaPhlAn results in the form of a hierarchically-clustered heatmap. To generate the heatmap for a merged MetaPhlAn output table (as described above), please run the script as below.
 
 ```
-#!cmd
+#!bash
 $ python utils/metaphlan_hclust_heatmap.py -c bbcry --top 25 --minv 0.1 -s log --in output/merged_abundance_table.txt --out output_images/abundance_heatmap.png
 ```
 
@@ -393,8 +395,6 @@ For detailed command-line instructions, please refer to below:
 
 
 ```
-#!
-
 $ utils/metaphlan_hclust_heatmap.py -h
 usage: metaphlan_hclust_heatmap.py [-h] --in INPUT_FILE --out OUTPUT_FILE
                                    [-m {single,complete,average,weighted,centroid,median,ward}]
@@ -658,6 +658,7 @@ After this step, you should have two files in folder "db_markers": "all_markers.
 This step will take around 1 minute and can skipped if you do not need to add the reference genomes to the phylogenetic tree. Those markers can be found in the folder "db_markers" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 
 Before building the trees, we should get the list of all clades detected from the samples and save them in the "output/clades.txt" file by the following command:
+
 ```
 #!python
 
@@ -740,6 +741,7 @@ You will obtain the refined tree "output/RAxML_bestTree.s__Bacteroides_caccae.re
 
 ### Some useful options ###
 All option details can be viewed by strainphlan.py help:
+
 ```
 #!python
 
