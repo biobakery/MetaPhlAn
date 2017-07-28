@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-from __future__ import with_statement 
+from __future__ import with_statement
 
 # ==============================================================================
 # MetaPhlAn v2.x: METAgenomic PHyLogenetic ANalysis for taxonomic classification
 #                 of metagenomic data
 #
-# Authors: Nicola Segata (nicola.segata@unitn.it), 
+# Authors: Nicola Segata (nicola.segata@unitn.it),
 #          Duy Tin Truong (duytin.truong@unitn.it)
 #
 # Please type "./metaphlan2.py -h" for usage help
@@ -13,18 +13,18 @@ from __future__ import with_statement
 # ==============================================================================
 
 __author__ = 'Nicola Segata (nicola.segata@unitn.it), Duy Tin Truong (duytin.truong@unitn.it)'
-__version__ = '2.6.0'
-__date__ = '19 August 2016'
+__version__ = '2.6.1'
+__date__ = '21 July 2017'
 
 
 import sys
 import os
 import stat
 import re
-from binascii import b2a_uu 
+from binascii import b2a_uu
 
 try:
-    import numpy as np 
+    import numpy as np
 except ImportError:
     sys.stderr.write("Error! numpy python library not detected!!\n")
     sys.exit(1)
@@ -33,7 +33,7 @@ import argparse as ap
 import subprocess as subp
 import multiprocessing as mp
 from collections import defaultdict as defdict
-import bz2 
+import bz2
 import itertools
 from distutils.version import LooseVersion
 try:
@@ -41,7 +41,7 @@ try:
 except:
     import pickle
 
-   
+
 #**********************************************************************************************
 #  Modification of Code :                                                                     *
 #  Modified the code so instead of using the current clade IDs, which are numbers, we will    *
@@ -62,12 +62,12 @@ try:
     import numpy as np
 except ImportError:
     sys.stderr.write("Warning! Biom python library not detected!"
-                     "\n Exporting to biom format will not work!\n")
+                     "\nExporting to biom format will not work!\n")
 try:
     import json
 except ImportError:
     sys.stderr.write("Warning! json python library not detected!"
-                     "\n Exporting to biom format will not work!\n")
+                     "\nExporting to biom format will not work!\n")
 
 # This set contains the markers that after careful validation are found to have low precision or recall
 # We esclude the markers here to avoid generating a new marker DB when changing just few markers
@@ -361,12 +361,13 @@ if float(sys.version_info[0]) < 3.0:
 else:
     def mybytes( val ):
         return bytes(val,encoding='utf-8')
-    
+
 # get the directory that contains this script
 metaphlan2_script_install_folder=os.path.dirname(os.path.abspath(__file__))
 
+
 def read_params(args):
-    p = ap.ArgumentParser( description= 
+    p = ap.ArgumentParser( description=
             "DESCRIPTION\n"
             " MetaPhlAn version "+__version__+" ("+__date__+"): \n"
             " METAgenomic PHyLogenetic ANalysis for metagenomic taxonomic profiling.\n\n"
@@ -375,7 +376,7 @@ def read_params(args):
             " We assume here that metaphlan2.py is in the system path and that mpa_dir bash variable contains the\n"
             " main MetaPhlAn folder. Also BowTie2 should be in the system path with execution and read\n"
             " permissions, and Perl should be installed)\n\n"
-           
+
             "\n========== MetaPhlAn 2 clade-abundance estimation ================= \n\n"
             "The basic usage of MetaPhlAn 2 consists in the identification of the clades (from phyla to species and \n"
             "strains in particular cases) present in the metagenome obtained from a microbiome sample and their \n"
@@ -383,21 +384,21 @@ def read_params(args):
 
             "*  Profiling a metagenome from raw reads:\n"
             "$ metaphlan2.py metagenome.fastq --input_type fastq\n\n"
-            
+
             "*  You can take advantage of multiple CPUs and save the intermediate BowTie2 output for re-running\n"
             "   MetaPhlAn extremely quickly:\n"
             "$ metaphlan2.py metagenome.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
-            
+
             "*  If you already mapped your metagenome against the marker DB (using a previous MetaPhlAn run), you\n"
             "   can obtain the results in few seconds by using the previously saved --bowtie2out file and \n"
             "   specifying the input (--input_type bowtie2out):\n"
             "$ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out\n\n"
-            
+
             "*  You can also provide an externally BowTie2-mapped SAM if you specify this format with \n"
             "   --input_type. Two steps: first apply BowTie2 and then feed MetaPhlAn2 with the obtained sam:\n"
             "$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/db_v20/mpa_v20_m200 -U metagenome.fastq\n"
             "$ metaphlan2.py metagenome.sam --input_type sam > profiled_metagenome.txt\n\n"
-            
+
             "*  Multiple alternative ways to pass the input are also available:\n"
             "$ cat metagenome.fastq | metaphlan2.py --input_type fastq \n"
             "$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type fastq \n"
@@ -409,8 +410,8 @@ def read_params(args):
             "  multiple files (but you need to specify the --bowtie2out parameter):\n"
             "$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
             "\n------------------------------------------------------------------- \n \n\n"
-        
-            
+
+
             "\n========== MetaPhlAn 2 strain tracking ============================ \n\n"
             "MetaPhlAn 2 introduces the capability of charachterizing organisms at the strain level using non\n"
             "aggregated marker information. Such capability comes with several slightly different flavours and \n"
@@ -419,7 +420,7 @@ def read_params(args):
             "the community, and then a strain-level profiling can be performed to zoom-in into specific species\n"
             "of interest. This operation can be performed quickly as it exploits the --bowtie2out intermediate \n"
             "file saved during the execution of the default analysis type.\n\n"
-           
+
             "*  The following command will output the abundance of each marker with a RPK (reads per kil-base) \n"
             "   higher 0.0. (we are assuming that metagenome_outfmt.bz2 has been generated before as \n"
             "   shown above).\n"
@@ -431,24 +432,24 @@ def read_params(args):
             "*  The list of markers present in the sample can be obtained with '-t marker_pres_table'\n"
             "$ metaphlan2.py -t marker_pres_table metagenome_outfmt.bz2 --input_type bowtie2out > marker_abundance_table.txt\n"
             "   The --pres_th argument (default 1.0) set the minimum RPK value to consider a marker present\n\n"
-            
+
             "*  The list '-t clade_profiles' analysis type reports the same information of '-t marker_ab_table'\n"
             "   but the markers are reported on a clade-by-clade basis.\n"
             "$ metaphlan2.py -t clade_profiles metagenome_outfmt.bz2 --input_type bowtie2out > marker_abundance_table.txt\n\n"
-            
+
             "*  Finally, to obtain all markers present for a specific clade and all its subclades, the \n"
             "   '-t clade_specific_strain_tracker' should be used. For example, the following command\n"
             "   is reporting the presence/absence of the markers for the B. fragulis species and its strains\n"
             "   the optional argument --min_ab specifies the minimum clade abundance for reporting the markers\n\n"
             "$ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --input_type bowtie2out > marker_abundance_table.txt\n"
-            
+
             "\n------------------------------------------------------------------- \n\n"
             "",
             formatter_class=ap.RawTextHelpFormatter,
             add_help=False )
     arg = p.add_argument
 
-    arg( 'inp', metavar='INPUT_FILE', type=str, nargs='?', default=None, help= 
+    arg( 'inp', metavar='INPUT_FILE', type=str, nargs='?', default=None, help=
          "the input file can be:\n"
          "* a fastq file containing metagenomic reads\n"
          "OR\n"
@@ -457,8 +458,8 @@ def read_params(args):
          "* an intermediary mapping file of the metagenome generated by a previous MetaPhlAn run \n"
          "If the input file is missing, the script assumes that the input is provided using the standard \n"
          "input, or named pipes.\n"
-         "IMPORTANT: the type of input needs to be specified with --input_type" )   
-    
+         "IMPORTANT: the type of input needs to be specified with --input_type" )
+
     arg( 'output', metavar='OUTPUT_FILE', type=str, nargs='?', default=None,
          help= "the tab-separated output file of the predicted taxon relative abundances \n"
                "[stdout if not present]")
@@ -467,15 +468,15 @@ def read_params(args):
     g = p.add_argument_group('Required arguments')
     arg = g.add_argument
     input_type_choices = ['fastq','fasta','multifasta','multifastq','bowtie2out','sam'] # !!!!
-    arg( '--input_type', choices=input_type_choices, required = 'True', help =  
+    arg( '--input_type', choices=input_type_choices, required = 'True', help =
          "set whether the input is the multifasta file of metagenomic reads or \n"
          "the SAM file of the mapping of the reads against the MetaPhlAn db.\n"
          "[default 'automatic', i.e. the script will try to guess the input format]\n" )
-   
+
     g = p.add_argument_group('Mapping arguments')
     arg = g.add_argument
     arg( '--mpa_pkl', type=str,
-         default=os.path.join(metaphlan2_script_install_folder,"db_v20","mpa_v20_m200.pkl"), 
+         default=os.path.join(metaphlan2_script_install_folder,"db_v20","mpa_v20_m200.pkl"),
          help = "the metadata pickled MetaPhlAn file")
     arg( '--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str,
          default = os.path.join(metaphlan2_script_install_folder,"db_v20","mpa_v20_m200"),
@@ -494,20 +495,20 @@ def read_params(args):
          'Full path and name of the BowTie2 executable. This option allows \n'
          'MetaPhlAn to reach the executable even when it is not in the system \n'
          'PATH or the system PATH is unreachable\n' )
-    arg( '--bowtie2out', metavar="FILE_NAME", type=str, default = None, help = 
+    arg( '--bowtie2out', metavar="FILE_NAME", type=str, default = None, help =
          "The file for saving the output of BowTie2\n" )
     arg( '--no_map', action='store_true', help=
          "Avoid storing the --bowtie2out map file\n" )
-    arg( '--tmp_dir', metavar="", default=None, type=str, help = 
+    arg( '--tmp_dir', metavar="", default=None, type=str, help =
          "the folder used to store temporary files \n"
          "[default is the OS dependent tmp dir]\n"   )
-    
-    
+
+
     g = p.add_argument_group('Post-mapping arguments')
     arg = g.add_argument
     stat_choices = ['avg_g','avg_l','tavg_g','tavg_l','wavg_g','wavg_l','med']
-    arg( '--tax_lev', metavar='TAXONOMIC_LEVEL', type=str, 
-         choices='a'+tax_units, default='a', help = 
+    arg( '--tax_lev', metavar='TAXONOMIC_LEVEL', type=str,
+         choices='a'+tax_units, default='a', help =
          "The taxonomic level for the relative abundance output:\n"
          "'a' : all taxonomic levels\n"
          "'k' : kingdoms\n"
@@ -534,16 +535,16 @@ def read_params(args):
          "Do not profile bacterial organisms" )
     arg( '--ignore_archaea', action='store_true', help=
          "Do not profile archeal organisms" )
-    arg( '--stat_q', metavar="", type = float, default=0.1, help = 
+    arg( '--stat_q', metavar="", type = float, default=0.1, help =
          "Quantile value for the robust average\n"
          "[default 0.1]"   )
-    arg( '--ignore_markers', type=str, default = None, help = 
+    arg( '--ignore_markers', type=str, default = None, help =
          "File containing a list of markers to ignore. \n")
-    arg( '--avoid_disqm', action="store_true", help = 
+    arg( '--avoid_disqm', action="store_true", help =
          "Deactivate the procedure of disambiguating the quasi-markers based on the \n"
          "marker abundance pattern found in the sample. It is generally recommended \n"
          "too keep the disambiguation procedure in order to minimize false positives\n")
-    arg( '--stat', metavar="", choices=stat_choices, default="tavg_g", type=str, help = 
+    arg( '--stat', metavar="", choices=stat_choices, default="tavg_g", type=str, help =
          "EXPERIMENTAL! Statistical approach for converting marker abundances into clade abundances\n"
          "'avg_g'  : clade global (i.e. normalizing all markers together) average\n"
          "'avg_l'  : average of length-normalized marker counts\n"
@@ -552,17 +553,17 @@ def read_params(args):
          "'wavg_g' : winsorized clade global average (at --stat_q)\n"
          "'wavg_l' : winsorized average of length-normalized marker counts (at --stat_q)\n"
          "'med'    : median of length-normalized marker counts\n"
-         "[default tavg_g]"   ) 
-    
+         "[default tavg_g]"   )
+
     arg = p.add_argument
 
 
-    
+
     g = p.add_argument_group('Additional analysis types and arguments')
     arg = g.add_argument
     analysis_types = ['rel_ab', 'rel_ab_w_read_stats', 'reads_map', 'clade_profiles', 'marker_ab_table', 'marker_counts', 'marker_pres_table', 'clade_specific_strain_tracker']
-    arg( '-t', metavar='ANALYSIS TYPE', type=str, choices = analysis_types, 
-         default='rel_ab', help = 
+    arg( '-t', metavar='ANALYSIS TYPE', type=str, choices = analysis_types,
+         default='rel_ab', help =
          "Type of analysis to perform: \n"
          " * rel_ab: profiling a metagenomes in terms of relative abundances\n"
          " * rel_ab_w_read_stats: profiling a metagenomes in terms of relative abundances and estimate the number of reads comming from each clade.\n"
@@ -579,20 +580,20 @@ def read_params(args):
          "specified" )
     arg( '--pres_th', metavar="PRESENCE_THRESHOLD", type=int, default = 1.0, help =
          'Threshold for calling a marker present by the -t marker_pres_table option' )
-    arg( '--clade', metavar="", default=None, type=str, help = 
+    arg( '--clade', metavar="", default=None, type=str, help =
          "The clade for clade_specific_strain_tracker analysis\n"  )
-    arg( '--min_ab', metavar="", default=0.1, type=float, help = 
+    arg( '--min_ab', metavar="", default=0.1, type=float, help =
          "The minimum percentage abundace for the clade in the clade_specific_strain_tracker analysis\n"  )
     arg( "-h", "--help", action="help", help="show this help message and exit")
 
     g = p.add_argument_group('Output arguments')
     arg = g.add_argument
-    arg( '-o', '--output_file',  metavar="output file", type=str, default=None, help = 
+    arg( '-o', '--output_file',  metavar="output file", type=str, default=None, help =
          "The output file (if not specified as positional argument)\n")
-    arg('--sample_id_key',  metavar="name", type=str, default="#SampleID", 
+    arg('--sample_id_key',  metavar="name", type=str, default="#SampleID",
         help =("Specify the sample ID key for this analysis."
                " Defaults to '#SampleID'."))
-    arg('--sample_id',  metavar="value", type=str, 
+    arg('--sample_id',  metavar="value", type=str,
         default="Metaphlan2_Analysis",
         help =("Specify the sample ID for this analysis."
                " Defaults to 'Metaphlan2_Analysis'."))
@@ -600,46 +601,42 @@ def read_params(args):
         type=str, default=None, help="The sam output file\n")
     #*************************************************************
     #* Parameters related to biom file generation                *
-    #*************************************************************         
-    arg( '--biom', '--biom_output_file',  metavar="biom_output", type=str, default=None, help = 
+    #*************************************************************
+    arg( '--biom', '--biom_output_file',  metavar="biom_output", type=str, default=None, help =
          "If requesting biom file output: The name of the output file in biom format \n")
 
-    arg( '--mdelim', '--metadata_delimiter_char',  metavar="mdelim", type=str, default="|", help = 
+    arg( '--mdelim', '--metadata_delimiter_char',  metavar="mdelim", type=str, default="|", help =
          "Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria \n")
     #*************************************************************
     #* End parameters related to biom file generation            *
-    #*************************************************************    
-    
+    #*************************************************************
+
     g = p.add_argument_group('Other arguments')
     arg = g.add_argument
-    arg( '--nproc', metavar="N", type=int, default=1, help = 
+    arg( '--nproc', metavar="N", type=int, default=1, help =
          "The number of CPUs to use for parallelizing the mapping\n"
-         "[default 1, i.e. no parallelism]\n" ) 
+         "[default 1, i.e. no parallelism]\n" )
     arg( '-v','--version', action='version', version="MetaPhlAn version "+__version__+"\t("+__date__+")",
          help="Prints the current MetaPhlAn version and exit\n" )
-    
 
-    return vars(p.parse_args()) 
 
-def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc, 
-                  file_format = "multifasta", exe = None, 
-                  samout = None,
-                  min_alignment_len = None,
-                  ):
+    return vars(p.parse_args())
+
+def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format = "multifasta", exe = None, samout = None, min_alignment_len = None):
     try:
         if not fna_in: # or stat.S_ISFIFO(os.stat(fna_in).st_mode):
             fna_in = "-"
-        bowtie2_cmd = [ exe if exe else 'bowtie2', 
-                        "--quiet", "--no-unal", 
+        bowtie2_cmd = [ exe if exe else 'bowtie2',
+                        "--quiet", "--no-unal",
                         "--"+preset,
                         "-S","-",
                         "-x", bowtie2_db,
                          ] + ([] if int(nproc) < 2 else ["-p",str(nproc)])
         bowtie2_cmd += ["-U", fna_in] # if not stat.S_ISFIFO(os.stat(fna_in).st_mode) else []
-        bowtie2_cmd += (["-f"] if file_format == "multifasta" else []) 
-        p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE ) 
+        bowtie2_cmd += (["-f"] if file_format == "multifasta" else [])
+        p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE )
         lmybytes, outf = (mybytes,bz2.BZ2File(outfmt6_out, "w")) if outfmt6_out.endswith(".bz2") else (str,open( outfmt6_out, "w" ))
-        
+
         try:
             if samout:
                 if samout[-4:] == '.bz2':
@@ -653,14 +650,15 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc,
         for line in p.stdout:
             if samout:
                 sam_file.write(line)
-            if line[0] != '@':
-                o = read_and_split_line(line)
+            o = read_and_split_line(line)
+
+            if str(line)[0][0] != '@':
                 if o[2][-1] != '*':
                     if min_alignment_len == None\
                         or max([int(x.strip('M')) for x in\
                                 re.findall(r'(\d*M)', o[5])]) >= min_alignment_len:
                         outf.write( lmybytes("\t".join([o[0],o[2]]) +"\n") )
-        #if  float(sys.version_info[0]) >= 3: 
+        #if  float(sys.version_info[0]) >= 3:
         #    for o in read_and_split(p.stdout):
         #        if o[2][-1] != '*':
         #            outf.write( bytes("\t".join([o[0],o[2]]) +"\n",encoding='utf-8') )
@@ -672,8 +670,6 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc,
         if samout:
             sam_file.close()
         p.wait()
-
-
     except OSError:
         sys.stderr.write( "OSError: fatal error running BowTie2. Is BowTie2 in the system path?\n" )
         sys.exit(1)
@@ -683,8 +679,9 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc,
     except IOError:
         sys.stderr.write( "IOError: fatal error running BowTie2.\n" )
         sys.exit(1)
+
     if p.returncode == 13:
-        sys.stderr.write( "Permission Denied Error: fatal error running BowTie2." 
+        sys.stderr.write( "Permission Denied Error: fatal error running BowTie2."
           "Is the BowTie2 file in the path with execution and read permissions?\n" )
         sys.exit(1)
     elif p.returncode != 0:
@@ -695,7 +692,7 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc,
 #    if "," in inp_file:
 #        sys.stderr.write( "Sorry, I cannot guess the format of the input, when "
 #                          "more than one file is specified. Please set the --input_type parameter \n" )
-#        sys.exit(1) 
+#        sys.exit(1)
 #
 #    with open( inp_file ) as inpf:
 #        for i,l in enumerate(inpf):
@@ -718,7 +715,7 @@ class TaxClade:
         self.children, self.markers2nreads = {}, {}
         self.name, self.father = name, None
         self.uncl, self.subcl_uncl = uncl, False
-        self.abundance, self.uncl_abundance = None, 0 
+        self.abundance, self.uncl_abundance = None, 0
         self.id = id_int
 
     def add_child( self, name, id_int ):
@@ -727,7 +724,7 @@ class TaxClade:
         new_clade.father = self
         return new_clade
 
-    
+
     def get_terminals( self ):
         terms = []
         if not self.children:
@@ -746,18 +743,18 @@ class TaxClade:
         return "|".join(fullname[1:])
 
     def get_normalized_counts( self ):
-        return [(m,float(n)*1000.0/self.markers2lens[m]) 
+        return [(m,float(n)*1000.0/self.markers2lens[m])
                     for m,n in self.markers2nreads.items()]
 
     def compute_abundance( self ):
         if self.abundance is not None: return self.abundance
-        sum_ab = sum([c.compute_abundance() for c in self.children.values()]) 
-        rat_nreads = sorted([(self.markers2lens[m],n) 
+        sum_ab = sum([c.compute_abundance() for c in self.children.values()])
+        rat_nreads = sorted([(self.markers2lens[m],n)
                                     for m,n in self.markers2nreads.items()],
                                             key = lambda x: x[1])
 
         rat_nreads, removed = [], []
-        for m,n in self.markers2nreads.items():
+        for m,n in sorted(self.markers2nreads.items(),key=lambda pars:pars[0]):
             misidentified = False
 
             if not self.avoid_disqm:
@@ -768,7 +765,7 @@ class TaxClade:
                     while len(tocladetmp.children) == 1:
                         tocladetmp = list(tocladetmp.children.values())[0]
                         m2nr = tocladetmp.markers2nreads
-    
+
                     nonzeros = sum([v>0 for v in m2nr.values()])
                     if len(m2nr):
                         if float(nonzeros) / len(m2nr) > 0.33:
@@ -776,14 +773,14 @@ class TaxClade:
                             removed.append( (self.markers2lens[m],n) )
                             break
             if not misidentified:
-                rat_nreads.append( (self.markers2lens[m],n) ) 
-       
+                rat_nreads.append( (self.markers2lens[m],n) )
+
         if not self.avoid_disqm and len(removed):
             n_rat_nreads = float(len(rat_nreads))
             n_removed = float(len(removed))
             n_tot = n_rat_nreads + n_removed
             n_ripr = 10
-            
+
             if len(self.get_terminals()) < 2:
                 n_ripr = 0
 
@@ -793,16 +790,16 @@ class TaxClade:
             if n_rat_nreads < n_ripr and n_tot > n_rat_nreads:
                 rat_nreads += removed[:n_ripr-int(n_rat_nreads)]
 
-        
+
         rat_nreads = sorted(rat_nreads, key = lambda x: x[1])
 
         rat_v,nreads_v = zip(*rat_nreads) if rat_nreads else ([],[])
         rat, nrawreads, loc_ab = float(sum(rat_v)) or -1.0, sum(nreads_v), 0.0
         quant = int(self.quantile*len(rat_nreads))
         ql,qr,qn = (quant,-quant,quant) if quant else (None,None,0)
-     
+
         if self.name[0] == 't' and (len(self.father.children) > 1 or "_sp" in self.father.name or "k__Viruses" in self.get_full_name()):
-            non_zeros = float(len([n for r,n in rat_nreads if n > 0])) 
+            non_zeros = float(len([n for r,n in rat_nreads if n > 0]))
             nreads = float(len(rat_nreads))
             if nreads == 0.0 or non_zeros / nreads < 0.7:
                 self.abundance = 0.0
@@ -813,7 +810,7 @@ class TaxClade:
         elif self.stat == 'avg_g' or (not qn and self.stat in ['wavg_g','tavg_g']):
             loc_ab = nrawreads / rat if rat >= 0 else 0.0
         elif self.stat == 'avg_l' or (not qn and self.stat in ['wavg_l','tavg_l']):
-            loc_ab = np.mean([float(n)/r for r,n in rat_nreads]) 
+            loc_ab = np.mean([float(n)/r for r,n in rat_nreads])
         elif self.stat == 'tavg_g':
             wnreads = sorted([(float(n)/r,r,n) for r,n in rat_nreads], key=lambda x:x[0])
             den,num = zip(*[v[1:] for v in wnreads[ql:qr]])
@@ -823,15 +820,15 @@ class TaxClade:
         elif self.stat == 'wavg_g':
             vmin, vmax = nreads_v[ql], nreads_v[qr]
             wnreads = [vmin]*qn+list(nreads_v[ql:qr])+[vmax]*qn
-            loc_ab = float(sum(wnreads)) / rat  
+            loc_ab = float(sum(wnreads)) / rat
         elif self.stat == 'wavg_l':
             wnreads = sorted([float(n)/r for r,n in rat_nreads])
             vmin, vmax = wnreads[ql], wnreads[qr]
             wnreads = [vmin]*qn+list(wnreads[ql:qr])+[vmax]*qn
-            loc_ab = np.mean(wnreads) 
+            loc_ab = np.mean(wnreads)
         elif self.stat == 'med':
-            loc_ab = np.median(sorted([float(n)/r for r,n in rat_nreads])[ql:qr]) 
-        
+            loc_ab = np.median(sorted([float(n)/r for r,n in rat_nreads])[ql:qr])
+
         self.abundance = loc_ab
         if rat < self.min_cu_len and self.children:
             self.abundance = sum_ab
@@ -840,7 +837,7 @@ class TaxClade:
 
         if self.abundance > sum_ab and self.children: # *1.1??
             self.uncl_abundance = self.abundance - sum_ab
-        self.subcl_uncl = not self.children and self.name[0] not in tax_units[-2:] 
+        self.subcl_uncl = not self.children and self.name[0] not in tax_units[-2:]
 
         return self.abundance
 
@@ -867,7 +864,9 @@ class TaxTree:
         TaxClade.taxa2clades = self.taxa2clades
         self.id_gen = itertools.count(1)
 
-        clades_txt = ((l.strip().split("|"),n) for l,n in mpa_pkl['taxonomy'].items())        
+        # clades_txt = ((l.strip().split("|"),n) for l,n in mpa_pkl['taxonomy'].items())
+        clades_txt = ((l.strip().split("|"), n) for l, n in mpa['taxonomy'].items())
+
         for clade,lenc in clades_txt:
             father = self.root
             for clade_lev in clade: # !!!!! [:-1]:
@@ -884,14 +883,15 @@ class TaxTree:
         def add_lens( node ):
             if not node.children:
                 return node.glen
-            lens = [] 
+            lens = []
             for c in node.children.values():
                 lens.append( add_lens( c ) )
             node.glen = sum(lens) / len(lens)
             return node.glen
         add_lens( self.root )
-        
-        for k,p in mpa_pkl['markers'].items():
+
+        # for k,p in mpa_pkl['markers'].items():
+        for k, p in mpa['markers'].items():
             if k in markers_to_exclude:
                 continue
             if k in markers_to_ignore:
@@ -909,8 +909,8 @@ class TaxTree:
         TaxClade.quantile = quantile
         TaxClade.avoid_disqm = avoid_disqm
 
-    def add_reads(  self, marker, n, 
-                    ignore_viruses = False, ignore_eukaryotes = False, 
+    def add_reads(  self, marker, n,
+                    ignore_viruses = False, ignore_eukaryotes = False,
                     ignore_bacteria = False, ignore_archaea = False  ):
         clade = self.markers2clades[marker]
         cl = self.all_clades[clade]
@@ -928,7 +928,7 @@ class TaxTree:
             cl = list(cl.children.values())[0]
         cl.markers2nreads[marker] = n
         return cl.get_full_name()
-   
+
 
     def markers2counts( self ):
         m2c = {}
@@ -940,24 +940,24 @@ class TaxTree:
     def clade_profiles( self, tax_lev, get_all = False  ):
         cl2pr = {}
         for k,v in self.all_clades.items():
-            if tax_lev and not k.startswith(tax_lev): 
+            if tax_lev and not k.startswith(tax_lev):
                 continue
             prof = v.get_normalized_counts()
             if not get_all and ( len(prof) < 1 or not sum([p[1] for p in prof]) > 0.0 ):
                 continue
             cl2pr[v.get_full_name()] = prof
         return cl2pr
-            
+
     def relative_abundances( self, tax_lev  ):
-        cl2ab_n = dict([(k,v) for k,v in self.all_clades.items() 
+        cl2ab_n = dict([(k,v) for k,v in self.all_clades.items()
                     if k.startswith("k__") and not v.uncl])
-     
-        cl2ab, cl2glen, tot_ab = {}, {}, 0.0 
+
+        cl2ab, cl2glen, tot_ab = {}, {}, 0.0
         for k,v in cl2ab_n.items():
             tot_ab += v.compute_abundance()
 
         for k,v in cl2ab_n.items():
-            for cl,ab in v.get_all_abundances():
+            for cl,ab in sorted(v.get_all_abundances(),key=lambda pars:pars[0]):
                 if not tax_lev:
                     if cl not in self.all_clades:
                         to = tax_units.index(cl[0])
@@ -969,7 +969,7 @@ class TaxTree:
                         glen = self.all_clades[spl[-1]].glen
                     else:
                         glen = self.all_clades[cl].glen
-                        cl = self.all_clades[cl].get_full_name() 
+                        cl = self.all_clades[cl].get_full_name()
                 elif not cl.startswith(tax_lev):
                     if cl in self.all_clades:
                         glen = self.all_clades[cl].glen
@@ -977,7 +977,7 @@ class TaxTree:
                         glen = 1.0
                     continue
                 cl2ab[cl] = ab
-                cl2glen[cl] = glen 
+                cl2glen[cl] = glen
 
         ret_d = dict([( k, float(v) / tot_ab if tot_ab else 0.0) for k,v in cl2ab.items()])
         ret_r = dict([( k, (v,cl2glen[k],float(v)*cl2glen[k])) for k,v in cl2ab.items()])
@@ -1016,8 +1016,8 @@ def map2bbh( mapping_f, input_type = 'bowtie2out', min_alignment_len = None):
         markers2reads[m].add( r )
 
     return markers2reads
-    
-    
+
+
 def maybe_generate_biom_file(pars, abundance_predictions):
     if not pars['biom']:
         return None
@@ -1039,7 +1039,7 @@ def maybe_generate_biom_file(pars, abundance_predictions):
     def to_biomformat(clade_name):
         return { 'taxonomy': clade_name.split(delimiter) }
 
-    clades = iter( (abundance, findclade(name)) 
+    clades = iter( (abundance, findclade(name))
                    for (name, abundance) in abundance_predictions
                    if istip(name) )
     packed = iter( ([abundance], clade.get_full_name(), clade.id)
@@ -1053,7 +1053,7 @@ def maybe_generate_biom_file(pars, abundance_predictions):
     sample_ids = [pars['sample_id']]
     table_id='MetaPhlAn2_Analysis'
     json_key = "MetaPhlAn2"
-  
+
 
 
     #**********************************************************************************************
@@ -1066,7 +1066,7 @@ def maybe_generate_biom_file(pars, abundance_predictions):
     #**********************************************************************************************
     if LooseVersion(biom.__version__) < LooseVersion("2.0.0"):
         biom_table = biom.table.table_factory(
-            data, 
+            data,
 	    sample_ids,
             ######## clade_ids,     #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
             clade_names,            #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
@@ -1080,26 +1080,26 @@ def maybe_generate_biom_file(pars, abundance_predictions):
                            outfile )
     else:  # Below is the biom2 compatible code
         biom_table = biom.table.Table(
-            data, 
+            data,
             #clade_ids,           #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
-            clade_names,          #Modified by George Weingart 5/22/2017 - We will use instead the clade_names 
+            clade_names,          #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
             sample_ids,
             sample_metadata      = None,
             observation_metadata = map(to_biomformat, clade_names),
             table_id             = table_id,
             input_is_dense       = True
         )
-        
-        with open(pars['biom'], 'w') as outfile:  
+
+        with open(pars['biom'], 'w') as outfile:
             biom_table.to_json( json_key,
                                 direct_io = outfile )
 
     return True
 
 
-if __name__ == '__main__':
-    pars = read_params( sys.argv )    
-    #if pars['inp'] is None and ( pars['input_type'] is None or  pars['input_type'] == 'automatic'): 
+def metaphlan2():
+    pars = read_params( sys.argv )
+    #if pars['inp'] is None and ( pars['input_type'] is None or  pars['input_type'] == 'automatic'):
     #    sys.stderr.write( "The --input_type parameter need top be specified when the "
     #                      "input is provided from the standard input.\n"
     #                      "Type metaphlan.py -h for more info\n")
@@ -1128,7 +1128,7 @@ if __name__ == '__main__':
     #    if not pars['input_type']:
     #        sys.stderr.write( "Sorry, I cannot guess the format of the input file, please "
     #                          "specify the --input_type parameter \n" )
-    #        sys.exit(1) 
+    #        sys.exit(1)
 
     # check for the mpa_pkl file
     if not os.path.isfile(pars['mpa_pkl']):
@@ -1136,7 +1136,7 @@ if __name__ == '__main__':
                          "\nExpecting location ${mpa_dir}/db_v20/map_v20_m200.pkl "
                          "\nSelect the file location with the option --mpa_pkl.\n"
                          "Exiting...\n\n")
-        sys.exit(1)           
+        sys.exit(1)
 
     if pars['ignore_markers']:
         with open(pars['ignore_markers']) as ignv:
@@ -1147,6 +1147,7 @@ if __name__ == '__main__':
     no_map = False
     if pars['input_type'] == 'multifasta' or pars['input_type'] == 'multifastq':
         bow = pars['bowtie2db'] is not None
+
         if not bow:
             sys.stderr.write( "No MetaPhlAn BowTie2 database provided\n "
                               "[--bowtie2db options]!\n"
@@ -1169,7 +1170,7 @@ if __name__ == '__main__':
                 pars['bowtie2out'] = fname + ".bowtie2out.txt"
 
             if os.path.exists( pars['bowtie2out'] ):
-                sys.stderr.write(   
+                sys.stderr.write(
                     "BowTie2 output file detected: " + pars['bowtie2out'] + "\n"
                     "Please use it as input or remove it if you want to "
                     "re-perform the BowTie2 run.\n"
@@ -1186,13 +1187,13 @@ if __name__ == '__main__':
             sys.exit(1)
 
         if bow:
-            run_bowtie2( pars['inp'], pars['bowtie2out'], pars['bowtie2db'], 
+            run_bowtie2( pars['inp'], pars['bowtie2out'], pars['bowtie2db'],
                          pars['bt2_ps'], pars['nproc'], file_format = pars['input_type'],
                          exe = pars['bowtie2_exe'],
                          samout = pars['samout'],
                          min_alignment_len = pars['min_alignment_len'])
             pars['input_type'] = 'bowtie2out'
-        
+
         pars['inp'] = pars['bowtie2out'] # !!!
 
     with open( pars['mpa_pkl'], 'rb' ) as a:
@@ -1202,27 +1203,27 @@ if __name__ == '__main__':
     tree.set_min_cu_len( pars['min_cu_len'] )
     tree.set_stat( pars['stat'], pars['stat_q'], pars['avoid_disqm']  )
 
-    markers2reads = map2bbh( 
-                            pars['inp'], 
+    markers2reads = map2bbh(
+                            pars['inp'],
                             pars['input_type'],
                             pars['min_alignment_len']
                             )
     if no_map:
-        os.remove( pars['inp'] )         
+        os.remove( pars['inp'] )
 
     map_out = []
-    for marker,reads in markers2reads.items():
+    for marker,reads in sorted(markers2reads.items(), key=lambda pars: pars[0]):
         if marker not in tree.markers2lens:
             continue
-        tax_seq = tree.add_reads( marker, len(reads), 
+        tax_seq = tree.add_reads( marker, len(reads),
                                   ignore_viruses = pars['ignore_viruses'],
                                   ignore_eukaryotes = pars['ignore_eukaryotes'],
                                   ignore_bacteria = pars['ignore_bacteria'],
                                   ignore_archaea = pars['ignore_archaea'],
                                   )
         if tax_seq:
-            map_out +=["\t".join([r,tax_seq]) for r in reads]
-    
+            map_out +=["\t".join([r,tax_seq]) for r in sorted(reads)]
+
     if pars['output'] is None and pars['output_file'] is not None:
         pars['output'] = pars['output_file']
 
@@ -1231,18 +1232,18 @@ if __name__ == '__main__':
         if pars['t'] == 'reads_map':
             outf.write( "\n".join( map_out ) + "\n" )
         elif pars['t'] == 'rel_ab':
-            cl2ab, _ = tree.relative_abundances( 
+            cl2ab, _ = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
             outpred = [(k,round(v*100.0,5)) for k,v in cl2ab.items() if v > 0.0]
             if outpred:
                 for k,v in sorted(  outpred, reverse=True,
-                                    key=lambda x:x[1]+(100.0*(8-x[0].count("|")))  ): 
-                    outf.write( "\t".join( [k,str(v)] ) + "\n" )   
+                                    key=lambda x:x[1]+(100.0*(8-x[0].count("|")))  ):
+                    outf.write( "\t".join( [k,str(v)] ) + "\n" )
             else:
                 outf.write( "unclassified\t100.0\n" )
             maybe_generate_biom_file(pars, outpred)
         elif pars['t'] == 'rel_ab_w_read_stats':
-            cl2ab, rr = tree.relative_abundances( 
+            cl2ab, rr = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
             outpred = [(k,round(v*100.0,5)) for k,v in cl2ab.items() if v > 0.0]
             totl = 0
@@ -1254,13 +1255,13 @@ if __name__ == '__main__':
                                             "estimated_number_of_reads_from_the_clade" ]) +"\n" )
 
                 for k,v in sorted(  outpred, reverse=True,
-                                    key=lambda x:x[1]+(100.0*(8-x[0].count("|")))  ): 
+                                    key=lambda x:x[1]+(100.0*(8-x[0].count("|")))  ):
                     outf.write( "\t".join( [    k,
                                                 str(v),
                                                 str(rr[k][0]) if k in rr else "-",
                                                 str(rr[k][1]) if k in rr else "-",
-                                                str(int(round(rr[k][2],0)) if k in rr else "-")   
-                                                ] ) + "\n" )   
+                                                str(int(round(rr[k][2],0)) if k in rr else "-")
+                                                ] ) + "\n" )
                     if "|" not in k:
                         totl += (int(round(rr[k][2],0)) if k in rr else 0)
 
@@ -1278,7 +1279,7 @@ if __name__ == '__main__':
         elif pars['t'] == 'marker_ab_table':
             cl2pr = tree.clade_profiles( pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None  )
             for v in cl2pr.values():
-                outf.write( "\n".join(["\t".join([str(a),str(b/float(pars['nreads'])) if pars['nreads'] else str(b)]) 
+                outf.write( "\n".join(["\t".join([str(a),str(b/float(pars['nreads'])) if pars['nreads'] else str(b)])
                                 for a,b in v if b > 0.0]) + "\n" )
         elif pars['t'] == 'marker_pres_table':
             cl2pr = tree.clade_profiles( pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None  )
@@ -1306,3 +1307,7 @@ if __name__ == '__main__':
             else:
                 sys.stderr.write("Clade "+pars['clade']+" not present at an abundance >"+str(round(pars['min_ab'],2))+"%, "
                                  "so no clade specific markers are reported\n")
+
+
+if __name__ == '__main__':
+    metaphlan2()
