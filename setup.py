@@ -17,4 +17,5 @@ setup(name='metaphlan2',
     package_data={'metaphlan2': ['db_v20/*']},
     install_requires=['numpy', 'biom-format'],
     entry_points={'qiime2.plugins': ['metaphlan2=metaphlan2.plugin_setup:plugin']},
+    zip_safe=False
 )

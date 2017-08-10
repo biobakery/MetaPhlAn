@@ -1019,22 +1019,34 @@ def map2bbh( mapping_f, input_type = 'bowtie2out', min_alignment_len = None):
 
 
 def maybe_generate_biom_file(pars, abundance_predictions):
+    json_key = "MetaPhlAn2"
+
     if not pars['biom']:
         return None
     if not abundance_predictions:
-        return open(pars['biom'], 'w').close()
+        biom_table = biom.Table([], [], []) # create empty BIOM table
+
+        with open(pars['biom'], 'w') as outfile:
+            biom_table.to_json(json_key, direct_io=outfile)
+
+        return True
 
     delimiter = "|" if len(pars['mdelim']) > 1 else pars['mdelim']
+
+
     def istip(clade_name):
         end_name = clade_name.split(delimiter)[-1]
         return end_name.startswith("t__") or end_name.endswith("_unclassified")
+
 
     def findclade(clade_name):
         if clade_name.endswith('_unclassified'):
             name = clade_name.split(delimiter)[-2]
         else:
             name = clade_name.split(delimiter)[-1]
+
         return tree.all_clades[name]
+
 
     def to_biomformat(clade_name):
         return { 'taxonomy': clade_name.split(delimiter) }
@@ -1052,9 +1064,6 @@ def maybe_generate_biom_file(pars, abundance_predictions):
     data = np.array(data)
     sample_ids = [pars['sample_id']]
     table_id='MetaPhlAn2_Analysis'
-    json_key = "MetaPhlAn2"
-
-
 
     #**********************************************************************************************
     #  Modification of Code :                                                                     *
