@@ -44,7 +44,7 @@ MetaPhlAn requires *python 2.7* or higher with argparse, tempfile and [*numpy*](
 
 MetaPhlAn 2.0 can be obtained by either
 
-[Downloading MetaPhlAn v2.0](https://bitbucket.org/biobakery/metaphlan2/get/default.zip)  
+Dowloading MetaPhlAn v2.0 [here](https://bitbucket.org/biobakery/metaphlan2/get/default.zip) or [here](https://www.dropbox.com/s/ztqr8qgbo727zpn/metaphlan2.zip?dl=0)
 
 **OR**
 
