@@ -69,6 +69,7 @@ except ImportError:
     sys.stderr.write("Warning! json python library not detected!"
                      "\n Exporting to biom format will not work!\n")
 
+
 # This set contains the markers that after careful validation are found to have low precision or recall
 # We esclude the markers here to avoid generating a new marker DB when changing just few markers
 markers_to_exclude = \
@@ -621,23 +622,40 @@ def read_params(args):
 
     return vars(p.parse_args()) 
 
+
+
+
 def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc, 
                   file_format = "multifasta", exe = None, 
                   samout = None,
                   min_alignment_len = None,
                   ):
+
+    read_fastx = "read_fastx.py"
     try:
-        if not fna_in: # or stat.S_ISFIFO(os.stat(fna_in).st_mode):
-            fna_in = "-"
+        subprocess.check_call( [read_fastx,"-h"] )
+    except Exception as e:
+        try:
+            read_fastx =os.path.join((os.path.join(os.path.dirname(__file__),"utils")),read_fastx)
+        except Exception as e:
+            sys.stderr.write( "OSError: fatal error running \'read_fastx.py\'. Is it in the system path?\n" )
+            sys.exit(1)
+
+    try:
+        if fna_in: 
+            readin = subp.Popen([read_fastx,fna_in],stdout=subp.PIPE)
+        else: 
+            readin = subp.Popen([read_fastx],stdin=sys.stdin,stdout=subp.PIPE)
         bowtie2_cmd = [ exe if exe else 'bowtie2', 
                         "--quiet", "--no-unal", 
                         "--"+preset,
                         "-S","-",
                         "-x", bowtie2_db,
                          ] + ([] if int(nproc) < 2 else ["-p",str(nproc)])
-        bowtie2_cmd += ["-U", fna_in] # if not stat.S_ISFIFO(os.stat(fna_in).st_mode) else []
+        bowtie2_cmd += ["-U", "-"] # if not stat.S_ISFIFO(os.stat(fna_in).st_mode) else []
         bowtie2_cmd += (["-f"] if file_format == "multifasta" else []) 
-        p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE ) 
+        p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE, stdin=readin.stdout ) 
+        readin.stdout.close()
         lmybytes, outf = (mybytes,bz2.BZ2File(outfmt6_out, "w")) if outfmt6_out.endswith(".bz2") else (str,open( outfmt6_out, "w" ))
         
         try:
@@ -660,19 +678,11 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc,
                         or max([int(x.strip('M')) for x in\
                                 re.findall(r'(\d*M)', o[5])]) >= min_alignment_len:
                         outf.write( lmybytes("\t".join([o[0],o[2]]) +"\n") )
-        #if  float(sys.version_info[0]) >= 3: 
-        #    for o in read_and_split(p.stdout):
-        #        if o[2][-1] != '*':
-        #            outf.write( bytes("\t".join([o[0],o[2]]) +"\n",encoding='utf-8') )
-        #else:
-        #    for o in read_and_split(p.stdout):
-        #        if o[2][-1] != '*':
-        #            outf.write( "\t".join([o[0],o[2]]) +"\n" )
+        
         outf.close()
         if samout:
             sam_file.close()
-        p.wait()
-
+        p.communicate()
 
     except OSError:
         sys.stderr.write( "OSError: fatal error running BowTie2. Is BowTie2 in the system path?\n" )
