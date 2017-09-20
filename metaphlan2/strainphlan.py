@@ -1534,9 +1534,12 @@ def check_dependencies(args):
             exit(1)
 
 
-
-
-if __name__ == "__main__":
+def strainphlan():
     args = read_params()
     check_dependencies(args)
     strainer(args)
+
+
+if __name__ == "__main__":
+    strainphlan()
+
