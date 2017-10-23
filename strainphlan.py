@@ -87,62 +87,62 @@ def read_params():
              'extracted from this sample will be used for all other samples.')
 
     p.add_argument(
-        '--mpa_pkl', 
-        required=False, 
-        default=os.path.join(metaphlan2_script_install_folder,"db_v20","mpa_v20_m200.pkl"), 
-        type=str, 
+        '--mpa_pkl',
+        required=False,
+        default=os.path.join(metaphlan2_script_install_folder,"db_v20","mpa_v20_m200.pkl"),
+        type=str,
         help='The database of metaphlan3.py.')
 
     p.add_argument(
-        '--output_dir', 
-        required=True, 
-        default='strainer_output', 
+        '--output_dir',
+        required=True,
+        default='strainer_output',
         type=str,
         help='The output directory.')
 
     p.add_argument(
-        '--ifn_markers', 
-        required=False, 
-        default=None, 
+        '--ifn_markers',
+        required=False,
+        default=None,
         type=str,
         help='The marker file in fasta format.')
 
     p.add_argument(
-        '--nprocs_main', 
-        required=False, 
-        default=1, 
+        '--nprocs_main',
+        required=False,
+        default=1,
         type=int,
         help='The number of processors are used for the main threads. '\
              'Default 1.')
 
     p.add_argument(
-        '--nprocs_load_samples', 
-        required=False, 
-        default=None, 
+        '--nprocs_load_samples',
+        required=False,
+        default=None,
         type=int,
         help='The number of processors are used for loading samples. '\
              'Default nprocs_main.')
 
     p.add_argument(
-        '--nprocs_align_clean', 
-        required=False, 
-        default=None, 
+        '--nprocs_align_clean',
+        required=False,
+        default=None,
         type=int,
         help='The number of processors are used for aligning and cleaning markers. '\
              'Default nprocs_main.')
 
     p.add_argument(
-        '--nprocs_raxml', 
-        required=False, 
-        default=None, 
+        '--nprocs_raxml',
+        required=False,
+        default=None,
         type=int,
         help='The number of processors are used for running raxml. '\
              'Default nprocs_main.')
 
     p.add_argument(
-        '--bootstrap_raxml', 
-        required=False, 
-        default=0, 
+        '--bootstrap_raxml',
+        required=False,
+        default=0,
         type=int,
         help='The number of runs for bootstraping when building the tree. '\
              'Default 0.')
@@ -156,8 +156,8 @@ def read_params():
         help='The reference genome file names. They are separated by spaces.')
 
     p.add_argument(
-        '--add_reference_genomes_as_second_samples', 
-        required=False, 
+        '--add_reference_genomes_as_second_samples',
+        required=False,
         dest='add_reference_genomes_as_second_samples',
         action='store_true',
         help='Add reference genomes as second samples. '\
@@ -323,10 +323,10 @@ def read_params():
              'Default 0.05.')
 
     p.add_argument(
-        '--clades', 
+        '--clades',
         nargs='+',
-        required=False, 
-        default=['all'], 
+        required=False,
+        default=['all'],
         type=str,
         help='The clades (space seperated) for which the script will compute '\
                 'the marker alignments in fasta format and the phylogenetic '\
@@ -335,16 +335,16 @@ def read_params():
                 'Default "automatically identify all clades".')
 
     p.add_argument(
-        '--marker_list_fn', 
-        required=False, 
-        default=None, 
+        '--marker_list_fn',
+        required=False,
+        default=None,
         type=str,
         help='The file name containing the list of considered markers. '\
                 'The other markers will be discarded. '\
                 'Default "None".')
     p.add_argument(
-        '--print_clades_only', 
-        required=False, 
+        '--print_clades_only',
+        required=False,
         dest='print_clades_only',
         action='store_true',
         help='Only print the potential clades and stop without building any '\
@@ -354,16 +354,16 @@ def read_params():
     p.set_defaults(print_clades_only=False)
 
     p.add_argument(
-        '--alignment_program', 
-        required=False, 
-        default='muscle', 
+        '--alignment_program',
+        required=False,
+        default='muscle',
         choices=['muscle', 'mafft'],
         type=str,
         help='The alignment program. Default "muscle".')
 
     p.add_argument(
-        '--relaxed_parameters', 
-        required=False, 
+        '--relaxed_parameters',
+        required=False,
         dest='relaxed_parameters',
         action='store_true',
         help='Set marker_in_clade=0.5, sample_in_marker=0.5, '\
@@ -372,8 +372,8 @@ def read_params():
     p.set_defaults(relaxed_parameters=False)
 
     p.add_argument(
-        '--relaxed_parameters2', 
-        required=False, 
+        '--relaxed_parameters2',
+        required=False,
         dest='relaxed_parameters2',
         action='store_true',
         help='Set marker_in_clade=0.2, sample_in_marker=0.2, '\
@@ -382,8 +382,8 @@ def read_params():
     p.set_defaults(relaxed_parameters2=False)
 
     p.add_argument(
-        '--relaxed_parameters3', 
-        required=False, 
+        '--relaxed_parameters3',
+        required=False,
         dest='relaxed_parameters3',
         action='store_true',
         help='Set gap_in_trailing_col=0.9, gap_in_internal_col=0.9, '\
@@ -394,16 +394,16 @@ def read_params():
     p.set_defaults(relaxed_parameters3=False)
 
     p.add_argument(
-        '--keep_alignment_files', 
-        required=False, 
+        '--keep_alignment_files',
+        required=False,
         dest='keep_alignment_files',
         action='store_true',
         help='Keep the alignment files of all markers before cleaning step.')
     p.set_defaults(keep_alignment_files=False)
 
     p.add_argument(
-        '--keep_full_alignment_files', 
-        required=False, 
+        '--keep_full_alignment_files',
+        required=False,
         dest='keep_full_alignment_files',
         action='store_true',
         help='Keep the alignment files of all markers before '\
@@ -413,16 +413,16 @@ def read_params():
     p.set_defaults(keep_full_alignment_files=False)
 
     p.add_argument(
-        '--save_sample2fullfreq', 
-        required=False, 
+        '--save_sample2fullfreq',
+        required=False,
         dest='save_sample2fullfreq',
         action='store_true',
         help='Save sample2fullfreq to a msgpack file sample2fullfreq.msgpack.')
     p.set_defaults(save_sample2fullfreq=False)
 
     p.add_argument(
-        '--use_threads', 
-        required=False, 
+        '--use_threads',
+        required=False,
         action='store_true',
         dest='use_threads',
         help='Use multithreading. Default "Use multiprocessing".')
@@ -581,10 +581,10 @@ def clean_alignment(
                 del_cols.append(df_seq.columns[i])
         if float(len(del_cols)) / len(df_seq.columns) < N_col:
             remove_N_col = True
-            df_seq.drop(del_cols, axis=1, inplace=True)   
-            df_freq.drop(del_cols, axis=1, inplace=True)   
+            df_seq.drop(del_cols, axis=1, inplace=True)
+            df_freq.drop(del_cols, axis=1, inplace=True)
             logger.debug('length after N_col: %d', len(df_seq.columns))
-            
+
         if N_count > 0 or not remove_N_col:
             logger.debug('replace Ns by gaps for all samples')
             for sample in samples:
@@ -655,16 +655,16 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir):
 
         ifile_genome.close()
     p1.seek(0)
-                        
+
     # build blastdb
     logger.debug('build blastdb')
     blastdb_prefix = oosp.ftmp('genome_blastn_db_%s'%(random.random()))
     if len(glob.glob('%s*'%blastdb_prefix)):
         logger.error('blastdb exists! Please remove it or rerun!')
         exit(1)
-    oosp.ex('makeblastdb', 
+    oosp.ex('makeblastdb',
                 args=[
-                        '-dbtype', 'nucl', 
+                        '-dbtype', 'nucl',
                         '-title', 'genome_db',
                         '-out', blastdb_prefix],
                 in_pipe=p1,
@@ -684,12 +684,12 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir):
     if args['nprocs_main'] > 1:
         blastn_args += ['-num_threads', str(args['nprocs_main'])]
     output = oosp.ex(
-                        'blastn', 
+                        'blastn',
                         args=blastn_args,
                         in_pipe=p1,
                         get_out_pipe=True,
                         verbose=True)
-    
+
     #output = output.split('\n')
     for line in output:
         if line.strip() == '':
@@ -789,7 +789,7 @@ def align_clean(args):
 
     sample2seq, sample2freq = clean_alignment(
                                     sample2marker.keys(),
-                                    sample2seq, 
+                                    sample2seq,
                                     sample2freq,
                                     gap_in_trailing_col,
                                     gap_trailing_col_limit,
@@ -805,7 +805,7 @@ def align_clean(args):
 
 def build_tree(
         clade,
-        sample2marker, 
+        sample2marker,
         sample2order,
         clade2num_markers,
         sample_in_clade,
@@ -851,7 +851,7 @@ def build_tree(
                           %clade2num_markers[clade])
 
     # align sequences in each marker
-    markers = set([]) 
+    markers = set([])
     for sample in sample2marker:
         if sample2order[sample] == 'first':
             for marker in sample2marker[sample]:
@@ -890,8 +890,8 @@ def build_tree(
 
     logger.debug('start to align_clean for all markers')
     results = ooSubprocess.parallelize(
-                                       align_clean, 
-                                       args_list, 
+                                       align_clean,
+                                       args_list,
                                        nprocs_align_clean,
                                        use_threads=use_threads)
 
@@ -935,7 +935,7 @@ def build_tree(
         logger.debug('all markers were removed, skip this clade!')
         ofile_cladeinfo.write('all markers were removed, skip this clade!\n')
         return
-    
+
     # remove long gaps
     logger.debug('full sequence length before long_gap_length: %d'\
                     %(len(sample2fullseq[sample2fullseq.keys()[0]])))
@@ -982,7 +982,7 @@ def build_tree(
                         %(len(sample2fullseq[sample2fullseq.keys()[0]])))
 
         for i in range(len(marker_pos)):
-            num_del = 0 
+            num_del = 0
             for p in del_pos:
                 if marker_pos[i][1] > p:
                     num_del += 1
@@ -1008,7 +1008,7 @@ def build_tree(
             'number of samples before gap_in_sample: %d\n'\
             %len(sample2fullseq))
     for sample in sample2marker:
-        ratio = float(sample2fullseq[sample].count('-')) / len(sample2fullseq[sample]) 
+        ratio = float(sample2fullseq[sample].count('-')) / len(sample2fullseq[sample])
         gap_ratio = gap_in_sample if (sample2order[sample] == 'first') else second_gap_in_sample
         if ratio > gap_ratio:
             del sample2fullseq[sample]
@@ -1039,7 +1039,7 @@ def build_tree(
                 sequential_gaps.append(sgap)
                 sgap = 0
         all_gaps.append(agap)
-        
+
     ofile_cladeinfo.write('all_gaps:\n' + statistics(all_gaps)[1])
     if sequential_gaps == []:
         sequential_gaps = [0]
@@ -1086,11 +1086,11 @@ def build_tree(
                     id=sample,
                     description='',
                     seq=Seq.Seq(''.join(sample2fullseq[sample]))),
-                ofile, 
+                ofile,
                 'fasta')
 
     # produce tree
-    oosp = ooSubprocess.ooSubprocess() 
+    oosp = ooSubprocess.ooSubprocess()
     #ofn_tree = os.path.join(output_dir, '%s.tree'%clade)
     #oosp.ex('FastTree', args=['-quiet', '-nt', ofn_align], out_fn=ofn_tree)
     ofn_tree = clade + '.tree'
@@ -1100,7 +1100,7 @@ def build_tree(
                     %(os.path.abspath(output_dir), ofn_tree)):
             os.remove(fn)
         raxml_args = [
-                            '-s', os.path.abspath(ofn_align), 
+                            '-s', os.path.abspath(ofn_align),
                             '-w', os.path.abspath(output_dir),
                             '-n', ofn_tree,
                             '-p', '1234'
@@ -1134,7 +1134,7 @@ def build_tree(
 def load_sample(args):
     ifn_sample = args['ifn_sample']
     logger.debug('load %s'%ifn_sample)
-    output_dir = args['output_dir'] 
+    output_dir = args['output_dir']
     ifn_markers = args['ifn_markers']
     clades = args['clades']
     kept_clade = args['kept_clade']
@@ -1196,7 +1196,7 @@ def load_sample(args):
                          remove_clade]
         for marker in remove_marker:
             del marker2seq[marker]
-     
+
         sample_clades = set([])
         for marker in marker2seq:
             clade = db['markers'][marker]['taxon'].split('|')[-1]
@@ -1207,7 +1207,7 @@ def load_sample(args):
 
 
 def load_all_samples(args, sample2order, kept_clade, kept_markers):
-    ifn_samples = args['ifn_samples'] + args['ifn_second_samples'] 
+    ifn_samples = args['ifn_samples'] + args['ifn_second_samples']
     if args['ifn_representative_sample']:
         ifn_samples.append(args['ifn_representative_sample'])
     ifn_samples = sorted(list(set(ifn_samples)))
@@ -1220,9 +1220,9 @@ def load_all_samples(args, sample2order, kept_clade, kept_markers):
             func_args['ifn_sample'] = ifn_sample
             func_args['kept_clade'] = kept_clade
             func_args['kept_markers'] = kept_markers
-            for k in [ 
+            for k in [
                       'output_dir',
-                      'ifn_markers', 'nprocs_load_samples', 
+                      'ifn_markers', 'nprocs_load_samples',
                       'clades',
                       'mpa_pkl',
                       ]:
@@ -1244,7 +1244,7 @@ def load_all_samples(args, sample2order, kept_clade, kept_markers):
             for i in range(len(ifn_samples)):
                 sample = ooSubprocess.splitext(ifn_samples[i])[0]
                 if len(results[i]): # skip samples with no markers
-                    sample2marker[sample] = results[i] 
+                    sample2marker[sample] = results[i]
             return sample2marker
         else:
             all_clades = set([])
@@ -1279,12 +1279,12 @@ def strainer(args):
     if args['keep_full_alignment_files']:
         args['keep_alignment_files'] = True
         args['marker_strip_length'] = 0
-        
+
     if os.path.isfile(args['clades'][0]):
         with open(args['clades'][0], 'r') as ifile:
             args['clades'] = [line.strip() for line in ifile]
 
- 
+
     # check conditions
     ooSubprocess.mkdir(args['output_dir'])
     with open(os.path.join(args['output_dir'], 'arguments.txt'), 'w') as ofile:
@@ -1344,7 +1344,7 @@ def strainer(args):
             del db['markers'][m]['score']
         gc.collect()
         #logger.debug('converted db')
-        
+
         # get clades from db
         logger.info('Get clades from db')
         sing_clades, clade2num_markers, clade2subclades = get_db_clades(db)
@@ -1365,7 +1365,7 @@ def strainer(args):
         sample = ooSubprocess.splitext(ifn)[0]
         if sample not in sample2order:
             sample2order[sample] = 'second'
-    
+
     kept_markers = set([])
     if args['marker_list_fn']:
         with open(args['marker_list_fn'], 'r') as ifile:
@@ -1387,11 +1387,11 @@ def strainer(args):
                      'sample: %d'%len(kept_markers))
         if not kept_markers:
             raise Exception('Number of markers in the representative sample is 0!')
-    
+
     # get clades from samples
     if args['clades'] == ['all']:
         logger.info('Get clades from samples')
-        args['clades'] = load_all_samples(args, 
+        args['clades'] = load_all_samples(args,
                                           sample2order,
                                           kept_clade=None,
                                           kept_markers=kept_markers)
@@ -1399,9 +1399,9 @@ def strainer(args):
     if args['print_clades_only']:
         for c in args['clades']:
             if c.startswith('s__'):
-                print c
+                print(c)
             else:
-                print c, '(%s)'%(','.join(list(clade2subclades[c])))
+                print(c, '(%s)'%(','.join(list(clade2subclades[c]))))
         return
 
     # add reference genomes
@@ -1413,8 +1413,8 @@ def strainer(args):
             if rec.id in kept_markers or (not kept_markers):
                 marker_records[rec.id] = rec
         add_ref_genomes(
-                        ref2marker, 
-                        marker_records, 
+                        ref2marker,
+                        marker_records,
                         args['ifn_ref_genomes'],
                         args['output_dir'])
 
@@ -1442,7 +1442,7 @@ def strainer(args):
         logger.info('Build the tree for %s'%clade)
 
         # load samples and reference genomes
-        sample2marker = load_all_samples(args, 
+        sample2marker = load_all_samples(args,
                                          sample2order,
                                          kept_clade=clade,
                                          kept_markers=kept_markers)
@@ -1485,7 +1485,7 @@ def strainer(args):
         shared_variables.sample2marker = sample2marker
         build_tree(
             clade=clade,
-            sample2marker=sample2marker, 
+            sample2marker=sample2marker,
             sample2order=sample2order,
             clade2num_markers=clade2num_markers,
             sample_in_clade=args['sample_in_clade'],
@@ -1534,9 +1534,11 @@ def check_dependencies(args):
             exit(1)
 
 
-
-
-if __name__ == "__main__":
+def strainphlan():
     args = read_params()
     check_dependencies(args)
     strainer(args)
+
+
+if __name__ == "__main__":
+    strainphlan()
