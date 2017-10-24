@@ -634,10 +634,13 @@ def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc,
 
     read_fastx = "read_fastx.py"
     try:
-        subprocess.check_call( [read_fastx,"-h"] )
+        subp.check_call([read_fastx, "-h"])
     except Exception as e:
         try:
-            read_fastx =os.path.join((os.path.join(os.path.dirname(__file__),"utils")),read_fastx)
+            read_fastx = os.path.join(os.path.join(os.path.dirname(__file__),
+                                                   "utils"),
+                                      read_fastx)
+            subp.check_call([read_fastx, "-h"])
         except Exception as e:
             sys.stderr.write( "OSError: fatal error running \'read_fastx.py\'. Is it in the system path?\n" )
             sys.exit(1)
@@ -1121,6 +1124,7 @@ def maybe_generate_biom_file(pars, abundance_predictions):
 
 def metaphlan2():
     pars = read_params( sys.argv )
+
     #if pars['inp'] is None and ( pars['input_type'] is None or  pars['input_type'] == 'automatic'):
     #    sys.stderr.write( "The --input_type parameter need top be specified when the "
     #                      "input is provided from the standard input.\n"
@@ -1169,11 +1173,13 @@ def metaphlan2():
     no_map = False
     if pars['input_type'] == 'multifasta' or pars['input_type'] == 'multifastq':
         bow = pars['bowtie2db'] is not None
+
         if not bow:
             sys.stderr.write( "No MetaPhlAn BowTie2 database provided\n "
                               "[--bowtie2db options]!\n"
                               "Exiting...\n\n" )
             sys.exit(1)
+
         if pars['no_map']:
             pars['bowtie2out'] = tf.NamedTemporaryFile(dir=pars['tmp_dir']).name
             no_map = True
@@ -1214,7 +1220,6 @@ def metaphlan2():
                          samout = pars['samout'],
                          min_alignment_len = pars['min_alignment_len'])
             pars['input_type'] = 'bowtie2out'
-
         pars['inp'] = pars['bowtie2out'] # !!!
 
     with open( pars['mpa_pkl'], 'rb' ) as a:
@@ -1332,3 +1337,4 @@ def metaphlan2():
 
 if __name__ == '__main__':
     metaphlan2()
+
