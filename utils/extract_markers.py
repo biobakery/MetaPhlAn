@@ -29,7 +29,7 @@ def extract_markers(mpa_pkl, ifn_markers, clade, ofn_markers):
     for marker in db['markers']:
         if clade == db['markers'][marker]['taxon'].split('|')[-1]:
             markers.add(marker)
-    print 'number of markers', len(markers)
+    print('number of markers {}'.format(len(markers)))
     with open(ofn_markers, 'w') as ofile:
         if ifn_markers:
             for rec in SeqIO.parse(open(ifn_markers, 'r'), 'fasta'):
