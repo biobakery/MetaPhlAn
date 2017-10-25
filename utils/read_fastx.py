@@ -24,7 +24,8 @@ def fopen( fn ):
 if __name__ == '__main__':
 
     if len(sys.argv) > 1:
-        if sys.argv[1] == '-h' or sys.argv[1] == '--help' or sys.argv[1] == '-v' or sys.argv[1] == '--version':
+        if ((sys.argv[1] == '-h') or (sys.argv[1] == '--help') or
+            (sys.argv[1] == '-v') or (sys.argv[1] == '--version')):
             sys.exit()
     
     if len(sys.argv) < 2:
@@ -37,7 +38,4 @@ if __name__ == '__main__':
                 with fopen(f) as inf:
                     for l in inf:
                         sys.stdout.write(ignore_spaces(l))
-
-    
-
 
