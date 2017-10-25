@@ -17,7 +17,7 @@ def fopen( fn ):
     if fileExtension == '.bz2':
         return (bz2.open(fn, "rt") if not p2 else bz2.BZ2File(fn,"r"))
     if fileExtension == '.gz':
-        return gzip.open(fn,"rt") 
+        return gzip.open(fn,"rt")
     return open(fn)
 
 
@@ -27,15 +27,14 @@ if __name__ == '__main__':
         if ((sys.argv[1] == '-h') or (sys.argv[1] == '--help') or
             (sys.argv[1] == '-v') or (sys.argv[1] == '--version')):
             sys.exit()
-    
+
     if len(sys.argv) < 2:
         for l in sys.stdin:
             sys.stdout.write(ignore_spaces(l))
-    
+
     if len(sys.argv) > 1:
         for a in sys.argv[1:]:
             for f in a.split(','):
                 with fopen(f) as inf:
                     for l in inf:
                         sys.stdout.write(ignore_spaces(l))
-
