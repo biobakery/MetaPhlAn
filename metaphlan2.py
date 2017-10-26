@@ -476,13 +476,23 @@ def read_params(args):
 
     g = p.add_argument_group('Mapping arguments')
     arg = g.add_argument
-    arg( '--mpa_pkl', type=str,
-         default=os.path.join(metaphlan2_script_install_folder,"db_v20","mpa_v20_m200.pkl"),
-         help = "the metadata pickled MetaPhlAn file")
-    arg( '--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str,
-         default = os.path.join(metaphlan2_script_install_folder,"db_v20","mpa_v20_m200"),
-         help = "The BowTie2 database file of the MetaPhlAn database. \n"
-                "Used if --input_type is fastq, fasta, multifasta, or multifastq")
+    arg('--mpa_pkl', type=str,
+        default=os.path.join(metaphlan2_script_install_folder, "db_v20",
+                             "mpa_v20_m200.pkl"),
+        help="the metadata pickled MetaPhlAn file [deprecated]")
+
+    arg('--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str,
+        default=os.path.join(metaphlan2_script_install_folder, "db_v20",
+                             "mpa_v20_m200"),
+        help=("The BowTie2 database file of the MetaPhlAn database. Used if "
+              "--input_type is fastq, fasta, multifasta, or multifastq "
+              "[deprecated]"))
+
+    arg('-x', '--index', type=str, default='v20_m200',
+        help=("Specify the id of the database version to use. If the database "
+              "files are not found on the local MetaPhlAn2 installation they "
+              "will be automatically downloaded"))
+
     bt2ps = ['sensitive','very-sensitive','sensitive-local','very-sensitive-local']
     arg( '--bt2_ps', metavar="BowTie2 presets", default='very-sensitive', choices=bt2ps,
          help = "presets options for BowTie2 (applied only when a multifasta file is provided)\n"
@@ -1337,4 +1347,3 @@ def metaphlan2():
 
 if __name__ == '__main__':
     metaphlan2()
-
