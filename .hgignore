@@ -1,5 +1,6 @@
 syntax: glob
 
+databases/
 *.pyc
 build/
 dist/
