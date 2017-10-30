@@ -25,7 +25,6 @@ import re
 import time
 import tarfile
 # from binascii import b2a_uu
-
 try:
     import numpy as np
 except ImportError:
@@ -43,22 +42,22 @@ try:
     import cPickle as pickle
 except:
     import pickle
-
-
 # try to import urllib.request.urlretrieve for python3
 try:
     from urllib.request import urlretrieve
 except ImportError:
     from urllib import urlretrieve
+from glob import glob
+import hashlib
 
-# get the directory that contains this script
-metaphlan2_script_install_folder=os.path.dirname(os.path.abspath(__file__))
 
 # set the location of the database download url
-DATABASE_DOWNLOAD="https://bitbucket.org/ljmciver/metaphlan2/downloads/databases_v20_m200_only_pkl.tar.gz"
-
+DATABASE_DOWNLOAD = "https://bitbucket.org/biobakery/metaphlan2/downloads/"
+# get the directory that contains this script
+metaphlan2_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 # get the default database folder
-DEFAULT_DB_FOLDER=os.path.join(metaphlan2_script_install_folder,"databases")
+DEFAULT_DB_FOLDER = os.path.join(metaphlan2_script_install_folder, "databases")
+
 
 #**********************************************************************************************
 #  Modification of Code :                                                                     *
@@ -647,12 +646,14 @@ def read_params(args):
 
     return vars(p.parse_args())
 
+
 def byte_to_megabyte(byte):
     """
     Convert byte value to megabyte
     """
 
     return byte / (1024.0**2)
+
 
 class ReportHook():
     def __init__(self):
@@ -685,19 +686,24 @@ class ReportHook():
             status+="        \r"
             sys.stderr.write(status)
 
+
 def download(url, download_file):
     """
     Download a file from a url
     """
 
-    try:
-        sys.stderr.write("Downloading "+url+"\n")
-        file, headers = urlretrieve(url,download_file,reporthook=ReportHook().report)
-    except EnvironmentError:
-        sys.stderr.write("Warning: Unable to download "+url+"/n")
+    if not os.path.isfile(download_file):
+        try:
+            sys.stderr.write("Downloading " + url + "\n")
+            file, headers = urlretrieve(url, download_file,
+                                        reporthook=ReportHook().report)
+        except EnvironmentError:
+            sys.stderr.write("Warning: Unable to download " + url + "\n")
+    else:
+        sys.stderr.write("File {} already present!\n".format(download_file))
 
 
-def download_unpack_tar(url,download_file_name,folder):
+def download_unpack_tar(url, download_file_name, folder):
     """
     Download the url to the file and decompress into the folder
     """
@@ -707,44 +713,71 @@ def download_unpack_tar(url,download_file_name,folder):
         try:
             os.makedirs(folder)
         except EnvironmentError:
-            sys.exit("ERROR: Unable to create folder for database install: + folder")
+            sys.exit("ERROR: Unable to create folder for database install: " +
+                     folder)
 
     # Check the directory permissions
     if not os.access(folder, os.W_OK):
-        sys.exit("ERROR: The directory is not writeable: "+
-            folder + " . Please modify the permissions.")
+        sys.exit("ERROR: The directory is not writeable: " + folder + ". "
+                 "Please modify the permissions.")
 
-    download_file=os.path.join(folder, download_file_name)
-
-    download(url, download_file)
-
-    error_during_extract=False
+    tar_file = os.path.join(folder, "mpa_" + download_file_name + ".tar.bz2")
+    url_tar_file = os.path.join(url, "mpa_" + download_file_name + ".tar.bz2")
+    download(url_tar_file, tar_file)
+    # error_during_extract = False
 
     try:
-        tarfile_handle=tarfile.open(download_file)
+        tarfile_handle = tarfile.open(tar_file)
         tarfile_handle.extractall(path=folder)
         tarfile_handle.close()
     except EnvironmentError:
-        sys.stderr.write("Warning: Unable to extract "+download_file+".\n")
-        error_during_extract=True
+        sys.stderr.write("Warning: Unable to extract " + tar_file + ".\n")
+        # error_during_extract = True
 
-    if not error_during_extract:
-        try:
-            os.unlink(download_file)
-        except EnvironmentError:
-            sys.stderr.write("Warning: Unable to remove the temp download: " + download_file+"\n")
+    # download MD5 checksum
+    md5_file = os.path.join(folder, "mpa_" + download_file_name + ".md5")
+    url_md5_file = os.path.join(url, "mpa_" + download_file_name + ".md5")
+    download(url_md5_file, md5_file)
+
+    if os.path.isfile(md5_file):
+        with open(md5_file) as f:
+            for row in f:
+                md5_md5 = row.strip().split(' ')[0]
+
+    # compute MD5 of .tar.bz2
+    hash_md5 = hashlib.md5()
+
+    with open(tar_file, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+
+    # compare checksums
+    md5_tar = hash_md5.hexdigest()[:32]
+
+    if md5_tar != md5_md5:
+        sys.exit("MD5 checksums do not correspond!")
+
+    # if not error_during_extract:
+    #     try:
+    #         os.unlink(tar_file)
+    #     except EnvironmentError:
+    #         sys.stderr.write("Warning: Unable to remove the temp download: " +
+    #                          tar_file + "\n")
+
 
 def check_and_install_database(index):
     """ Check if the database is installed, if not download and install """
 
-    if os.path.isfile(os.path.join(DEFAULT_DB_FOLDER,"mpa_"+index)+".pkl"):
+    # if os.path.isfile(os.path.join(DEFAULT_DB_FOLDER, "mpa_" + index) + ".pkl"):
+    if len(glob(os.path.join(DEFAULT_DB_FOLDER, "mpa_" + index) + "*")) >= 7:
         return
 
     # download the tar archive and decompress
-    sys.stderr.write("Downloading MetaPhlAn2 database. Please note due to the size this might take a few minutes.\n\n")
-    downloaded_file_name=os.path.basename(DATABASE_DOWNLOAD)
-    download_unpack_tar(DATABASE_DOWNLOAD,downloaded_file_name,DEFAULT_DB_FOLDER)
+    sys.stderr.write("Downloading MetaPhlAn2 database. Please note due to the "
+                     "size this might take a few minutes.\n\n")
+    download_unpack_tar(DATABASE_DOWNLOAD, index, DEFAULT_DB_FOLDER)
     sys.stderr.write("Download complete.\n")
+
 
 def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc,
                   file_format = "multifasta", exe = None,
@@ -1247,6 +1280,10 @@ def metaphlan2():
 
     # check if the database is installed, if not then install
     check_and_install_database(pars['index'])
+
+    sys.exit()
+
+
 
     #if pars['inp'] is None and ( pars['input_type'] is None or  pars['input_type'] == 'automatic'):
     #    sys.stderr.write( "The --input_type parameter need top be specified when the "
