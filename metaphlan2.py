@@ -40,7 +40,7 @@ import itertools
 from distutils.version import LooseVersion
 try:
     import cPickle as pickle
-except:
+except ImportError:
     import pickle
 # try to import urllib.request.urlretrieve for python3
 try:
@@ -52,7 +52,8 @@ import hashlib
 
 
 # set the location of the database download url
-DATABASE_DOWNLOAD = "https://bitbucket.org/biobakery/metaphlan2/downloads/"
+# DATABASE_DOWNLOAD = "https://bitbucket.org/biobakery/metaphlan2/downloads/"
+DATABASE_DOWNLOAD = "https://bitbucket.org/CibioCM/mpa2_test/downloads/"
 # get the directory that contains this script
 metaphlan2_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 # get the default database folder
@@ -76,7 +77,7 @@ DEFAULT_DB_FOLDER = os.path.join(metaphlan2_script_install_folder, "databases")
 try:
     import biom
     import biom.table
-    import numpy as np
+    # import numpy as np  # numpy already imported above
 except ImportError:
     sys.stderr.write("Warning! Biom python library not detected!"
                      "\n Exporting to biom format will not work!\n")
@@ -489,14 +490,10 @@ def read_params(args):
 
     g = p.add_argument_group('Mapping arguments')
     arg = g.add_argument
-    arg('--mpa_pkl', type=str,
-        default=os.path.join(metaphlan2_script_install_folder, "db_v20",
-                             "mpa_v20_m200.pkl"),
-        help="the metadata pickled MetaPhlAn file [deprecated]")
+    arg('--mpa_pkl', type=str, default=None,
+        help="The metadata pickled MetaPhlAn file [deprecated]")
 
-    arg('--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str,
-        default=os.path.join(metaphlan2_script_install_folder, "db_v20",
-                             "mpa_v20_m200"),
+    arg('--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default=None,
         help=("The BowTie2 database file of the MetaPhlAn database. Used if "
               "--input_type is fastq, fasta, multifasta, or multifastq "
               "[deprecated]"))
@@ -506,27 +503,31 @@ def read_params(args):
               "files are not found on the local MetaPhlAn2 installation they "
               "will be automatically downloaded"))
 
-    bt2ps = ['sensitive','very-sensitive','sensitive-local','very-sensitive-local']
-    arg( '--bt2_ps', metavar="BowTie2 presets", default='very-sensitive', choices=bt2ps,
-         help = "presets options for BowTie2 (applied only when a multifasta file is provided)\n"
-                "The choices enabled in MetaPhlAn are:\n"
-                " * sensitive\n"
-                " * very-sensitive\n"
-                " * sensitive-local\n"
-                " * very-sensitive-local\n"
-                "[default very-sensitive]\n"   )
-    arg( '--bowtie2_exe', type=str, default = None, help =
-         'Full path and name of the BowTie2 executable. This option allows \n'
-         'MetaPhlAn to reach the executable even when it is not in the system \n'
-         'PATH or the system PATH is unreachable\n' )
-    arg( '--bowtie2out', metavar="FILE_NAME", type=str, default = None, help =
-         "The file for saving the output of BowTie2\n" )
-    arg( '--no_map', action='store_true', help=
-         "Avoid storing the --bowtie2out map file\n" )
-    arg( '--tmp_dir', metavar="", default=None, type=str, help =
-         "the folder used to store temporary files \n"
-         "[default is the OS dependent tmp dir]\n"   )
-
+    bt2ps = ['sensitive', 'very-sensitive', 'sensitive-local',
+             'very-sensitive-local']
+    arg('--bt2_ps', metavar="BowTie2 presets", default='very-sensitive',
+        choices=bt2ps, help="Presets options for BowTie2 (applied only when a "
+                            "multifasta file is provided)\n"
+                            "The choices enabled in MetaPhlAn are:\n"
+                            " * sensitive\n"
+                            " * very-sensitive\n"
+                            " * sensitive-local\n"
+                            " * very-sensitive-local\n"
+                            "[default very-sensitive]\n")
+    arg('--bowtie2_exe', type=str, default=None,
+        help='Full path and name of the BowTie2 executable. This option allows'
+             'MetaPhlAn to reach the executable even when it is not in the '
+             'system PATH or the system PATH is unreachable')
+    arg('--bowtie2_build', type=str, default='bowtie2-build',
+        help="Full path to the bowtie2-build command to use, deafult assumes "
+             "that 'bowtie2-build is present in the system path")
+    arg('--bowtie2out', metavar="FILE_NAME", type=str, default=None,
+        help="The file for saving the output of BowTie2")
+    arg('--no_map', action='store_true',
+        help="Avoid storing the --bowtie2out map file")
+    arg('--tmp_dir', metavar="", default=None, type=str,
+        help="The folder used to store temporary files [default is the OS "
+             "dependent tmp dir]")
 
     g = p.add_argument_group('Post-mapping arguments')
     arg = g.add_argument
@@ -608,7 +609,6 @@ def read_params(args):
          "The clade for clade_specific_strain_tracker analysis\n"  )
     arg( '--min_ab', metavar="", default=0.1, type=float, help =
          "The minimum percentage abundace for the clade in the clade_specific_strain_tracker analysis\n"  )
-    arg( "-h", "--help", action="help", help="show this help message and exit")
 
     g = p.add_argument_group('Output arguments')
     arg = g.add_argument
@@ -637,12 +637,13 @@ def read_params(args):
 
     g = p.add_argument_group('Other arguments')
     arg = g.add_argument
-    arg( '--nproc', metavar="N", type=int, default=1, help =
-         "The number of CPUs to use for parallelizing the mapping\n"
-         "[default 1, i.e. no parallelism]\n" )
-    arg( '-v','--version', action='version', version="MetaPhlAn version "+__version__+"\t("+__date__+")",
-         help="Prints the current MetaPhlAn version and exit\n" )
-
+    arg('--nproc', metavar="N", type=int, default=1,
+        help="The number of CPUs to use for parallelizing the mapping "
+             "[default 1, i.e. no parallelism]")
+    arg('-v', '--version', action='version',
+        version="MetaPhlAn version {}\t({})".format(__version__, __date__),
+        help="Prints the current MetaPhlAn version and exit\n")
+    arg("-h", "--help", action="help", help="show this help message and exit")
 
     return vars(p.parse_args())
 
@@ -657,7 +658,7 @@ def byte_to_megabyte(byte):
 
 class ReportHook():
     def __init__(self):
-        self.start_time=time.time()
+        self.start_time = time.time()
 
     def report(self, blocknum, block_size, total_size):
         """
@@ -665,25 +666,27 @@ class ReportHook():
         """
 
         if blocknum == 0:
-            self.start_time=time.time()
+            self.start_time = time.time()
             if total_size > 0:
-                sys.stderr.write("Downloading file of size: " + "{:.2f}".format(byte_to_megabyte(total_size)) + " MB\n")
+                sys.stderr.write("Downloading file of size: {:.2f} MB\n"
+                                 .format(byte_to_megabyte(total_size)))
         else:
-            total_downloaded=blocknum*block_size
+            total_downloaded = blocknum * block_size
             status = "{:3.2f} MB ".format(byte_to_megabyte(total_downloaded))
 
             if total_size > 0:
-                percent_downloaded=total_downloaded * 100.0 / total_size
+                percent_downloaded = total_downloaded * 100.0 / total_size
                 # use carriage return plus sys.stderr to overwrite stderr
-                download_rate=total_downloaded/(time.time()-self.start_time)
-                estimated_time=(total_size-total_downloaded)/download_rate
-                estimated_minutes=int(estimated_time/60.0)
-                estimated_seconds=estimated_time-estimated_minutes*60.0
-                status +="{:3.2f}".format(percent_downloaded) + " %  " + \
-                    "{:5.2f}".format(byte_to_megabyte(download_rate)) + " MB/sec " + \
-                    "{:2.0f}".format(estimated_minutes) + " min " + \
-                    "{:2.0f}".format(estimated_seconds) + " sec "
-            status+="        \r"
+                download_rate = total_downloaded / (time.time() - self.start_time)
+                estimated_time = (total_size - total_downloaded) / download_rate
+                estimated_minutes = int(estimated_time / 60.0)
+                estimated_seconds = estimated_time - estimated_minutes * 60.0
+                status += ("{:3.2f} %  {:5.2f} MB/sec {:2.0f} min {:2.0f} sec "
+                           .format(percent_downloaded,
+                                   byte_to_megabyte(download_rate),
+                                   estimated_minutes, estimated_seconds))
+
+            status += "        \r"
             sys.stderr.write(status)
 
 
@@ -694,16 +697,16 @@ def download(url, download_file):
 
     if not os.path.isfile(download_file):
         try:
-            sys.stderr.write("Downloading " + url + "\n")
+            sys.stderr.write("\nDownloading " + url + "\n")
             file, headers = urlretrieve(url, download_file,
                                         reporthook=ReportHook().report)
         except EnvironmentError:
-            sys.stderr.write("Warning: Unable to download " + url + "\n")
+            sys.stderr.write("\nWarning: Unable to download " + url + "\n")
     else:
-        sys.stderr.write("File {} already present!\n".format(download_file))
+        sys.stderr.write("\nFile {} already present!\n".format(download_file))
 
 
-def download_unpack_tar(url, download_file_name, folder):
+def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
     """
     Download the url to the file and decompress into the folder
     """
@@ -721,69 +724,120 @@ def download_unpack_tar(url, download_file_name, folder):
         sys.exit("ERROR: The directory is not writeable: " + folder + ". "
                  "Please modify the permissions.")
 
-    tar_file = os.path.join(folder, "mpa_" + download_file_name + ".tar.bz2")
-    url_tar_file = os.path.join(url, "mpa_" + download_file_name + ".tar.bz2")
+    tar_file = os.path.join(folder, "mpa_" + download_file_name + ".tar")
+    url_tar_file = os.path.join(url, "mpa_" + download_file_name + ".tar")
     download(url_tar_file, tar_file)
-    # error_during_extract = False
-
-    try:
-        tarfile_handle = tarfile.open(tar_file)
-        tarfile_handle.extractall(path=folder)
-        tarfile_handle.close()
-    except EnvironmentError:
-        sys.stderr.write("Warning: Unable to extract " + tar_file + ".\n")
-        # error_during_extract = True
 
     # download MD5 checksum
     md5_file = os.path.join(folder, "mpa_" + download_file_name + ".md5")
     url_md5_file = os.path.join(url, "mpa_" + download_file_name + ".md5")
     download(url_md5_file, md5_file)
 
+    md5_md5 = None
+    md5_tar = None
+
     if os.path.isfile(md5_file):
         with open(md5_file) as f:
             for row in f:
                 md5_md5 = row.strip().split(' ')[0]
+    else:
+        sys.stderr.write('File "{}" not found!'.format(md5_file))
 
     # compute MD5 of .tar.bz2
-    hash_md5 = hashlib.md5()
+    if os.path.isfile(tar_file):
+        hash_md5 = hashlib.md5()
 
-    with open(tar_file, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
+        with open(tar_file, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+
+        md5_tar = hash_md5.hexdigest()[:32]
+    else:
+        sys.stderr.write('File "{}" not found!'.format(tar_file))
+
+    if (md5_tar is None) or (md5_md5 is None):
+        sys.exit("MD5 checksums not found, something went wrong!")
 
     # compare checksums
-    md5_tar = hash_md5.hexdigest()[:32]
-
     if md5_tar != md5_md5:
         sys.exit("MD5 checksums do not correspond!")
 
-    # if not error_during_extract:
-    #     try:
-    #         os.unlink(tar_file)
-    #     except EnvironmentError:
-    #         sys.stderr.write("Warning: Unable to remove the temp download: " +
-    #                          tar_file + "\n")
+    # untar
+    try:
+        tarfile_handle = tarfile.open(tar_file)
+        tarfile_handle.extractall(path=folder)
+        tarfile_handle.close()
+    except EnvironmentError:
+        sys.stderr.write("Warning: Unable to extract {}.\n".format(tar_file))
+
+    # uncompress sequences
+    bz2_file = os.path.join(folder, "mpa_" + download_file_name + ".fna.bz2")
+    fna_file = os.path.join(folder, "mpa_" + download_file_name + ".fna")
+
+    if not os.path.isfile(fna_file):
+        sys.stderr.write('\n\nDecompressing {} into {}\n'.format(bz2_file,
+                                                                 fna_file))
+
+        with open(fna_file, 'wb') as fna_h, bz2.BZ2File(bz2_file, 'rb') as bz2_h:
+            for data in iter(lambda: bz2_h.read(100 * 1024), b''):
+                fna_h.write(data)
+
+    # build bowtie2 indexes
+    if not glob(os.path.join(folder, "mpa_" + download_file_name + "*.bt2")):
+        bt2_base = os.path.join(folder, "mpa_" + download_file_name)
+        bt2_cmd = [bowtie2_build, '--quiet']
+
+        if nproc > 1:
+            bt2_build_output = subp.check_output([bowtie2_build, '--usage'],
+                                                 stderr=subp.STDOUT)
+
+            if 'threads' in str(bt2_build_output):
+                bt2_cmd += ['--threads', str(nproc)]
+
+        bt2_cmd += ['-f', fna_file, bt2_base]
+
+        sys.stderr.write('\nBuilding Bowtie2 indexes\n')
+
+        try:
+            subp.check_call(bt2_cmd)
+        except Exception as e:
+            sys.stderr.write("Fatal error running '{}'\n"
+                             "Error message: '{}'\n\n"
+                             .format(' '.join(bt2_cmd), e))
+            sys.exit(1)
 
 
-def check_and_install_database(index):
+def check_and_install_database(index, bowtie2_build, nproc):
     """ Check if the database is installed, if not download and install """
 
-    # if os.path.isfile(os.path.join(DEFAULT_DB_FOLDER, "mpa_" + index) + ".pkl"):
-    if len(glob(os.path.join(DEFAULT_DB_FOLDER, "mpa_" + index) + "*")) >= 7:
+    if len(glob(os.path.join(DEFAULT_DB_FOLDER, "mpa_{}*".format(index)))) >= 7:
         return
 
     # download the tar archive and decompress
-    sys.stderr.write("Downloading MetaPhlAn2 database. Please note due to the "
-                     "size this might take a few minutes.\n\n")
-    download_unpack_tar(DATABASE_DOWNLOAD, index, DEFAULT_DB_FOLDER)
-    sys.stderr.write("Download complete.\n")
+    sys.stderr.write("\nDownloading MetaPhlAn2 database\nPlease note due to "
+                     "the size this might take a few minutes\n")
+    download_unpack_tar(DATABASE_DOWNLOAD, index, DEFAULT_DB_FOLDER,
+                        bowtie2_build, nproc)
+    sys.stderr.write("\nDownload complete\n")
 
 
-def run_bowtie2(  fna_in, outfmt6_out, bowtie2_db, preset, nproc,
-                  file_format = "multifasta", exe = None,
-                  samout = None,
-                  min_alignment_len = None,
-                  ):
+def set_mapping_arguments(index):
+    mpa_pkl = 'mpa_pkl'
+    bowtie2db = 'bowtie2db'
+
+    if os.path.isfile(os.path.join(DEFAULT_DB_FOLDER,
+                      "mpa_{}.pkl".format(index))):
+        mpa_pkl = os.path.join(DEFAULT_DB_FOLDER, "mpa_{}.pkl".format(index))
+
+    if glob(os.path.join(DEFAULT_DB_FOLDER, "mpa_{}*.bt2".format(index))):
+        bowtie2db = os.path.join(DEFAULT_DB_FOLDER, "mpa_{}".format(index))
+
+    return (mpa_pkl, bowtie2db)
+
+
+def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc,
+                file_format="multifasta", exe=None, samout=None,
+                min_alignment_len=None,):
 
     read_fastx = "read_fastx.py"
     try:
@@ -1276,14 +1330,13 @@ def maybe_generate_biom_file(pars, abundance_predictions):
 
 
 def metaphlan2():
-    pars = read_params( sys.argv )
+    pars = read_params(sys.argv)
 
     # check if the database is installed, if not then install
-    check_and_install_database(pars['index'])
-
-    sys.exit()
-
-
+    check_and_install_database(pars['index'], pars['bowtie2_build'],
+                               pars['nproc'])
+    # set correct map_pkl and bowtie2db variables
+    pars['mpa_pkl'], pars['bowtie2db'] = set_mapping_arguments(pars['index'])
 
     #if pars['inp'] is None and ( pars['input_type'] is None or  pars['input_type'] == 'automatic'):
     #    sys.stderr.write( "The --input_type parameter need top be specified when the "
