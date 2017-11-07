@@ -6,16 +6,18 @@ from __future__ import with_statement
 #                 of metagenomic data
 #
 # Authors: Nicola Segata (nicola.segata@unitn.it),
-#          Duy Tin Truong (duytin.truong@unitn.it)
+#          Duy Tin Truong,
+#          Francesco Asnicar (f.asnicar@unitn.it)
 #
 # Please type "./metaphlan2.py -h" for usage help
 #
 # ==============================================================================
 
-__author__ = ('Nicola Segata (nicola.segata@unitn.it), Duy Tin Truong '
-              '(duytin.truong@unitn.it)')
-__version__ = '2.6.1'
-__date__ = '19 October 2017'
+__author__ = ('Nicola Segata (nicola.segata@unitn.it), '
+              'Duy Tin Truong'
+              'Francesco Asnicar (f.asnicar@unitn.it)' )
+__version__ = '2.7.0'
+__date__ = '07 November 2017'
 
 
 import sys
@@ -52,8 +54,7 @@ import hashlib
 
 
 # set the location of the database download url
-# DATABASE_DOWNLOAD = "https://bitbucket.org/biobakery/metaphlan2/downloads/"
-DATABASE_DOWNLOAD = "https://bitbucket.org/CibioCM/mpa2_test/downloads/"
+DATABASE_DOWNLOAD = "https://bitbucket.org/biobakery/metaphlan2/downloads/"
 # get the directory that contains this script
 metaphlan2_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 # get the default database folder
