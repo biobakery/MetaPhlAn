@@ -637,7 +637,7 @@ def read_params(args):
 
     g = p.add_argument_group('Other arguments')
     arg = g.add_argument
-    arg('--nproc', metavar="N", type=int, default=1,
+    arg('--nproc', metavar="N", type=int, default=4,
         help="The number of CPUs to use for parallelizing the mapping "
              "[default 1, i.e. no parallelism]")
     arg('-v', '--version', action='version',
