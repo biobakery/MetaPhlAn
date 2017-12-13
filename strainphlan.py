@@ -606,7 +606,8 @@ def clean_alignment(
 
 
 
-def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir):
+def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir,
+                    nprocs_main=1):
     ifn_ref_genomes = sorted(list(set(ifn_ref_genomes)))
     logger.debug('add %d reference genomes'%len(ifn_ref_genomes))
     logger.debug('Number of samples: %d'%len(genome2marker))
@@ -636,8 +637,8 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir):
         elif ifn_genome[-4:] == '.fna':
             ifile_genome = open(ifn_genome, 'r')
         else:
-            logger.error('Unknown file type of %s. '%ifn_genome +\
-                            'It should be .fna.bz2, .fna.gz, or .fna!')
+            logger.error('Unknown file type of %s. '%ifn_genome + \
+                         'It should be .fna.bz2, .fna.gz, or .fna!')
             exit(1)
 
         # extract genome contigs
@@ -663,32 +664,28 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir):
         logger.error('blastdb exists! Please remove it or rerun!')
         exit(1)
     oosp.ex('makeblastdb',
-                args=[
-                        '-dbtype', 'nucl',
-                        '-title', 'genome_db',
-                        '-out', blastdb_prefix],
+                args=['-dbtype', 'nucl',
+                      '-title', 'genome_db',
+                      '-out', blastdb_prefix],
                 in_pipe=p1,
                 verbose=True)
 
     # blast markers against contigs
     logger.debug('blast markers against contigs')
     p1 = SpooledTemporaryFile(dir=tmp_dir)
+
     for marker in unique_markers:
         SeqIO.write(marker_records[marker], p1, 'fasta')
+
     p1.seek(0)
-    blastn_args = [
-                    '-db', blastdb_prefix,
-                    '-outfmt', '6',
-                    '-evalue', '1e-10',
-                    '-max_target_seqs', '1000000000']
-    if args['nprocs_main'] > 1:
-        blastn_args += ['-num_threads', str(args['nprocs_main'])]
-    output = oosp.ex(
-                        'blastn',
-                        args=blastn_args,
-                        in_pipe=p1,
-                        get_out_pipe=True,
-                        verbose=True)
+    blastn_args = ['-db', blastdb_prefix, '-outfmt', '6', '-evalue', '1e-10',
+                   '-max_target_seqs', '1000000000']
+
+    if nprocs_main > 1:
+        blastn_args += ['-num_threads', str(nprocs_main)]
+
+    output = oosp.ex('blastn', args=blastn_args, in_pipe=p1, get_out_pipe=True,
+                     verbose=True)
 
     #output = output.split('\n')
     for line in output:
@@ -1406,17 +1403,17 @@ def strainer(args):
 
     # add reference genomes
     ref2marker = defaultdict(dict)
-    if args['ifn_markers'] != None and args['ifn_ref_genomes'] != None:
+
+    if (args['ifn_markers'] is not None) and (args['ifn_ref_genomes'] is not None):
         logger.info('Add reference genomes')
         marker_records = {}
+
         for rec in SeqIO.parse(open(args['ifn_markers'], 'r'), 'fasta'):
             if rec.id in kept_markers or (not kept_markers):
                 marker_records[rec.id] = rec
-        add_ref_genomes(
-                        ref2marker,
-                        marker_records,
-                        args['ifn_ref_genomes'],
-                        args['output_dir'])
+
+        add_ref_genomes(ref2marker, marker_records, args['ifn_ref_genomes'],
+                        args['output_dir'], args['nprocs_main'])
 
         # remove bad reference genomes
         if not kept_markers:
