@@ -14,9 +14,9 @@ from __future__ import with_statement
 # ==============================================================================
 
 __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
-              'Duy Tin Truong'
-              'Francesco Asnicar (f.asnicar@unitn.it)' )
-__version__ = '2.7.0'
+              'Duy Tin Truong, '
+              'Francesco Asnicar (f.asnicar@unitn.it)')
+__version__ = '2.7.1'
 __date__ = '07 November 2017'
 
 
@@ -356,21 +356,26 @@ markers_to_exclude = \
 tax_units = "kpcofgst"
 
 if float(sys.version_info[0]) < 3.0:
-    def read_and_split( ofn  ):
+    def read_and_split(ofn):
         return (l.strip().split('\t') for l in ofn)
-    def read_and_split_line( line ):
+
+
+    def read_and_split_line(line):
         return line.strip().split('\t')
 else:
-    def read_and_split( ofn ):
-        return (str(l,encoding='utf-8').strip().split('\t') for l in ofn)
-    def read_and_split_line( line ):
-        return str(line,encoding='utf-8').strip().split('\t')
+    def read_and_split(ofn):
+        return (str(l, encoding='utf-8').strip().split('\t') for l in ofn)
 
 
-def plain_read_and_split( ofn ):
+    def read_and_split_line(line):
+        return str(line, encoding='utf-8').strip().split('\t')
+
+
+def plain_read_and_split(ofn):
     return (l.strip().split('\t') for l in ofn)
 
-def plain_read_and_split_line( l ):
+
+def plain_read_and_split_line(l):
     return l.strip().split('\t')
 
 
@@ -1211,34 +1216,35 @@ class TaxTree:
             ret_d[tax_lev+"unclassified"] = 1.0 - sum(ret_d.values())
         return ret_d, ret_r
 
-def map2bbh( mapping_f, input_type = 'bowtie2out', min_alignment_len = None):
+
+def map2bbh(mapping_f, input_type='bowtie2out', min_alignment_len=None):
     if not mapping_f:
         ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, sys.stdin
     else:
         if mapping_f.endswith(".bz2"):
-            ras, ras_line, inpf = read_and_split, read_and_split_line, bz2.BZ2File( mapping_f, "r" )
+            ras, ras_line, inpf = read_and_split, read_and_split_line, bz2.BZ2File(mapping_f, "r")
         else:
-            ras, ras_line, inpf = plain_read_and_split,\
-                                  plain_read_and_split_line,\
-                                  open( mapping_f )
+            ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, open(mapping_f)
 
-    reads2markers, reads2maxb = {}, {}
+    reads2markers = {}
+
     if input_type == 'bowtie2out':
-        for r,c in ras(inpf):
+        for r, c in ras(inpf):
             reads2markers[r] = c
     elif input_type == 'sam':
         for line in inpf:
             o = ras_line(line)
-            if o[0][0] != '@' and o[2][-1] != '*':
-                if min_alignment_len == None\
-                    or max([int(x.strip('M')) for x in\
-                            re.findall(r'(\d*M)', o[5])]) >= min_alignment_len:
-                    reads2markers[o[0]] = o[2]
-    inpf.close()
 
-    markers2reads = defdict( set )
-    for r,m in reads2markers.items():
-        markers2reads[m].add( r )
+            if o[0][0] != '@' and o[2][-1] != '*':
+                if (min_alignment_len == None) or (max([int(x.strip('M')) for x in
+                                                   re.findall(r'(\d*M)', o[5])]) >= min_alignment_len):
+                    reads2markers[o[0]] = o[2]
+
+    inpf.close()
+    markers2reads = defdict(set)
+
+    for r, m in reads2markers.items():
+        markers2reads[m].add(r)
 
     return markers2reads
 
@@ -1418,13 +1424,11 @@ def metaphlan2():
                     "Exiting...\n\n" )
                 sys.exit(1)
 
-        if bow and not all([os.path.exists(".".join([str(pars['bowtie2db']),p]))
-                        for p in ["1.bt2", "2.bt2", "3.bt2","4.bt2","1.bt2","2.bt2"]]):
-            sys.stderr.write( "No MetaPhlAn BowTie2 database found "
-                              "[--bowtie2db option]! "
-                              "(or wrong path provided)."
-                              "\nExpecting location ${mpa_dir}/db_v20/map_v20_m200 "
-                              "\nExiting... " )
+        if bow and not all([os.path.exists(".".join([str(pars['bowtie2db']), p]))
+                            for p in ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]]):
+            sys.stderr.write("No MetaPhlAn BowTie2 database found (--index "
+                             "option)!\nExpecting location {}\nExiting..."
+                             .format(DEFAULT_DB_FOLDER))
             sys.exit(1)
 
         if bow:
@@ -1443,11 +1447,8 @@ def metaphlan2():
     tree.set_min_cu_len( pars['min_cu_len'] )
     tree.set_stat( pars['stat'], pars['stat_q'], pars['avoid_disqm']  )
 
-    markers2reads = map2bbh(
-                            pars['inp'],
-                            pars['input_type'],
-                            pars['min_alignment_len']
-                            )
+    markers2reads = map2bbh(pars['inp'], pars['input_type'],
+                            pars['min_alignment_len'])
     if no_map:
         os.remove( pars['inp'] )
 
