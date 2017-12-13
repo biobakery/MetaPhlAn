@@ -488,8 +488,8 @@ def read_params(args):
 
     g = p.add_argument_group('Required arguments')
     arg = g.add_argument
-    input_type_choices = ['fastq','fasta','multifasta','multifastq','bowtie2out','sam'] # !!!!
-    arg( '--input_type', choices=input_type_choices, required = 'True', help =
+    input_type_choices = ['fastq','fasta','multifasta','multifastq','bowtie2out','sam'] 
+    arg( '--input_type', choices=input_type_choices, required = '--install' not in args, help =
          "set whether the input is the multifasta file of metagenomic reads or \n"
          "the SAM file of the mapping of the reads against the MetaPhlAn db.\n"
          "[default 'automatic', i.e. the script will try to guess the input format]\n" )
@@ -645,7 +645,9 @@ def read_params(args):
     arg = g.add_argument
     arg('--nproc', metavar="N", type=int, default=4,
         help="The number of CPUs to use for parallelizing the mapping "
-             "[default 1, i.e. no parallelism]")
+             "[default 4]")
+    arg('--install', action='store_true',
+        help="Only checks if the MetaPhlAn2 DB is installed and installs it if not. All other parameters are ignored.\n")
     arg('-v', '--version', action='version',
         version="MetaPhlAn version {}\t({})".format(__version__, __date__),
         help="Prints the current MetaPhlAn version and exit\n")
@@ -766,7 +768,7 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
 
     # compare checksums
     if md5_tar != md5_md5:
-        sys.exit("MD5 checksums do not correspond!")
+        sys.exit("MD5 checksums do not correspond! If this happens again, you should remove the database files and rerun MetaPhlAn2 so they are re-downloaded")
 
     # untar
     try:
@@ -1342,6 +1344,11 @@ def metaphlan2():
     # check if the database is installed, if not then install
     check_and_install_database(pars['index'], pars['bowtie2_build'],
                                pars['nproc'])
+    
+    if pars['install']:
+        sys.stderr.write('The database is installed\n')
+        return
+    
     # set correct map_pkl and bowtie2db variables
     pars['mpa_pkl'], pars['bowtie2db'] = set_mapping_arguments(pars['index'])
 
