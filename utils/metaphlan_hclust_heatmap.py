@@ -209,7 +209,7 @@ def features_dend_panel( fig, Z, Z2, width, lw ):
     ax1 = fig.add_axes([-width,0.0,width,1.0], frameon=False)
     Z2['color_list'] = [c.replace('b','k').replace('x','b') for c in Z2['color_list']]
     mh = max(Z[:,2])
-    sch._plot_dendrogram(Z2['icoord'], Z2['dcoord'], Z2['ivl'], Z.shape[0] + 1, Z.shape[0] + 1, mh, 'right', no_labels=True, color_list=Z2['color_list'])
+    sch._plot_dendrogram(Z2['icoord'], Z2['dcoord'], Z2['ivl'], Z.shape[0] + 1, Z.shape[0] + 1, mh, 'left', no_labels=True, color_list=Z2['color_list'])
     for coll in ax1.collections:
         coll._linewidths = (lw,)
     ax1.set_xticks([])
