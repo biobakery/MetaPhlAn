@@ -882,7 +882,7 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc,
                 if samout[-4:] == '.bz2':
                     sam_file = bz2.BZ2File(samout, 'w')
                 else:
-                    sam_file = open(samout, 'w')
+                    sam_file = open(samout, 'wb')
         except IOError:
             sys.stderr.write( "IOError: Unable to open sam output file.\n" )
             sys.exit(1)
