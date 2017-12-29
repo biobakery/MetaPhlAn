@@ -25,7 +25,23 @@ If you use MetaPhlAn2, please cite:
 
 If you use StrainPhlAn, please cite the MetaPhlAn2 paper and the following StrainPhlAn paper:
 
-[**Microbial strain-level population structure and genetic diversity from metagenomes.**](http://genome.cshlp.org/content/27/4/626.full.pdf) *Duy Tin Truong, Adrian Tett, Edoardo Pasolli, Curtis Huttenhower, & Nicola Segata*. Genome Research 27:626â€“638 (2017)
+[**Microbial strain-level population structure and genetic diversity from metagenomes.**](http://genome.cshlp.org/content/27/4/626.full.pdf) *Duy Tin Truong, Adrian Tett, Edoardo Pasolli, Curtis Huttenhower, & Nicola Segata*. Genome Research 27:626–638 (2017)
+
+-------------
+
+## MetaPhlAn and StrainPhlAn resources
+
+In addition to the information on this page, you can refer to the following additional resources.
+
+* The `MetaPhlAn2 tutorial on bioBakery <https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2>`_.
+
+* The `StrainPhlAn tutorial on bioBakery <https://bitbucket.org/biobakery/biobakery/wiki/strainphlan>`_.
+
+* The MetaPhlAn2 and StrainPhlAn `Google Group <http://groups.google.com/forum/#!forum/metaphlan-users>`_ ( `metaphlan-users@googlegroups.com <mailto:metaphlan-users@googlegroups.com>`_ 
+
+* Related tools including `PanPhlAn <https://bitbucket.org/CibioCM/panphlan/src>`_ (and its `tutorial <https://bitbucket.org/CibioCM/panphlan/wiki/Home>`_, `GraPhlAn <https://bitbucket.org/nsegata/graphlan/wiki/Home>`_ (and it `tutorial <https://bitbucket.org/biobakery/biobakery/wiki/graphlan>`_, `PhyloPhlAn2 <https://bitbucket.org/nsegata/phylophlan/wiki/Home>`_ (and its `tutorial <https://bitbucket.org/biobakery/biobakery/wiki/phylophlan>`_, `HUMAnN2 <https://bitbucket.org/biobakery/humann2/wiki/Home>`_ (and its `tutorial <https://bitbucket.org/biobakery/biobakery/wiki/humann2>`_.
+
+* The related `bioBakery workflows <https://bitbucket.org/biobakery/biobakery/wiki/biobakery_workflows>`_
 
 
 -------------
