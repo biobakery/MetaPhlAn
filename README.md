@@ -25,7 +25,7 @@ If you use MetaPhlAn2, please cite:
 
 If you use StrainPhlAn, please cite the MetaPhlAn2 paper and the following StrainPhlAn paper:
 
-[**Microbial strain-level population structure and genetic diversity from metagenomes.**](http://genome.cshlp.org/content/27/4/626.full.pdf) *Duy Tin Truong, Adrian Tett, Edoardo Pasolli, Curtis Huttenhower, & Nicola Segata*. Genome Research 27:626–638 (2017)
+[**Microbial strain-level population structure and genetic diversity from metagenomes.**](http://genome.cshlp.org/content/27/4/626.full.pdf) *Duy Tin Truong, Adrian Tett, Edoardo Pasolli, Curtis Huttenhower, & Nicola Segata*. Genome Research 27:626ï¿½638 (2017)
 
 -------------
 
@@ -33,7 +33,7 @@ If you use StrainPhlAn, please cite the MetaPhlAn2 paper and the following Strai
 
 In addition to the information on this page, you can refer to the following additional resources.
 
-* The `MetaPhlAn2 tutorial on bioBakery <https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2>`_.
+* The [MetaPhlAn2 tutorial on bioBakery](https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2).
 
 * The `StrainPhlAn tutorial on bioBakery <https://bitbucket.org/biobakery/biobakery/wiki/strainphlan>`_.
 
