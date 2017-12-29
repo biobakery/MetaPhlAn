@@ -275,7 +275,7 @@ def sam2markers(
         os.remove(tmp_fn)
     p3 = oosp.chain(
                     samtools_exe, 
-                    args=['sort', '-o', '-', ofn_bam_sorted_prefix], 
+                    args=['sort', '-', '-o',  ofn_bam_sorted_prefix], 
                     in_pipe=p2,
                     stderr=error_pipe)
 
