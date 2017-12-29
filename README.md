@@ -15,9 +15,18 @@ MetaPhlAn 2 relies on ~1M unique clade-specific marker genes ([the marker inform
 * orders of magnitude speedups compared to existing methods.
 * metagenomic strain-level population genomics
 
-If you use this software, please cite:
+If you use MetaPhlAn version 1, please cite:
+
+[**Metagenomic microbial community profiling using unique clade-specific marker genes.**](https://www.nature.com/articles/nmeth.2066) *Nicola Segata, Levi Waldron, Annalisa Ballarini, Vagheesh Narasimhan, Olivier Jousson, &  Curtis Huttenhower*. Nature Methods 9, 811-814 (2012)
+
+If you use MetaPhlAn2, please cite:
 
 [**MetaPhlAn2 for enhanced metagenomic taxonomic profiling.**](http://www.nature.com/nmeth/journal/v12/n10/pdf/nmeth.3589.pdf) *Duy Tin Truong, Eric A Franzosa, Timothy L Tickle, Matthias Scholz, George Weingart, Edoardo Pasolli, Adrian Tett, Curtis Huttenhower & Nicola Segata*. Nature Methods 12, 902-903 (2015)
+
+If you use StrainPhlAn, please cite the MetaPhlAn2 paper and the following StrainPhlAn paper:
+
+[**Microbial strain-level population structure and genetic diversity from metagenomes.**](http://genome.cshlp.org/content/27/4/626.full.pdf) *Duy Tin Truong, Adrian Tett, Edoardo Pasolli, Curtis Huttenhower, & Nicola Segata*. Genome Research 27:626–638 (2017)
+
 
 -------------
 
