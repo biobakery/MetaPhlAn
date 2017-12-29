@@ -35,9 +35,9 @@ In addition to the information on this page, you can refer to the following addi
 
 * The [MetaPhlAn2 tutorial on bioBakery](https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2).
 
-* The `StrainPhlAn tutorial on bioBakery <https://bitbucket.org/biobakery/biobakery/wiki/strainphlan>`_.
+* The [StrainPhlAn tutorial on bioBakery](https://bitbucket.org/biobakery/biobakery/wiki/strainphlan).
 
-* The MetaPhlAn2 and StrainPhlAn `Google Group <http://groups.google.com/forum/#!forum/metaphlan-users>`_ ( `metaphlan-users@googlegroups.com <mailto:metaphlan-users@googlegroups.com>`_ 
+* The MetaPhlAn2 and StrainPhlAn [Google Group](http://groups.google.com/forum/#!forum/metaphlan-users) [metaphlan-users@googlegroups.com](mailto:metaphlan-users@googlegroups.com)
 
 * Related tools including `PanPhlAn <https://bitbucket.org/CibioCM/panphlan/src>`_ (and its `tutorial <https://bitbucket.org/CibioCM/panphlan/wiki/Home>`_, `GraPhlAn <https://bitbucket.org/nsegata/graphlan/wiki/Home>`_ (and it `tutorial <https://bitbucket.org/biobakery/biobakery/wiki/graphlan>`_, `PhyloPhlAn2 <https://bitbucket.org/nsegata/phylophlan/wiki/Home>`_ (and its `tutorial <https://bitbucket.org/biobakery/biobakery/wiki/phylophlan>`_, `HUMAnN2 <https://bitbucket.org/biobakery/humann2/wiki/Home>`_ (and its `tutorial <https://bitbucket.org/biobakery/biobakery/wiki/humann2>`_.
 
