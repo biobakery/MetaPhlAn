@@ -488,7 +488,7 @@ def read_params(args):
 
     g = p.add_argument_group('Required arguments')
     arg = g.add_argument
-    input_type_choices = ['fastq','fasta','multifasta','multifastq','bowtie2out','sam'] 
+    input_type_choices = ['fastq','fasta','multifasta','multifastq','bowtie2out','sam']
     arg( '--input_type', choices=input_type_choices, required = '--install' not in args, help =
          "set whether the input is the multifasta file of metagenomic reads or \n"
          "the SAM file of the mapping of the reads against the MetaPhlAn db.\n"
@@ -862,20 +862,19 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc,
 
     try:
         if fna_in:
-            readin = subp.Popen([read_fastx,fna_in],stdout=subp.PIPE)
+            readin = subp.Popen([read_fastx, '-l', '70', fna_in],
+                                stdout=subp.PIPE)
         else:
-            readin = subp.Popen([read_fastx],stdin=sys.stdin,stdout=subp.PIPE)
-        bowtie2_cmd = [ exe if exe else 'bowtie2',
-                        "--quiet", "--no-unal",
-                        "--"+preset,
-                        "-S","-",
-                        "-x", bowtie2_db,
-                         ] + ([] if int(nproc) < 2 else ["-p",str(nproc)])
-        bowtie2_cmd += ["-U", "-"] # if not stat.S_ISFIFO(os.stat(fna_in).st_mode) else []
+            readin = subp.Popen([read_fastx, '-l', '70'], stdin=sys.stdin,
+                                stdout=subp.PIPE)
+        bowtie2_cmd = [exe if exe else 'bowtie2', "--quiet", "--no-unal",
+                       "--" + preset, "-S", "-", "-x", bowtie2_db, ] +
+                       ([] if int(nproc) < 2 else ["-p", str(nproc)])
+        bowtie2_cmd += ["-U", "-"]  # if not stat.S_ISFIFO(os.stat(fna_in).st_mode) else []
         bowtie2_cmd += (["-f"] if file_format == "multifasta" else [])
         p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE, stdin=readin.stdout )
         readin.stdout.close()
-        lmybytes, outf = (mybytes,bz2.BZ2File(outfmt6_out, "w")) if outfmt6_out.endswith(".bz2") else (str,open( outfmt6_out, "w" ))
+        lmybytes, outf = (mybytes, bz2.BZ2File(outfmt6_out, "w")) if outfmt6_out.endswith(".bz2") else (str, open(outfmt6_out, "w"))
 
         try:
             if samout:
@@ -1344,11 +1343,11 @@ def metaphlan2():
     # check if the database is installed, if not then install
     check_and_install_database(pars['index'], pars['bowtie2_build'],
                                pars['nproc'])
-    
+
     if pars['install']:
         sys.stderr.write('The database is installed\n')
         return
-    
+
     # set correct map_pkl and bowtie2db variables
     pars['mpa_pkl'], pars['bowtie2db'] = set_mapping_arguments(pars['index'])
 
