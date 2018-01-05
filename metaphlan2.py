@@ -867,9 +867,9 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc,
         else:
             readin = subp.Popen([read_fastx, '-l', '70'], stdin=sys.stdin,
                                 stdout=subp.PIPE)
-        bowtie2_cmd = [exe if exe else 'bowtie2', "--quiet", "--no-unal",
-                       "--" + preset, "-S", "-", "-x", bowtie2_db, ] +
-                       ([] if int(nproc) < 2 else ["-p", str(nproc)])
+        bowtie2_cmd = ([exe if exe else 'bowtie2', "--quiet", "--no-unal",
+                       "--" + preset, "-S", "-", "-x", bowtie2_db] +
+                       [] if int(nproc) < 2 else ["-p", str(nproc)])
         bowtie2_cmd += ["-U", "-"]  # if not stat.S_ISFIFO(os.stat(fna_in).st_mode) else []
         bowtie2_cmd += (["-f"] if file_format == "multifasta" else [])
         p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE, stdin=readin.stdout )
