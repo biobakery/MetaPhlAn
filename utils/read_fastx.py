@@ -100,7 +100,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         for l in sys.argv[1:]:
             if l in ['-h', '--help', '-v', '--version']:
-                sys.stdout.write("Help message for " +
+                sys.stderr.write("Help message for " +
                                  os.path.basename(sys.argv[0]) + "\n")
                 sys.exit(0)
 
