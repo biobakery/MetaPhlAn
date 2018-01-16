@@ -10,7 +10,8 @@ from q2_types.per_sample_sequences import SequencesWithQuality
 from q2_types.per_sample_sequences import PairedEndSequencesWithQuality
 from q2_types.feature_table import FeatureTable
 from q2_types.feature_table import Frequency
-from . import _metaphlan2
+# from . import _metaphlan2
+import _metaphlan2
 
 
 plugin = Plugin(
