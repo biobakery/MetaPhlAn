@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 
+
 import sys
 import os
 import bz2
 import gzip
 import glob
-# import itertools
 from Bio import SeqIO
-# import io
 try:
     import StringIO as uio
 except ImportError:
