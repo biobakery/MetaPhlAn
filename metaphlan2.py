@@ -35,6 +35,10 @@ except ImportError:
 import tempfile as tf
 import argparse as ap
 import subprocess as subp
+try:
+    from subprocess import DEVNULL  # py3k
+except ImportError:
+    DEVNULL = open(os.devnull, 'wb')
 # import multiprocessing as mp
 from collections import defaultdict as defdict
 import bz2
@@ -91,9 +95,7 @@ except ImportError:
 
 # This set contains the markers that after careful validation are found to have low precision or recall
 # We esclude the markers here to avoid generating a new marker DB when changing just few markers
-markers_to_exclude = \
-    set([
-        'NC_001782.1','GeneID:17099689','gi|419819595|ref|NZ_AJRE01000517.1|:1-118',
+markers_to_exclude = set(['NC_001782.1', 'GeneID:17099689', 'gi|419819595|ref|NZ_AJRE01000517.1|:1-118',
         'GeneID:10498696', 'GeneID:10498710', 'GeneID:10498726', 'GeneID:10498735',
         'GeneID:10498757', 'GeneID:10498760', 'GeneID:10498761', 'GeneID:10498763',
         'GeneID:11294465', 'GeneID:14181982', 'GeneID:14182132', 'GeneID:14182146',
@@ -359,16 +361,14 @@ if float(sys.version_info[0]) < 3.0:
     def read_and_split(ofn):
         return (l.strip().split('\t') for l in ofn)
 
-
     def read_and_split_line(line):
         return line.strip().split('\t')
 else:
     def read_and_split(ofn):
-        return (str(l, encoding='utf-8').strip().split('\t') for l in ofn)
-
+        return (l.decode('utf-8').strip().split('\t') for l in ofn)
 
     def read_and_split_line(line):
-        return str(line, encoding='utf-8').strip().split('\t')
+        return line.decode('utf-8').strip().split('\t')
 
 
 def plain_read_and_split(ofn):
@@ -379,13 +379,13 @@ def plain_read_and_split_line(l):
     return l.strip().split('\t')
 
 
-
 if float(sys.version_info[0]) < 3.0:
-    def mybytes( val ):
+    def mybytes(val):
         return val
 else:
-    def mybytes( val ):
-        return bytes(val,encoding='utf-8')
+    def mybytes(val):
+        return bytes(val, encoding='utf-8')
+
 
 def read_params(args):
     p = ap.ArgumentParser( description=
@@ -724,8 +724,7 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
         try:
             os.makedirs(folder)
         except EnvironmentError:
-            sys.exit("ERROR: Unable to create folder for database install: " +
-                     folder)
+            sys.exit("ERROR: Unable to create folder for database install: " + folder)
 
     # Check the directory permissions
     if not os.access(folder, os.W_OK):
@@ -768,7 +767,8 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
 
     # compare checksums
     if md5_tar != md5_md5:
-        sys.exit("MD5 checksums do not correspond! If this happens again, you should remove the database files and rerun MetaPhlAn2 so they are re-downloaded")
+        sys.exit("MD5 checksums do not correspond! If this happens again, you should remove the database files and "
+                 "rerun MetaPhlAn2 so they are re-downloaded")
 
     # untar
     try:
@@ -783,8 +783,7 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
     fna_file = os.path.join(folder, "mpa_" + download_file_name + ".fna")
 
     if not os.path.isfile(fna_file):
-        sys.stderr.write('\n\nDecompressing {} into {}\n'.format(bz2_file,
-                                                                 fna_file))
+        sys.stderr.write('\n\nDecompressing {} into {}\n'.format(bz2_file, fna_file))
 
         with open(fna_file, 'wb') as fna_h, bz2.BZ2File(bz2_file, 'rb') as bz2_h:
             for data in iter(lambda: bz2_h.read(100 * 1024), b''):
@@ -796,8 +795,7 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
         bt2_cmd = [bowtie2_build, '--quiet']
 
         if nproc > 1:
-            bt2_build_output = subp.check_output([bowtie2_build, '--usage'],
-                                                 stderr=subp.STDOUT)
+            bt2_build_output = subp.check_output([bowtie2_build, '--usage'], stderr=subp.STDOUT)
 
             if 'threads' in str(bt2_build_output):
                 bt2_cmd += ['--threads', str(nproc)]
@@ -809,9 +807,7 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
         try:
             subp.check_call(bt2_cmd)
         except Exception as e:
-            sys.stderr.write("Fatal error running '{}'\n"
-                             "Error message: '{}'\n\n"
-                             .format(' '.join(bt2_cmd), e))
+            sys.stderr.write("Fatal error running '{}'\nError message: '{}'\n\n".format(' '.join(bt2_cmd), e))
             sys.exit(1)
 
 
@@ -824,8 +820,7 @@ def check_and_install_database(index, bowtie2_build, nproc):
     # download the tar archive and decompress
     sys.stderr.write("\nDownloading MetaPhlAn2 database\nPlease note due to "
                      "the size this might take a few minutes\n")
-    download_unpack_tar(DATABASE_DOWNLOAD, index, DEFAULT_DB_FOLDER,
-                        bowtie2_build, nproc)
+    download_unpack_tar(DATABASE_DOWNLOAD, index, DEFAULT_DB_FOLDER, bowtie2_build, nproc)
     sys.stderr.write("\nDownload complete\n")
 
 
@@ -833,8 +828,7 @@ def set_mapping_arguments(index):
     mpa_pkl = 'mpa_pkl'
     bowtie2db = 'bowtie2db'
 
-    if os.path.isfile(os.path.join(DEFAULT_DB_FOLDER,
-                      "mpa_{}.pkl".format(index))):
+    if os.path.isfile(os.path.join(DEFAULT_DB_FOLDER, "mpa_{}.pkl".format(index))):
         mpa_pkl = os.path.join(DEFAULT_DB_FOLDER, "mpa_{}.pkl".format(index))
 
     if glob(os.path.join(DEFAULT_DB_FOLDER, "mpa_{}*.bt2".format(index))):
@@ -843,36 +837,46 @@ def set_mapping_arguments(index):
     return (mpa_pkl, bowtie2db)
 
 
-def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc,
-                file_format="multifasta", exe=None, samout=None,
+def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="multifasta", exe=None, samout=None,
                 min_alignment_len=None,):
-
+    # checking read_fastx.py
     read_fastx = "read_fastx.py"
+
     try:
-        subp.check_call([read_fastx, "-h"])
+        subp.check_call([read_fastx, "-h"], stdout=DEVNULL, stderr=DEVNULL)
     except Exception as e:
         try:
-            read_fastx = os.path.join(os.path.join(os.path.dirname(__file__),
-                                                   "utils"),
-                                      read_fastx)
-            subp.check_call([read_fastx, "-h"])
+            read_fastx = os.path.join(os.path.join(os.path.dirname(__file__), "utils"), read_fastx)
+            subp.check_call([read_fastx, "-h"], stdout=DEVNULL, stderr=DEVNULL)
         except Exception as e:
-            sys.stderr.write( "OSError: fatal error running \'read_fastx.py\'. Is it in the system path?\n" )
+            sys.stderr.write("OSError: fatal error running '{}'. Is it in the system path?\n".format(read_fastx))
             sys.exit(1)
+
+    # checking bowtie2
+    try:
+        subp.check_call([exe if exe else 'bowtie2', "-h"], stdout=DEVNULL, stderr=DEVNULL)
+    except Exception as e:
+        sys.stderr.write('OSError: "{}"\nFatal error running BowTie2. Is BowTie2 in the system path?\n'.format(e))
+        sys.exit(1)
 
     try:
         if fna_in:
-            readin = subp.Popen([read_fastx, '-l', '70', fna_in],
-                                stdout=subp.PIPE)
+            readin = subp.Popen([read_fastx, '-l', '70', fna_in], stdout=subp.PIPE)
         else:
-            readin = subp.Popen([read_fastx, '-l', '70'], stdin=sys.stdin,
-                                stdout=subp.PIPE)
-        bowtie2_cmd = ([exe if exe else 'bowtie2', "--quiet", "--no-unal",
-                       "--" + preset, "-S", "-", "-x", bowtie2_db] +
-                       [] if int(nproc) < 2 else ["-p", str(nproc)])
+            readin = subp.Popen([read_fastx, '-l', '70'], stdin=sys.stdin, stdout=subp.PIPE)
+
+        bowtie2_cmd = [exe if exe else 'bowtie2', "--quiet", "--no-unal", "--{}".format(preset),
+                       "-S", "-", "-x", bowtie2_db]
+
+        if int(nproc) > 1:
+            bowtie2_cmd += ["-p", str(nproc)]
+
         bowtie2_cmd += ["-U", "-"]  # if not stat.S_ISFIFO(os.stat(fna_in).st_mode) else []
-        bowtie2_cmd += (["-f"] if file_format == "multifasta" else [])
-        p = subp.Popen( bowtie2_cmd, stdout=subp.PIPE, stdin=readin.stdout )
+
+        if file_format == "multifasta":
+            bowtie2_cmd += ["-f"]
+
+        p = subp.Popen(bowtie2_cmd, stdout=subp.PIPE, stdin=readin.stdout)
         readin.stdout.close()
         lmybytes, outf = (mybytes, bz2.BZ2File(outfmt6_out, "w")) if outfmt6_out.endswith(".bz2") else (str, open(outfmt6_out, "w"))
 
@@ -882,38 +886,42 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc,
                     sam_file = bz2.BZ2File(samout, 'w')
                 else:
                     sam_file = open(samout, 'wb')
-        except IOError:
-            sys.stderr.write( "IOError: Unable to open sam output file.\n" )
+        except IOError as e:
+            sys.stderr.write('IOError: "{}"\nUnable to open sam output file.\n'.format(e))
             sys.exit(1)
 
         for line in p.stdout:
             if samout:
                 sam_file.write(line)
-            if line[0] != '@':
-                o = read_and_split_line(line)
-                if o[2][-1] != '*':
-                    if min_alignment_len == None\
-                        or max([int(x.strip('M')) for x in\
-                                re.findall(r'(\d*M)', o[5])]) >= min_alignment_len:
-                        outf.write( lmybytes("\t".join([o[0],o[2]]) +"\n") )
+
+            o = read_and_split_line(line)
+
+            if not o[0].startswith('@'):
+                if not o[2].endswith('*'):
+                    if ((min_alignment_len is None) or
+                            (max([int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x]) >= min_alignment_len)):
+                        outf.write(lmybytes("\t".join([o[0], o[2]]) + "\n"))
 
         outf.close()
+
         if samout:
             sam_file.close()
+
         p.communicate()
 
-    except OSError:
-        sys.stderr.write( "OSError: fatal error running BowTie2. Is BowTie2 in the system path?\n" )
+    except OSError as e:
+        sys.stderr.write('OSError: "{}"\nFatal error running BowTie2.\n'.format(e))
         sys.exit(1)
-    except ValueError:
-        sys.stderr.write( "ValueError: fatal error running BowTie2.\n" )
+    except ValueError as e:
+        sys.stderr.write('ValueError: "{}"\nFatal error running BowTie2.\n'.format(e))
         sys.exit(1)
-    except IOError:
-        sys.stderr.write( "IOError: fatal error running BowTie2.\n" )
+    except IOError as e:
+        sys.stderr.write('IOError: "{}"\nFatal error running BowTie2.\n'.format(e))
         sys.exit(1)
+
     if p.returncode == 13:
-        sys.stderr.write( "Permission Denied Error: fatal error running BowTie2."
-          "Is the BowTie2 file in the path with execution and read permissions?\n" )
+        sys.stderr.write("Permission Denied Error: fatal error running BowTie2."
+                         "Is the BowTie2 file in the path with execution and read permissions?\n")
         sys.exit(1)
     elif p.returncode != 0:
         sys.stderr.write("Error while running bowtie2.\n")
@@ -1236,9 +1244,10 @@ def map2bbh(mapping_f, input_type='bowtie2out', min_alignment_len=None):
         for line in inpf:
             o = ras_line(line)
 
-            if o[0][0] != '@' and o[2][-1] != '*':
-                if (min_alignment_len == None) or (max([int(x.strip('M')) for x in
-                                                   re.findall(r'(\d*M)', o[5])]) >= min_alignment_len):
+            if ((o[0][0] != '@') and
+                (o[2][-1] != '*') and
+                ((min_alignment_len is None) or
+                 (max([int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x]) >= min_alignment_len))):
                     reads2markers[o[0]] = o[2]
 
     inpf.close()
@@ -1307,7 +1316,7 @@ def maybe_generate_biom_file(pars, abundance_predictions):
     if LooseVersion(biom.__version__) < LooseVersion("2.0.0"):
         biom_table = biom.table.table_factory(
             data,
-	    sample_ids,
+        sample_ids,
             ######## clade_ids,     #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
             clade_names,            #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
             sample_metadata      = None,
@@ -1357,18 +1366,11 @@ def metaphlan2():
     #                      "Type metaphlan.py -h for more info\n")
     #    sys.exit(0)
 
-    if pars['bt2_ps'] in [
-                          "sensitive-local",
-                          "very-sensitive-local"
-                          ]\
-        and pars['min_alignment_len'] == None:
+    if (pars['bt2_ps'] in ["sensitive-local", "very-sensitive-local"]) and (pars['min_alignment_len'] is None):
             pars['min_alignment_len'] = 100
-            sys.stderr.write('Warning! bt2_ps is set to local mode, '\
-                             'and min_alignment_len is None, '
-                             'I automatically set min_alignment_len to 100! '\
-                             'If you do not like, rerun the command and set '\
-                             'min_alignment_len to a specific value.\n'
-                            )
+            sys.stderr.write('Warning! bt2_ps is set to local mode, and min_alignment_len is None, I automatically '
+                             'set min_alignment_len to 100! If you do not like, rerun the command and set '
+                             'min_alignment_len to a specific value.\n')
 
     if pars['input_type'] == 'fastq':
         pars['input_type'] = 'multifastq'
