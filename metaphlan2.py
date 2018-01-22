@@ -843,18 +843,18 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
     read_fastx = "read_fastx.py"
 
     try:
-        subp.check_call([read_fastx, "-h"], stdout=DEVNULL, stderr=DEVNULL)
+        subp.check_call([read_fastx, "-h"], stdout=DEVNULL)
     except Exception as e:
         try:
             read_fastx = os.path.join(os.path.join(os.path.dirname(__file__), "utils"), read_fastx)
-            subp.check_call([read_fastx, "-h"], stdout=DEVNULL, stderr=DEVNULL)
+            subp.check_call([read_fastx, "-h"], stdout=DEVNULL)
         except Exception as e:
             sys.stderr.write("OSError: fatal error running '{}'. Is it in the system path?\n".format(read_fastx))
             sys.exit(1)
 
     # checking bowtie2
     try:
-        subp.check_call([exe if exe else 'bowtie2', "-h"], stdout=DEVNULL, stderr=DEVNULL)
+        subp.check_call([exe if exe else 'bowtie2', "-h"], stdout=DEVNULL)
     except Exception as e:
         sys.stderr.write('OSError: "{}"\nFatal error running BowTie2. Is BowTie2 in the system path?\n'.format(e))
         sys.exit(1)
