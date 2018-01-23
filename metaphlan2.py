@@ -1416,8 +1416,8 @@ def metaphlan2():
         else:
             if bow and not pars['bowtie2out']:
                 if pars['inp'] and "," in  pars['inp']:
-                    sys.stderr.write( "Error! --bowtie2out needs to be specified when multiple "
-                                      "fastq or fasta files (comma separated) are provided"  )
+                    sys.stderr.write("Error! --bowtie2out needs to be specified when multiple "
+                                     "fastq or fasta files (comma separated) are provided\n")
                     sys.exit(1)
                 fname = pars['inp']
                 if fname is None:
