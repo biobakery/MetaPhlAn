@@ -57,7 +57,7 @@ def read_and_write_raw_int(fd, min_len=None):
 
             if not fmt:
                 fmt = fastx(l)
-                readn = (4 if fmt == 'fastq' else 2)
+                readn = 4 if fmt == 'fastq' else 2
 
             r.append(l)
 
@@ -65,20 +65,16 @@ def read_and_write_raw_int(fd, min_len=None):
                 break
 
         for record in SeqIO.parse(uio.StringIO("".join(r)), fmt):
-            if len(record) < min_len:
-                continue
-
-            record.id = ignore_spaces(record.description, forced=True)
-            record.description = ""
-            SeqIO.write(record, sys.stdout, fmt)
+            if len(record) >= min_len:
+                record.id = ignore_spaces(record.description, forced=True)
+                record.description = ""
+                SeqIO.write(record, sys.stdout, fmt)
 
         for record in SeqIO.parse(fd, fmt):
-            if len(record) < min_len:
-                continue
-
-            record.id = ignore_spaces(record.description, forced=True)
-            record.description = ""
-            SeqIO.write(record, sys.stdout, fmt)
+            if len(record) >= min_len:
+                record.id = ignore_spaces(record.description, forced=True)
+                record.description = ""
+                SeqIO.write(record, sys.stdout, fmt)
     else:
         for l in fd:
             sys.stdout.write(ignore_spaces(l))
