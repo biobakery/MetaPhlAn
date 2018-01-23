@@ -66,7 +66,7 @@ def read_and_write_raw_int(fd, min_len=None):
 
         for record in SeqIO.parse(uio.StringIO("".join(r)), fmt):
             if len(record) < min_len:
-                break
+                continue
 
             record.id = ignore_spaces(record.description, forced=True)
             record.description = ""
@@ -74,7 +74,7 @@ def read_and_write_raw_int(fd, min_len=None):
 
         for record in SeqIO.parse(fd, fmt):
             if len(record) < min_len:
-                break
+                continue
 
             record.id = ignore_spaces(record.description, forced=True)
             record.description = ""
