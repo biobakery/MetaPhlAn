@@ -644,13 +644,15 @@ def read_params(args):
     g = p.add_argument_group('Other arguments')
     arg = g.add_argument
     arg('--nproc', metavar="N", type=int, default=4,
-        help="The number of CPUs to use for parallelizing the mapping "
-             "[default 4]")
+        help="The number of CPUs to use for parallelizing the mapping [default 4]")
     arg('--install', action='store_true',
-        help="Only checks if the MetaPhlAn2 DB is installed and installs it if not. All other parameters are ignored.\n")
+        help="Only checks if the MetaPhlAn2 DB is installed and installs it if not. All other parameters are ignored.")
+    arg('--read_min_len', type=int, default=60,
+        help="Specify the minimum length of the reads to be considered when parsing the input file with "
+             "'read_fastx.py' script, default value is 60")
     arg('-v', '--version', action='version',
         version="MetaPhlAn version {}\t({})".format(__version__, __date__),
-        help="Prints the current MetaPhlAn version and exit\n")
+        help="Prints the current MetaPhlAn version and exit")
     arg("-h", "--help", action="help", help="show this help message and exit")
 
     return vars(p.parse_args())
@@ -837,8 +839,8 @@ def set_mapping_arguments(index):
     return (mpa_pkl, bowtie2db)
 
 
-def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="multifasta", exe=None, samout=None,
-                min_alignment_len=None,):
+def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="multifasta",
+                exe=None, samout=None, min_alignment_len=None, read_min_len=0):
     # checking read_fastx.py
     read_fastx = "read_fastx.py"
 
@@ -861,9 +863,9 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
 
     try:
         if fna_in:
-            readin = subp.Popen([read_fastx, '-l', '70', fna_in], stdout=subp.PIPE)
+            readin = subp.Popen([read_fastx, '-l', str(read_min_len), fna_in], stdout=subp.PIPE)
         else:
-            readin = subp.Popen([read_fastx, '-l', '70'], stdin=sys.stdin, stdout=subp.PIPE)
+            readin = subp.Popen([read_fastx, '-l', str(read_min_len)], stdin=sys.stdin, stdout=subp.PIPE)
 
         bowtie2_cmd = [exe if exe else 'bowtie2', "--quiet", "--no-unal", "--{}".format(preset),
                        "-S", "-", "-x", bowtie2_db]
@@ -1440,11 +1442,10 @@ def metaphlan2():
             sys.exit(1)
 
         if bow:
-            run_bowtie2( pars['inp'], pars['bowtie2out'], pars['bowtie2db'],
-                         pars['bt2_ps'], pars['nproc'], file_format = pars['input_type'],
-                         exe = pars['bowtie2_exe'],
-                         samout = pars['samout'],
-                         min_alignment_len = pars['min_alignment_len'])
+            run_bowtie2(pars['inp'], pars['bowtie2out'], pars['bowtie2db'],
+                        pars['bt2_ps'], pars['nproc'], file_format=pars['input_type'],
+                        exe=pars['bowtie2_exe'], samout=pars['samout'],
+                        min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'])
             pars['input_type'] = 'bowtie2out'
         pars['inp'] = pars['bowtie2out'] # !!!
 
