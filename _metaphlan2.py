@@ -3,6 +3,7 @@
 # This module defines the functions which run MetaPhlAn2 on
 # single and paired fastq data.
 
+
 import subprocess as sb
 from q2_types.per_sample_sequences import SingleLanePerSampleSingleEndFastqDirFmt
 from q2_types.per_sample_sequences import SingleLanePerSamplePairedEndFastqDirFmt

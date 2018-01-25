@@ -16,8 +16,8 @@ from __future__ import with_statement
 __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '2.7.2'
-__date__ = '23 January 2018'
+__version__ = '2.7.3'
+__date__ = '25 January 2018'
 
 
 import sys
@@ -647,7 +647,7 @@ def read_params(args):
         help="The number of CPUs to use for parallelizing the mapping [default 4]")
     arg('--install', action='store_true',
         help="Only checks if the MetaPhlAn2 DB is installed and installs it if not. All other parameters are ignored.")
-    arg('--read_min_len', type=int, default=60,
+    arg('--read_min_len', type=int, default=70,
         help="Specify the minimum length of the reads to be considered when parsing the input file with "
              "'read_fastx.py' script, default value is 60")
     arg('-v', '--version', action='version',
@@ -863,9 +863,9 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
 
     try:
         if fna_in:
-            readin = subp.Popen([read_fastx, '-l', str(read_min_len), fna_in], stdout=subp.PIPE)
+            readin = subp.check_call([read_fastx, '-l', str(read_min_len), fna_in], stdout=subp.PIPE)
         else:
-            readin = subp.Popen([read_fastx, '-l', str(read_min_len)], stdin=sys.stdin, stdout=subp.PIPE)
+            readin = subp.check_call([read_fastx, '-l', str(read_min_len)], stdin=sys.stdin, stdout=subp.PIPE)
 
         bowtie2_cmd = [exe if exe else 'bowtie2', "--quiet", "--no-unal", "--{}".format(preset),
                        "-S", "-", "-x", bowtie2_db]
