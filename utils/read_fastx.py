@@ -24,13 +24,14 @@ def ignore_spaces(l, forced=False):
 
 
 def fastx(l):
-    if l[0] == '@':
-        return 'fastq'
+    if l:
+        if l[0] == '@':
+            return 'fastq'
 
-    if l[0] == '>':
-        return 'fasta'
+        if l[0] == '>':
+            return 'fasta'
 
-    sys.stderr.write("\nError, input data has to be in fastq or fasta format\n")
+    sys.stderr.write("\nError, input data has to be in fastq or fasta format\n\n")
     sys.exit(-1)
 
 
