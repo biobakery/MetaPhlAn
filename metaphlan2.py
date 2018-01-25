@@ -647,7 +647,7 @@ def read_params(args):
         help="The number of CPUs to use for parallelizing the mapping [default 4]")
     arg('--install', action='store_true',
         help="Only checks if the MetaPhlAn2 DB is installed and installs it if not. All other parameters are ignored.")
-    arg('--read_min_len', type=int, default=60,
+    arg('--read_min_len', type=int, default=70,
         help="Specify the minimum length of the reads to be considered when parsing the input file with "
              "'read_fastx.py' script, default value is 60")
     arg('-v', '--version', action='version',
