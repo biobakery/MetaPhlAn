@@ -16,8 +16,8 @@ from __future__ import with_statement
 __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '2.7.2'
-__date__ = '23 January 2018'
+__version__ = '2.7.3'
+__date__ = '25 January 2018'
 
 
 import sys
@@ -863,9 +863,9 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
 
     try:
         if fna_in:
-            readin = subp.Popen([read_fastx, '-l', str(read_min_len), fna_in], stdout=subp.PIPE)
+            readin = subp.check_call([read_fastx, '-l', str(read_min_len), fna_in], stdout=subp.PIPE)
         else:
-            readin = subp.Popen([read_fastx, '-l', str(read_min_len)], stdin=sys.stdin, stdout=subp.PIPE)
+            readin = subp.check_call([read_fastx, '-l', str(read_min_len)], stdin=sys.stdin, stdout=subp.PIPE)
 
         bowtie2_cmd = [exe if exe else 'bowtie2', "--quiet", "--no-unal", "--{}".format(preset),
                        "-S", "-", "-x", bowtie2_db]
