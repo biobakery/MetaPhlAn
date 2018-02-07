@@ -15,7 +15,7 @@ import metaphlan2
 
 plugin = Plugin(
     name='metaphlan2',
-    version='2.7.3',
+    version='2.7.5',
     website='http://segatalab.cibio.unitn.it/tools/metaphlan2/',
     user_support_text='metaphlan-users@googlegroups.com',
     package='metaphlan2',
