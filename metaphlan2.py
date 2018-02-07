@@ -16,8 +16,8 @@ from __future__ import with_statement
 __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '2.7.4'
-__date__ = '1 February 2018'
+__version__ = '2.7.5'
+__date__ = '6 February 2018'
 
 
 import sys
@@ -352,8 +352,8 @@ markers_to_exclude = set(['NC_001782.1', 'GeneID:17099689', 'gi|419819595|ref|NZ
         'gi|564938696|gb|AWYH01000018.1|:c75674-75039', 'gi|67993724|ref|XM_664440.1|',
         'gi|68059117|ref|XM_666447.1|', 'gi|68062389|ref|XM_668109.1|',
         'gi|71730848|gb|AAAM03000019.1|:c14289-12877', 'gi|82753723|ref|XM_722699.1|',
-        'gi|82775382|ref|NC_007606.1|:2249487-2250014', 'gi|82793634|ref|XM_723027.1|'
-        ])
+        'gi|82775382|ref|NC_007606.1|:2249487-2250014', 'gi|82793634|ref|XM_723027.1|',
+        'GeneID:1489527'])
 
 tax_units = "kpcofgst"
 
@@ -1132,14 +1132,16 @@ class TaxTree:
         add_lens( self.root )
 
         # for k,p in mpa_pkl['markers'].items():
-        for k,p in mpa['markers'].items():
+        for k, p in mpa['markers'].items():
             if k in markers_to_exclude:
                 continue
+
             if k in markers_to_ignore:
                 continue
+
             self.markers2lens[k] = p['len']
             self.markers2clades[k] = p['clade']
-            self.add_reads( k, 0  )
+            self.add_reads(k, 0)
             self.markers2exts[k] = p['ext']
 
     def set_min_cu_len( self, min_cu_len ):
