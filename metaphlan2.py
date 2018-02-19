@@ -433,7 +433,7 @@ def read_params(args):
             "\n------------------------------------------------------------------- \n \n\n"
 
 
-            "\n========== MetaPhlAn 2 strain tracking ============================ \n\n"
+            "\n========== Marker level analysis ============================ \n\n"
             "MetaPhlAn 2 introduces the capability of charachterizing organisms at the strain level using non\n"
             "aggregated marker information. Such capability comes with several slightly different flavours and \n"
             "are a way to perform strain tracking and comparison across multiple samples.\n"
@@ -811,6 +811,9 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
         except Exception as e:
             sys.stderr.write("Fatal error running '{}'\nError message: '{}'\n\n".format(' '.join(bt2_cmd), e))
             sys.exit(1)
+
+    sys.stderr.write('Removing uncompress database {}\n'.format(fna_file))
+    os.remove(fna_file)
 
 
 def check_and_install_database(index, bowtie2_build, nproc):

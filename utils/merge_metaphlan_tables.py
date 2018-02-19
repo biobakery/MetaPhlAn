@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# ============================================================================== 
+# ==============================================================================
 # Merge script: from MetaPhlAn output on single sample to a joined "clades vs samples" table
 # Authors: Timothy Tickle (ttickle@hsph.harvard.edu) and Curtis Huttenhower (chuttenh@hsph.harvard.edu)
 # ==============================================================================
@@ -12,82 +12,85 @@ import sys
 
 
 def merge( aaastrIn, astrLabels, iCol, ostm ):
-	"""
-	Outputs the table join of the given pre-split string collection.
-	
-	:param	aaastrIn:	One or more split lines from which data are read.
-	:type	aaastrIn:	collection of collections of string collections
-	:param	astrLabels:	File names of input data.
-	:type	astrLabels:	collection of strings
-	:param	iCol:		Data column in which IDs are matched (zero-indexed).
-	:type	iCol:		int
-	:param	ostm:		Output stream to which matched rows are written.
-	:type	ostm:		output stream
+    """
+    Outputs the table join of the given pre-split string collection.
 
-	"""
-	
-	setstrIDs = set()
-	"""The final set of all IDs in any table."""
-	ahashIDs = [{} for i in range( len( aaastrIn ) )]
-	"""One hash of IDs to row numbers for each input datum."""
-	aaastrData = [[] for i in range( len( aaastrIn ) )]
-	"""One data table for each input datum."""
-	aastrHeaders = [[] for i in range( len( aaastrIn ) )]
-	"""The list of non-ID headers for each input datum."""
-	strHeader = "ID"
-	"""The ID column header."""
+    :param  aaastrIn:   One or more split lines from which data are read.
+    :type   aaastrIn:   collection of collections of string collections
+    :param  astrLabels: File names of input data.
+    :type   astrLabels: collection of strings
+    :param  iCol:       Data column in which IDs are matched (zero-indexed).
+    :type   iCol:       int
+    :param  ostm:       Output stream to which matched rows are written.
+    :type   ostm:       output stream
 
-	# For each input datum in each input stream...
-	pos = 0
+    """
 
-	for f in aaastrIn :
-		with open(f) as csvfile :
-			iIn = csv.reader(csvfile, csv.excel_tab)
+    setstrIDs = set()
+    """The final set of all IDs in any table."""
+    ahashIDs = [{} for i in range( len( aaastrIn ) )]
+    """One hash of IDs to row numbers for each input datum."""
+    aaastrData = [[] for i in range( len( aaastrIn ) )]
+    """One data table for each input datum."""
+    aastrHeaders = [[] for i in range( len( aaastrIn ) )]
+    """The list of non-ID headers for each input datum."""
+    strHeader = "ID"
+    """The ID column header."""
 
-			# Lines from the current file, empty list to hold data, empty hash to hold ids
-			aastrData, hashIDs = (a[pos] for a in (aaastrData, ahashIDs))
+    # For each input datum in each input stream...
+    pos = 0
 
-			iLine = -1
-			# For a line in the file
-			for astrLine in iIn:
-				iLine += 1
+    for f in aaastrIn :
+        with open(f) as csvfile :
+            iIn = csv.reader(csvfile, csv.excel_tab)
 
-				# ID is from first column, data are everything else
-				strID, astrData = astrLine[iCol], ( astrLine[:iCol] + astrLine[( iCol + 1 ):] )
+            # Lines from the current file, empty list to hold data, empty hash to hold ids
+            aastrData, hashIDs = (a[pos] for a in (aaastrData, ahashIDs))
 
-				hashIDs[strID] = iLine
-				aastrData.append( astrData )
+            iLine = -1
+            # For a line in the file
+            for astrLine in iIn:
+                if astrLine[0].startswith('#'):
+                    continue
 
-			# Batch merge every new ID key set
-			setstrIDs.update( hashIDs.keys( ) )
+                iLine += 1
 
-		pos += 1
+                # ID is from first column, data are everything else
+                strID, astrData = astrLine[iCol], ( astrLine[:iCol] + astrLine[( iCol + 1 ):] )
 
-	# Create writer
-	csvw = csv.writer( ostm, csv.excel_tab, lineterminator='\n' )
+                hashIDs[strID] = iLine
+                aastrData.append( astrData )
 
-	# Make the file names the column names
-	csvw.writerow( [strHeader] + [os.path.splitext(f)[0] for f in astrLabels] )
+            # Batch merge every new ID key set
+            setstrIDs.update( hashIDs.keys( ) )
 
-	# Write out data
-	for strID in sorted( setstrIDs ):
-		astrOut = []
-		for iIn in range( len( aaastrIn ) ):
-			aastrData, hashIDs = (a[iIn] for a in (aaastrData, ahashIDs))
-			# Look up the row number of the current ID in the current dataset, if any
-			iID = hashIDs.get( strID )
-			# If not, start with no data; if yes, pull out stored data row
-			astrData = [0.0] if ( iID == None ) else aastrData[iID]
-			# Pad output data as needed
-			astrData += [None] * ( len( aastrHeaders[iIn] ) - len( astrData ) )
-			astrOut += astrData
-		csvw.writerow( [strID] + astrOut )
+        pos += 1
+
+    # Create writer
+    csvw = csv.writer( ostm, csv.excel_tab, lineterminator='\n' )
+
+    # Make the file names the column names
+    csvw.writerow( [strHeader] + [os.path.splitext(f)[0] for f in astrLabels] )
+
+    # Write out data
+    for strID in sorted( setstrIDs ):
+        astrOut = []
+        for iIn in range( len( aaastrIn ) ):
+            aastrData, hashIDs = (a[iIn] for a in (aaastrData, ahashIDs))
+            # Look up the row number of the current ID in the current dataset, if any
+            iID = hashIDs.get( strID )
+            # If not, start with no data; if yes, pull out stored data row
+            astrData = [0.0] if ( iID == None ) else aastrData[iID]
+            # Pad output data as needed
+            astrData += [None] * ( len( aastrHeaders[iIn] ) - len( astrData ) )
+            astrOut += astrData
+        csvw.writerow( [strID] + astrOut )
 
 
 argp = argparse.ArgumentParser( prog = "merge_metaphlan_tables.py",
-	description = """Performs a table join on one or more metaphlan output files.""")
-argp.add_argument( "aistms",	metavar = "input.txt", nargs = "+",
-	help = "One or more tab-delimited text tables to join" )
+    description = """Performs a table join on one or more metaphlan output files.""")
+argp.add_argument( "aistms",    metavar = "input.txt", nargs = "+",
+    help = "One or more tab-delimited text tables to join" )
 
 __doc__ = "::\n\n\t" + argp.format_help( ).replace( "\n", "\n\t" )
 
@@ -95,9 +98,9 @@ argp.usage = argp.format_usage()[7:]+"\n\n\tPlease make sure to supply file path
 
 
 def _main( ):
-	args = argp.parse_args( )
-	merge(args.aistms, [os.path.split(os.path.basename(f))[1] for f in args.aistms], 0, sys.stdout)
+    args = argp.parse_args( )
+    merge(args.aistms, [os.path.split(os.path.basename(f))[1] for f in args.aistms], 0, sys.stdout)
 
 
 if __name__ == "__main__":
-	_main( )
+    _main( )
