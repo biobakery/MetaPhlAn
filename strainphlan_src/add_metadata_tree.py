@@ -11,7 +11,7 @@ import copy
 import ConfigParser
 import dendropy
 import numpy
-import ipdb
+# import ipdb
 
 
 def read_params():
