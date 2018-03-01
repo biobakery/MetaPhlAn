@@ -499,15 +499,14 @@ def read_params(args):
     arg('--mpa_pkl', type=str, default=None,
         help="The metadata pickled MetaPhlAn file [deprecated]")
 
-    arg('--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default=None,
+    arg('--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default=DEFAULT_DB_FOLDER,
         help=("The BowTie2 database file of the MetaPhlAn database. Used if "
-              "--input_type is fastq, fasta, multifasta, or multifastq "
-              "[deprecated]"))
+              "--input_type is fastq, fasta, multifasta, or multifastq [default "+DEFAULT_DB_FOLDER+"]\n"))
 
     arg('-x', '--index', type=str, default='v20_m200',
-        help=("Specify the id of the database version to use. If the database "
-              "files are not found on the local MetaPhlAn2 installation they "
-              "will be automatically downloaded"))
+        help=("Specify the id of the database version to use. If the database\n"
+              "files are not found on the local MetaPhlAn2 installation they\n"
+              "will be automatically downloaded\n"))
 
     bt2ps = ['sensitive', 'very-sensitive', 'sensitive-local',
              'very-sensitive-local']
