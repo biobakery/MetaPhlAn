@@ -508,8 +508,7 @@ def read_params(args):
               "files are not found on the local MetaPhlAn2 installation they\n"
               "will be automatically downloaded\n"))
 
-    bt2ps = ['sensitive', 'very-sensitive', 'sensitive-local',
-             'very-sensitive-local']
+    bt2ps = ['sensitive', 'very-sensitive', 'sensitive-local', 'very-sensitive-local']
     arg('--bt2_ps', metavar="BowTie2 presets", default='very-sensitive',
         choices=bt2ps, help="Presets options for BowTie2 (applied only when a "
                             "multifasta file is provided)\n"
@@ -815,28 +814,28 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
     os.remove(fna_file)
 
 
-def check_and_install_database(index, bowtie2_build, nproc):
+def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc):
     """ Check if the database is installed, if not download and install """
 
-    if len(glob(os.path.join(DEFAULT_DB_FOLDER, "mpa_{}*".format(index)))) >= 7:
+    if len(glob(os.path.join(bowtie2_db, "mpa_{}*".format(index)))) >= 7:
         return
 
     # download the tar archive and decompress
     sys.stderr.write("\nDownloading MetaPhlAn2 database\nPlease note due to "
                      "the size this might take a few minutes\n")
-    download_unpack_tar(DATABASE_DOWNLOAD, index, DEFAULT_DB_FOLDER, bowtie2_build, nproc)
+    download_unpack_tar(DATABASE_DOWNLOAD, index, bowtie2_db, bowtie2_build, nproc)
     sys.stderr.write("\nDownload complete\n")
 
 
-def set_mapping_arguments(index):
+def set_mapping_arguments(index, bowtie2_db):
     mpa_pkl = 'mpa_pkl'
     bowtie2db = 'bowtie2db'
 
-    if os.path.isfile(os.path.join(DEFAULT_DB_FOLDER, "mpa_{}.pkl".format(index))):
-        mpa_pkl = os.path.join(DEFAULT_DB_FOLDER, "mpa_{}.pkl".format(index))
+    if os.path.isfile(os.path.join(bowtie2_db, "mpa_{}.pkl".format(index))):
+        mpa_pkl = os.path.join(bowtie2_db, "mpa_{}.pkl".format(index))
 
-    if glob(os.path.join(DEFAULT_DB_FOLDER, "mpa_{}*.bt2".format(index))):
-        bowtie2db = os.path.join(DEFAULT_DB_FOLDER, "mpa_{}".format(index))
+    if glob(os.path.join(bowtie2_db, "mpa_{}*.bt2".format(index))):
+        bowtie2db = os.path.join(bowtie2_db, "mpa_{}".format(index))
 
     return (mpa_pkl, bowtie2db)
 
@@ -1356,15 +1355,14 @@ def metaphlan2():
     pars = read_params(sys.argv)
 
     # check if the database is installed, if not then install
-    check_and_install_database(pars['index'], pars['bowtie2_build'],
-                               pars['nproc'])
+    check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'])
 
     if pars['install']:
         sys.stderr.write('The database is installed\n')
         return
 
     # set correct map_pkl and bowtie2db variables
-    pars['mpa_pkl'], pars['bowtie2db'] = set_mapping_arguments(pars['index'])
+    pars['mpa_pkl'], pars['bowtie2db'] = set_mapping_arguments(pars['index'], pars['bowtie2db'])
 
     #if pars['inp'] is None and ( pars['input_type'] is None or  pars['input_type'] == 'automatic'):
     #    sys.stderr.write( "The --input_type parameter need top be specified when the "
@@ -1442,7 +1440,7 @@ def metaphlan2():
                             for p in ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]]):
             sys.stderr.write("No MetaPhlAn BowTie2 database found (--index "
                              "option)!\nExpecting location {}\nExiting..."
-                             .format(DEFAULT_DB_FOLDER))
+                             .format(pars['bowtie2db']))
             sys.exit(1)
 
         if bow:
