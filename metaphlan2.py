@@ -17,7 +17,7 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
 __version__ = '2.7.6'
-__date__ = '2 March 2018'
+__date__ = '5 March 2018'
 
 
 import sys
@@ -1264,7 +1264,7 @@ def map2bbh(mapping_f, input_type='bowtie2out', min_alignment_len=None):
     return markers2reads
 
 
-def maybe_generate_biom_file(pars, abundance_predictions):
+def maybe_generate_biom_file(tree, pars, abundance_predictions):
     json_key = "MetaPhlAn2"
 
     if not pars['biom']:
@@ -1291,21 +1291,20 @@ def maybe_generate_biom_file(pars, abundance_predictions):
         return tree.all_clades[name]
 
     def to_biomformat(clade_name):
-        return { 'taxonomy': clade_name.split(delimiter) }
+        return {'taxonomy': clade_name.split(delimiter)}
 
-    clades = iter( (abundance, findclade(name))
-                   for (name, abundance) in abundance_predictions
-                   if istip(name) )
-    packed = iter( ([abundance], clade.get_full_name(), clade.id)
-                   for (abundance, clade) in clades )
+    clades = iter((abundance, findclade(name))
+                  for (name, abundance) in abundance_predictions if istip(name))
+    packed = iter(([abundance], clade.get_full_name(), clade.id)
+                  for (abundance, clade) in clades)
 
-    #unpack that tuple here to stay under 80 chars on a line
+    # unpack that tuple here to stay under 80 chars on a line
     data, clade_names, clade_ids = zip(*packed)
     # biom likes column vectors, so we give it an array like this:
     # np.array([a],[b],[c])
     data = np.array(data)
     sample_ids = [pars['sample_id']]
-    table_id='MetaPhlAn2_Analysis'
+    table_id = 'MetaPhlAn2_Analysis'
 
 
 
@@ -1493,7 +1492,7 @@ def metaphlan2():
                     outf.write( "\t".join( [k,str(v)] ) + "\n" )
             else:
                 outf.write( "unclassified\t100.0\n" )
-            maybe_generate_biom_file(pars, outpred)
+            maybe_generate_biom_file(tree, pars, outpred)
         elif pars['t'] == 'rel_ab_w_read_stats':
             cl2ab, rr = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
