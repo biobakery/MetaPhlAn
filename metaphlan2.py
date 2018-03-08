@@ -1519,7 +1519,7 @@ def metaphlan2():
                 outf.write( "#estimated total number of reads from known clades: " + str(totl)+"\n")
             else:
                 outf.write( "unclassified\t100.0\n" )
-            maybe_generate_biom_file(pars, outpred)
+            maybe_generate_biom_file(tree, pars, outpred)
 
         elif pars['t'] == 'clade_profiles':
             cl2pr = tree.clade_profiles( pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None  )
