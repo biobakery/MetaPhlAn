@@ -420,12 +420,12 @@ def read_params(args):
             "$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/db_v20/mpa_v20_m200 -U metagenome.fastq\n"
             "$ metaphlan2.py metagenome.sam --input_type sam > profiled_metagenome.txt\n\n"
 
-            "*  Multiple alternative ways to pass the input are also available:\n"
-            "$ cat metagenome.fastq | metaphlan2.py --input_type fastq \n"
-            "$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type fastq \n"
-            "$ metaphlan2.py --input_type fastq < metagenome.fastq\n"
-            "$ metaphlan2.py --input_type fastq <(bzcat metagenome.fastq.bz2)\n"
-            "$ metaphlan2.py --input_type fastq <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz)\n\n"
+            # "*  Multiple alternative ways to pass the input are also available:\n"
+            # "$ cat metagenome.fastq | metaphlan2.py --input_type fastq \n"
+            # "$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type fastq \n"
+            # "$ metaphlan2.py --input_type fastq < metagenome.fastq\n"
+            # "$ metaphlan2.py --input_type fastq <(bzcat metagenome.fastq.bz2)\n"
+            # "$ metaphlan2.py --input_type fastq <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz)\n\n"
 
             "*  We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in \n"
             "  multiple files (but you need to specify the --bowtie2out parameter):\n"
