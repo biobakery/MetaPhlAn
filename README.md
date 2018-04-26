@@ -119,6 +119,8 @@ $ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -
 $ metaphlan2.py metagenome.sam --input_type sam > profiled_metagenome.txt
 ```
 
+<!-- commening out the where we suggest to stream the input to MetaPhlAn2 -->
+<!--
 In order to make MetaPhlAn 2 easily compatible with complex metagenomic pipeline, there are now multiple alternative ways to pass the input:
 
 ```
@@ -145,6 +147,7 @@ $ metaphlan2.py --input_type fastq <(bzcat metagenome.fastq.bz2) > profiled_meta
 #!bash
 $ metaphlan2.py --input_type fastq <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz) > profiled_metagenome.txt
 ```
+-->
 
 MetaPhlAn 2 can also natively **handle paired-end metagenomes** (but does not use the paired-end information), and, more generally, metagenomes stored in multiple files (but you need to specify the --bowtie2out parameter):
 
@@ -210,13 +213,6 @@ $ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out
    --input_type. Two steps: first apply BowTie2 and then feed MetaPhlAn2 with the obtained sam:
 $ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/db_v20/mpa_v20_m200 -U metagenome.fastq
 $ metaphlan2.py metagenome.sam --input_type sam > profiled_metagenome.txt
-
-*  Multiple alternative ways to pass the input are also available:
-$ cat metagenome.fastq | metaphlan2.py --input_type fastq 
-$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type fastq 
-$ metaphlan2.py --input_type fastq < metagenome.fastq
-$ metaphlan2.py --input_type fastq <(bzcat metagenome.fastq.bz2)
-$ metaphlan2.py --input_type fastq <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz)
 
 *  We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in 
   multiple files (but you need to specify the --bowtie2out parameter):
