@@ -647,9 +647,9 @@ def read_params(args):
         help="Only checks if the MetaPhlAn2 DB is installed and installs it if not. All other parameters are ignored.")
     arg('--read_min_len', type=int, default=70,
         help="Specify the minimum length of the reads to be considered when parsing the input file with "
-             "'read_fastx.py' script, default value is 60")
+             "'read_fastx.py' script, default value is 70")
     arg('-v', '--version', action='version',
-        version="MetaPhlAn version {}\t({})".format(__version__, __date__),
+        version="MetaPhlAn version {} ({})".format(__version__, __date__),
         help="Prints the current MetaPhlAn version and exit")
     arg("-h", "--help", action="help", help="show this help message and exit")
 
