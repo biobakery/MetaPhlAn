@@ -6,7 +6,7 @@
 ## Description
 MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.
 
-MetaPhlAn 2 relies on ~1M unique clade-specific marker genes ([the marker information file mpa_v20_m200_marker_info.txt.bz2 can be found in the Download page here](https://bitbucket.org/biobakery/metaphlan2/downloads/mpa_v20_m200_marker_info.txt.bz2)) identified from ~17,000 reference genomes (~13,500 bacterial and archaeal, ~3,500 viral, and ~110 eukaryotic), allowing:
+MetaPhlAn 2 relies on ~1M unique clade-specific marker genes ([the marker information file `mpa_v20_m200_marker_info.txt.bz2` can be found in the Download page here](https://bitbucket.org/biobakery/metaphlan2/downloads/mpa_v20_m200_marker_info.txt.bz2)) identified from ~17,000 reference genomes (~13,500 bacterial and archaeal, ~3,500 viral, and ~110 eukaryotic), allowing:
 
 * unambiguous taxonomic assignments;
 * accurate estimation of organismal relative abundance;
@@ -97,57 +97,27 @@ Here is the basic example to profile a metagenome from raw reads (requires BowTi
 $ metaphlan2.py metagenome.fastq --input_type fastq > profiled_metagenome.txt
 ```
 
-It is highly recommended to save the intermediate BowTie2 output for re-running MetaPhlAn extremely quickly (--bowtie2out), and use multiple CPUs (--nproc) if available:
+It is highly recommended to save the intermediate BowTie2 output for re-running MetaPhlAn extremely quickly (`--bowtie2out`), and use multiple CPUs (`--nproc`) if available:
 
 ```
 #!bash
 $ metaphlan2.py metagenome.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq > profiled_metagenome.txt
 ```
 
-If you already mapped your metagenome against the marker DB (using a previous  MetaPhlAn run), you can obtain the results in few seconds by using the previously saved --bowtie2out file and specifying the input (--input_type bowtie2out):
+If you already mapped your metagenome against the marker DB (using a previous  MetaPhlAn run), you can obtain the results in few seconds by using the previously saved `--bowtie2out` file and specifying the input (`--input_type bowtie2out`):
 
 ```
 #!bash
 $ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out > profiled_metagenome.txt
 ```
 
-You can also provide an externally BowTie2-mapped SAM if you specify this format with --input_type. Two steps here: first map your metagenome with BowTie2 and then feed MetaPhlAn2 with the obtained sam:
+You can also provide an externally BowTie2-mapped SAM if you specify this format with `--input_type`. Two steps here: first map your metagenome with BowTie2 and then feed MetaPhlAn2 with the obtained sam:
 
 ```
 #!bash
-$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/db_v20/mpa_v20_m200 -U metagenome.fastq
+$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x databases/mpa_v20_m200 -U metagenome.fastq
 $ metaphlan2.py metagenome.sam --input_type sam > profiled_metagenome.txt
 ```
-
-<!-- commening out the where we suggest to stream the input to MetaPhlAn2 -->
-<!--
-In order to make MetaPhlAn 2 easily compatible with complex metagenomic pipeline, there are now multiple alternative ways to pass the input:
-
-```
-#!bash
-$ cat metagenome.fastq | metaphlan2.py --input_type fastq > profiled_metagenome.txt
-```
-
-```
-#!bash
-$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type fastq --bowtie2db ${mpa_dir}/db_v20/mpa_v20_m200 > profiled_metagenome.txt
-```
-
-```
-#!bash
-$ metaphlan2.py --input_type fastq < metagenome.fastq > profiled_metagenome.txt
-```
-
-```
-#!bash
-$ metaphlan2.py --input_type fastq <(bzcat metagenome.fastq.bz2) > profiled_metagenome.txt
-```
-
-```
-#!bash
-$ metaphlan2.py --input_type fastq <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz) > profiled_metagenome.txt
-```
--->
 
 MetaPhlAn 2 can also natively **handle paired-end metagenomes** (but does not use the paired-end information), and, more generally, metagenomes stored in multiple files (but you need to specify the --bowtie2out parameter):
 
@@ -211,7 +181,7 @@ $ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out
 
 *  You can also provide an externally BowTie2-mapped SAM if you specify this format with 
    --input_type. Two steps: first apply BowTie2 and then feed MetaPhlAn2 with the obtained sam:
-$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/db_v20/mpa_v20_m200 -U metagenome.fastq
+$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x databases/mpa_v20_m200 -U metagenome.fastq
 $ metaphlan2.py metagenome.sam --input_type sam > profiled_metagenome.txt
 
 *  We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in 
@@ -250,7 +220,7 @@ $ metaphlan2.py -t clade_profiles metagenome_outfmt.bz2 --input_type bowtie2out 
 *  Finally, to obtain all markers present for a specific clade and all its subclades, the 
    '-t clade_specific_strain_tracker' should be used. For example, the following command
    is reporting the presence/absence of the markers for the B. fragulis species and its strains
-$ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 db_v20/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt
+$ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 databases/mpa_v20_m200.pkl --input_type bowtie2out > marker_abundance_table.txt
    the optional argument --min_ab specifies the minimum clade abundance for reporting the markers
 
 ------------------------------------------------------------------- 
@@ -497,7 +467,7 @@ In order to add a marker to the database, the user needs the following steps:
 
 ```
 #!bash
-bowtie2-inspect metaphlan2/db_v20/mpa_v20_m200 > metaphlan2/markers.fasta
+bowtie2-inspect metaphlan2/databases/mpa_v20_m200 > metaphlan2/markers.fasta
 ```
 
 * Add the marker sequence stored in a file new_marker.fasta to the marker set:
@@ -523,7 +493,7 @@ bowtie2-build metaphlan2/markers.fasta metaphlan2/db_v21/mpa_v21_m200
 import cPickle as pickle
 import bz2
 
-db = pickle.load(bz2.BZ2File('db_v20/mpa_v20_m200.pkl', 'r'))
+db = pickle.load(bz2.BZ2File('databases/mpa_v20_m200.pkl', 'r'))
 
 # Add the taxonomy of the new genomes
 db['taxonomy']['taxonomy of genome1'] = length of genome1
@@ -617,7 +587,7 @@ for f in $(ls fastqs/*.bz2)
 do
     echo "Running metaphlan2 on ${f}"
     bn=$(basename ${f} | cut -d . -f 1)
-    tar xjfO ${f} | ../metaphlan2.py --bowtie2db ../db_v20/mpa_v20_m200 --mpa_pkl ../db_v20/mpa_v20_m200.pkl --input_type multifastq --nproc 10 -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o sams/${bn}.profile
+    tar xjfO ${f} | ../metaphlan2.py --bowtie2db ../databases/mpa_v20_m200 --mpa_pkl ../databases/mpa_v20_m200.pkl --input_type multifastq --nproc 10 -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o sams/${bn}.profile
 done
 ```
 
@@ -650,8 +620,8 @@ The commands to run are:
 ```
 #!python
 mkdir -p db_markers
-bowtie2-inspect ../db_v20/mpa_v20_m200 > db_markers/all_markers.fasta
-python ../strainphlan_src/extract_markers.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_markers db_markers/all_markers.fasta --clade s__Bacteroides_caccae --ofn_markers db_markers/s__Bacteroides_caccae.markers.fasta
+bowtie2-inspect ../databases/mpa_v20_m200 > db_markers/all_markers.fasta
+python ../strainphlan_src/extract_markers.py --mpa_pkl ../databases/mpa_v20_m200.pkl --ifn_markers db_markers/all_markers.fasta --clade s__Bacteroides_caccae --ofn_markers db_markers/s__Bacteroides_caccae.markers.fasta
 ```
 
 Note that the "all\_markers.fasta" file consists can be reused for extracting other reference genomes. 
@@ -662,7 +632,7 @@ Before building the trees, we should get the list of all clades detected from th
 
 ```
 #!python
-python ../strainphlan.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_samples consensus_markers/*.markers --output_dir output --nprocs_main 10 --print_clades_only > output/clades.txt
+python ../strainphlan.py --mpa_pkl ../databases/mpa_v20_m200.pkl --ifn_samples consensus_markers/*.markers --output_dir output --nprocs_main 10 --print_clades_only > output/clades.txt
 ```
 
 The clade names in the output file "clades.txt" will be used for the next step.
@@ -677,7 +647,7 @@ The commands to run are:
 ```
 #!python
 mkdir -p output
-python ../strainphlan.py --mpa_pkl ../db_v20/mpa_v20_m200.pkl --ifn_samples consensus_markers/*.markers --ifn_markers db_markers/s__Bacteroides_caccae.markers.fasta --ifn_ref_genomes reference_genomes/G000273725.fna.bz2 --output_dir output --nprocs_main 10 --clades s__Bacteroides_caccae &> output/log_full.txt
+python ../strainphlan.py --mpa_pkl ../databases/mpa_v20_m200.pkl --ifn_samples consensus_markers/*.markers --ifn_markers db_markers/s__Bacteroides_caccae.markers.fasta --ifn_ref_genomes reference_genomes/G000273725.fna.bz2 --output_dir output --nprocs_main 10 --clades s__Bacteroides_caccae &> output/log_full.txt
 ```
 
 This step will take around 2 minutes. After this step, you will find the tree "output/RAxML\_bestTree.s\_\_Bacteroides\_caccae.tree". All the output files can be found in the folder "output" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
