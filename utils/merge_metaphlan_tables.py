@@ -39,9 +39,10 @@ def merge( aaastrIn, astrLabels, iCol, ostm ):
 
     # For each input datum in each input stream...
     pos = 0
+    dCol = None
 
-    for f in aaastrIn :
-        with open(f) as csvfile :
+    for f in aaastrIn:
+        with open(f) as csvfile:
             iIn = csv.reader(csvfile, csv.excel_tab)
 
             # Lines from the current file, empty list to hold data, empty hash to hold ids
@@ -51,18 +52,22 @@ def merge( aaastrIn, astrLabels, iCol, ostm ):
             # For a line in the file
             for astrLine in iIn:
                 if astrLine[0].startswith('#'):
+                    dCol = astrLine.index('relative_abundance') if 'relative_abundance' in astrLine else None
                     continue
 
                 iLine += 1
 
-                # ID is from first column, data are everything else
-                strID, astrData = astrLine[iCol], ( astrLine[:iCol] + astrLine[( iCol + 1 ):] )
+                if dCol:
+                    strID, astrData = astrLine[iCol], [astrLine[dCol]]
+                else:
+                    # ID is from first column, data are everything else
+                    strID, astrData = astrLine[iCol], (astrLine[:iCol] + astrLine[iCol + 1:])
 
                 hashIDs[strID] = iLine
-                aastrData.append( astrData )
+                aastrData.append(astrData)
 
             # Batch merge every new ID key set
-            setstrIDs.update( hashIDs.keys( ) )
+            setstrIDs.update(hashIDs.keys())
 
         pos += 1
 
