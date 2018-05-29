@@ -3,8 +3,8 @@
 #		at CIBIO, University of Trento, Italy
 
 __author__ = 'Duy Tin Truong (duytin.truong@unitn.it)'
-__version__ = '1.0.0'
-__date__ = '2nd August 2016'
+__version__ = '1.1.0'
+__date__ = '29 May 2018'
 
 import sys
 import os
