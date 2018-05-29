@@ -16,7 +16,7 @@ from __future__ import with_statement
 __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '2.7.61'
+__version__ = '2.7.62'
 __date__ = '29 May 2018'
 
 
