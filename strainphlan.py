@@ -17,7 +17,10 @@ sys.path.append(os.path.join(MAIN_DIR, 'strainphlan_src'))
 
 import which
 import argparse as ap
-import cPickle as pickle
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 import msgpack
 import glob
 from mixed_utils import statistics
