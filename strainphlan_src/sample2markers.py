@@ -16,23 +16,23 @@ import argparse as ap
 import glob
 import ooSubprocess
 from ooSubprocess import print_stderr, trace_unhandled_exceptions
-import ConfigParser
+# import ConfigParser
 from Bio import SeqIO, Seq, SeqRecord
-import cStringIO
+# import cStringIO
 import msgpack
-import random
-import subprocess
-import bz2
-import gzip
+# import random
+# import subprocess
+# import bz2
+# import gzip
 import logging
 import logging.config
-import tarfile
-import threading
+# import tarfile
+# import threading
 import multiprocessing
 import pysam
 from collections import defaultdict
 from scipy import stats
-import numpy
+# import numpy
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stderr,
                     disable_existing_loggers=False,
@@ -57,17 +57,17 @@ def read_params():
     p.add_argument('--samtools_exe', required=False, default='samtools', type=str)
     p.add_argument('--bcftools_exe', required=False, default='bcftools', type=str)
     p.add_argument(
-        '--verbose', 
-        required=False, 
+        '--verbose',
+        required=False,
         dest='quiet',
         action='store_false',
         help='Show all information. Default "not set".')
     p.set_defaults(quiet=True)
     '''
     p.add_argument(
-        '--use_processes', 
-        required=False, 
-        default=False, 
+        '--use_processes',
+        required=False,
+        default=False,
         action='store_false',
         dest='use_threads',
         help='Use multiprocessing. Default "Use multithreading".')
@@ -102,7 +102,7 @@ def build_bowtie2db(ifn_markers, tmp_dir, error_pipe=None):
     oosp = ooSubprocess.ooSubprocess(tmp_dir)
     if index_fns == []:
         oosp.ex(
-                'bowtie2-build', 
+                'bowtie2-build',
                 ['--quiet', ifn_markers, index_path],
                 stderr=error_pipe)
     else:
@@ -113,17 +113,17 @@ def build_bowtie2db(ifn_markers, tmp_dir, error_pipe=None):
 
 
 def sample2markers(
-        ifn_sample, 
+        ifn_sample,
         min_read_len,
         min_align_score,
         min_base_quality,
         min_read_depth,
         error_rate,
-        ifn_markers, 
+        ifn_markers,
         index_path,
-        nprocs=1, 
+        nprocs=1,
         sam2file=None,
-        marker2file=None, 
+        marker2file=None,
         tmp_dir='tmp',
         quiet=False,
         samtools_exe='samtools',
@@ -136,7 +136,7 @@ def sample2markers(
     :param marker2file: the file name to store the consensus markers.
     :param sam2file: the file name to store the sam content.
     :returns: if marker2file==None, return the dictionary of the consensus
-    markers. Otherwise, save the result in fasta format to the file declared by 
+    markers. Otherwise, save the result in fasta format to the file declared by
     marker2file
     '''
 
@@ -148,7 +148,7 @@ def sample2markers(
 
     # sample to sam
     sample_pipe = oosp.chain(
-                             'dump_file.py', 
+                             'dump_file.py',
                              args=['--input_file', ifn_sample],
                              stderr=error_pipe
                              )
@@ -159,7 +159,7 @@ def sample2markers(
                                     stderr=error_pipe
                                     )
     bowtie2_pipe = oosp.chain(
-                                'bowtie2', 
+                                'bowtie2',
                                 args=[
                                         '-U', '-',
                                         '-x', index_path,
@@ -173,13 +173,13 @@ def sample2markers(
     else:
         oosp.chain(
                     'compress_file.py',
-                    args=['--output_file', sam2file], 
+                    args=['--output_file', sam2file],
                     in_pipe=bowtie2_pipe,
                     stderr=error_pipe,
                     stop=True)
 
         sam_pipe = oosp.chain(
-                                'dump_file.py', 
+                                'dump_file.py',
                                 args=['--input_file', sam2file],
                                 stderr=error_pipe)
     ofn_bam_sorted_prefix = os.path.join(
@@ -187,14 +187,14 @@ def sample2markers(
                                 os.path.basename(ifn_sample) + '.bam.sorted')
 
     return sam2markers(
-               sam_file=sam_pipe, 
+               sam_file=sam_pipe,
                ofn_bam_sorted_prefix=ofn_bam_sorted_prefix,
                min_align_score=min_align_score,
                min_base_quality=min_base_quality,
                min_read_depth=min_read_depth,
                error_rate=error_rate,
-               marker2file=marker2file, 
-               oosp=oosp, 
+               marker2file=marker2file,
+               oosp=oosp,
                tmp_dir=tmp_dir,
                quiet=quiet,
                samtools_exe=samtools_exe,
@@ -211,14 +211,14 @@ def save2file(tmp_file, ofn):
 
 
 def sam2markers(
-                sam_file, 
+                sam_file,
                 ofn_bam_sorted_prefix,
                 min_align_score=None,
                 min_base_quality=30,
                 min_read_depth=0,
                 error_rate=0.01,
-                marker2file=None, 
-                oosp=None, 
+                marker2file=None,
+                oosp=None,
                 tmp_dir='tmp',
                 quiet=False,
                 samtools_exe='samtools',
@@ -247,12 +247,12 @@ def sam2markers(
 
     if type(sam_file) == str:
         p1 = oosp.chain(
-                        'dump_file.py', 
+                        'dump_file.py',
                         args=['--input_file', sam_file],
                         stderr=error_pipe)
     else:
         p1 = sam_file
-    
+
     # filter sam
     if min_align_score == None:
         p1_filtered = p1
@@ -264,8 +264,8 @@ def sam2markers(
                                  stderr=error_pipe)
     # sam to bam
     p2 = oosp.chain(
-                    samtools_exe, 
-                    args=['view', '-bS', '-'], 
+                    samtools_exe,
+                    args=['view', '-bS', '-'],
                     in_pipe=p1_filtered,
                     stderr=error_pipe)
 
@@ -274,12 +274,12 @@ def sam2markers(
     for tmp_fn in tmp_fns:
         os.remove(tmp_fn)
     p3 = oosp.chain(
-                    samtools_exe, 
-                    args=['sort', '-', '-o',  ofn_bam_sorted_prefix], 
+                    samtools_exe,
+                    args=['sort', '-', '-o',  ofn_bam_sorted_prefix],
                     in_pipe=p2,
                     stderr=error_pipe)
 
-    # extract polimorphic information 
+    # extract polimorphic information
     marker2seq = defaultdict(dict)
     pysam.index(p3.name)
     samfile = pysam.AlignmentFile(p3.name)
@@ -307,30 +307,30 @@ def sam2markers(
     # bam to mpileup
     p3.seek(0)
     p4 = oosp.chain(
-                    samtools_exe, 
-                    args=['mpileup', '-u', '-'], 
+                    samtools_exe,
+                    args=['mpileup', '-u', '-'],
                     in_pipe=p3,
                     stderr=error_pipe)
 
     # mpileup to vcf
     p5 = oosp.chain(
-                    bcftools_exe, 
-                    args=['view', '-c', '-g', '-p', '1.1', '-'], 
+                    bcftools_exe,
+                    args=['view', '-c', '-g', '-p', '1.1', '-'],
                     in_pipe=p4,
                     stderr=error_pipe)
                     #stderr=open(os.devnull, 'w'))
 
     # fix AF1=0
     p6 = oosp.chain(
-                    'fix_AF1.py', 
-                    args=['--input_file', '-'], 
+                    'fix_AF1.py',
+                    args=['--input_file', '-'],
                     in_pipe=p5,
                     stderr=error_pipe)
 
     # vcf to fastq
     p7 = oosp.chain(
-                      'vcfutils.pl', 
-                      args=['vcf2fq'], 
+                      'vcfutils.pl',
+                      args=['vcf2fq'],
                       in_pipe=p6,
                       get_out_pipe=True,
                       stderr=error_pipe,
@@ -342,7 +342,7 @@ def sam2markers(
         marker2seq = dict(marker2seq)
     except Exception as e:
         logger.error("sam2markers failed on file " + sam_file)
-        raise 
+        raise
 
     if type(p1) == file:
         p1.close()
@@ -369,17 +369,17 @@ def run_sample(args_list):
     marker2file = output_prefix + args['marker2file_ext']
     if args['input_type'] == 'fastq':
         sample2markers(
-                    ifn_sample=ifn_sample, 
+                    ifn_sample=ifn_sample,
                     min_read_len=args['min_read_len'],
                     min_align_score=args['min_align_score'],
                     min_base_quality=args['min_base_quality'],
                     min_read_depth=args['min_read_depth'],
                     error_rate=args['error_rate'],
-                    ifn_markers=args['ifn_markers'], 
+                    ifn_markers=args['ifn_markers'],
                     index_path=args['index_path'],
                     nprocs=args['nprocs'],
                     sam2file=sam2file,
-                    marker2file=marker2file, 
+                    marker2file=marker2file,
                     tmp_dir=args['output_dir'],
                     quiet=args['quiet'],
                     samtools_exe=args['samtools_exe'],
@@ -389,7 +389,7 @@ def run_sample(args_list):
                             args['output_dir'],
                             os.path.basename(ifn_sample) + '.bam.sorted')
         sam2markers(
-                    sam_file=ifn_sample, 
+                    sam_file=ifn_sample,
                     ofn_bam_sorted_prefix=ofn_bam_sorted_prefix,
                     min_align_score=args['min_align_score'],
                     min_base_quality=args['min_base_quality'],
@@ -435,7 +435,7 @@ def main(args):
             print e
 
 
-        
+
 if __name__ == "__main__":
     args = read_params()
     main(args)

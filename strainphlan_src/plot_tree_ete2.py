@@ -6,23 +6,23 @@ __author__  = 'Duy Tin Truong (duytin.truong@unitn.it)'
 __version__ = '0.1'
 __date__    = '7 Sep 2016'
 
-import sys
-import os
-import argparse 
+# import sys
+# import os
+import argparse
 from ete2 import Tree, TreeStyle, NodeStyle
 
 def read_params():
     p = argparse.ArgumentParser()
     p.add_argument(
-        '--ifn', 
-        required=True, 
-        default=None, 
+        '--ifn',
+        required=True,
+        default=None,
         type=str,
         help='The input tree file.')
     p.add_argument(
-        '--ofn', 
-        required=False, 
-        default=None, 
+        '--ofn',
+        required=False,
+        default=None,
         type=str,
         help='The input tree file.')
 

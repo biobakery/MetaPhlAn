@@ -15,8 +15,8 @@ sys.path.append(MAIN_DIR)
 
 from mixed_utils import dist2file, statistics
 import argparse as ap
-from Bio import SeqIO, Seq, SeqRecord
-from collections import defaultdict
+from Bio import SeqIO#, Seq, SeqRecord
+# from collections import defaultdict
 import numpy
 from ooSubprocess import ooSubprocess
 
@@ -24,8 +24,8 @@ from ooSubprocess import ooSubprocess
 '''
 SUBST = {
         'A':{'A':0.0, 'C':1.0, 'G':1.0, 'T':1.0, '-':1.0},
-        'C':{'A':1.0, 'C':0.0, 'G':1.0, 'T':1.0, '-':1.0}, 
-        'G':{'A':1.0, 'C':1.0, 'G':0.0, 'T':1.0, '-':1.0}, 
+        'C':{'A':1.0, 'C':0.0, 'G':1.0, 'T':1.0, '-':1.0},
+        'G':{'A':1.0, 'C':1.0, 'G':0.0, 'T':1.0, '-':1.0},
         'T':{'A':1.0, 'C':1.0, 'G':1.0, 'T':0.0, '-':1.0},
         '-':{'A':1.0, 'C':1.0, 'G':1.0, 'T':1.0, '-':0.0}}
 '''
@@ -35,14 +35,14 @@ def read_params():
     p = ap.ArgumentParser()
     p.add_argument('--ifn_alignment', required=True, default=None, type=str)
     p.add_argument('--ofn_prefix', required=True, default=None, type=str)
-    p.add_argument('--count_gaps', 
+    p.add_argument('--count_gaps',
                    required=False,
-                   dest='ignore_gaps', 
+                   dest='ignore_gaps',
                    action='store_false')
     p.set_defaults(ignore_gaps=True)
-    p.add_argument('--overwrite', 
+    p.add_argument('--overwrite',
                    required=False,
-                   dest='overwrite', 
+                   dest='overwrite',
                    action='store_true')
     p.set_defaults(overwrite=False)
 
@@ -72,7 +72,7 @@ def get_dist(seq1, seq2, ignore_gaps):
     rel_sim = 1.0 - rel_dist
     rel_snp = abs_snp / float(len(seq1))
     return abs_dist, rel_dist, abs_sim, rel_sim, abs_snp, rel_snp
-    
+
 
 def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
     ofn_abs_dist = ofn_prefix + '.abs_dist'
@@ -101,14 +101,14 @@ def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
 
     for i in range(len(recs)):
         for j in range(i, len(recs)):
-            abs_d, rel_d, abs_s, rel_s, abs_sp, rel_sp = get_dist(recs[i].seq, 
+            abs_d, rel_d, abs_s, rel_s, abs_sp, rel_sp = get_dist(recs[i].seq,
                                                                 recs[j].seq,
                                                                 ignore_gaps)
 
             abs_dist[i][j] = abs_d
             abs_dist[j][i] = abs_d
             abs_dist_flat.append(abs_d)
-            
+
             rel_dist[i][j] = rel_d
             rel_dist[j][i] = rel_d
             rel_dist_flat.append(rel_d)
@@ -116,7 +116,7 @@ def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
             abs_sim[i][j] = abs_s
             abs_sim[j][i] = abs_s
             abs_sim_flat.append(abs_s)
-            
+
             rel_sim[i][j] = rel_s
             rel_sim[j][i] = rel_s
             rel_sim_flat.append(rel_s)
@@ -124,7 +124,7 @@ def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
             abs_snp[i][j] = abs_sp
             abs_snp[j][i] = abs_sp
             abs_snp_flat.append(abs_sp)
-            
+
             rel_snp[i][j] = rel_sp
             rel_snp[j][i] = rel_sp
             rel_snp_flat.append(rel_sp)
@@ -198,7 +198,7 @@ def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
               '--flabel_size', '5',
               '--slabel_size', '5',
               '--max_flabel_len', '200'])
-    '''       
+    '''
 
     ofn_abs_snp = ofn_prefix + '.abs_snp'
     dist2file(abs_snp, labels, ofn_abs_snp)
@@ -208,17 +208,17 @@ def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
     dist2file(rel_snp, labels, ofn_rel_snp)
     with open(ofn_rel_snp + '.info', 'w') as ofile:
         ofile.write(statistics(rel_snp_flat)[1])
- 
+
 
 
 
 def main(args):
     compute_dist_matrix(
-                        args['ifn_alignment'], 
+                        args['ifn_alignment'],
                         args['ofn_prefix'],
                         args['ignore_gaps'],
-                        args['overwrite']) 
-    
+                        args['overwrite'])
+
 if __name__ == "__main__":
     args = read_params()
     main(args)

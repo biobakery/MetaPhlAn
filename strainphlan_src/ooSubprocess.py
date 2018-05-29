@@ -8,12 +8,12 @@ import os
 import multiprocessing
 from multiprocessing.pool import ThreadPool
 import sys
-import cStringIO
-from tempfile import NamedTemporaryFile 
+# import cStringIO
+from tempfile import NamedTemporaryFile
 import which
 import functools
 import traceback
-import numpy
+# import numpy
 
 
 class ooSubprocessException(Exception):
@@ -62,8 +62,8 @@ class ooSubprocess:
         elif get_out_pipe:
             tmp_file = NamedTemporaryFile(dir=self.tmp_dir)
             p = subprocess.Popen(
-                                        cmd, 
-                                        stdin=in_pipe, 
+                                        cmd,
+                                        stdin=in_pipe,
                                         stdout=tmp_file,
                                         **kwargs)
             p.wait()
@@ -74,15 +74,15 @@ class ooSubprocess:
         elif out_fn:
             ofile = open(out_fn, 'w') if out_fn else None
             result = subprocess.check_call(
-                                            cmd, 
-                                            stdin=in_pipe, 
-                                            stdout=ofile, 
+                                            cmd,
+                                            stdin=in_pipe,
+                                            stdout=ofile,
                                             **kwargs)
             ofile.close()
         else:
             result = subprocess.check_call(
-                                            cmd, 
-                                            stdin=in_pipe, 
+                                            cmd,
+                                            stdin=in_pipe,
                                             **kwargs)
         return result
 

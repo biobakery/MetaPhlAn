@@ -35,9 +35,9 @@ from Bio.Alphabet import IUPAC
 import pandas
 import logging
 import logging.config
-import sample2markers
-import copy
-import threading
+# import sample2markers
+# import copy
+# import threading
 import numpy
 import random
 import gc
