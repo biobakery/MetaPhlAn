@@ -3,14 +3,14 @@
 #        at CIBIO, University of Trento, Italy
 
 
-import sys
-import os
+# import sys
+# import os
 import argparse as ap
 import pandas
-import copy
-import ConfigParser
+# import copy
+# import ConfigParser
 import dendropy
-import numpy
+# import numpy
 # import ipdb
 
 
@@ -18,13 +18,13 @@ def read_params():
     p = ap.ArgumentParser()
     p.add_argument('--ifn_trees', nargs='+', required=True, default=None, type=str)
     p.add_argument('--ifn_metadatas', nargs='+', required=True, default=None, type=str)
-    p.add_argument('--string_to_remove', 
+    p.add_argument('--string_to_remove',
                    required=False, default='', type=str,
                    help='string to be removed in the tree node names')
     p.add_argument(
-                    '--metadatas', 
-                    nargs='+', 
-                    required=False, 
+                    '--metadatas',
+                    nargs='+',
+                    required=False,
                     default=['all'],
                     type=str,
                     help='The metadata fields that you want to add. '\
@@ -52,9 +52,9 @@ def main(args):
             index_col = get_index_col(ifn)
             df = pandas.read_csv(
                 ifn,
-                sep='\t', 
+                sep='\t',
                 dtype=unicode,
-                header=0, 
+                header=0,
                 index_col=index_col)
             df = df.transpose()
             df_list.append(df)
@@ -73,8 +73,8 @@ def main(args):
             sample = node.get_node_str().strip("'")
             sample = sample.replace(' ', '_')
             sample = sample.replace(args['string_to_remove'], '')
-            prefixes = [prefix for prefix in 
-                            ['k__', 'p__', 'c__', 'o__', 
+            prefixes = [prefix for prefix in
+                            ['k__', 'p__', 'c__', 'o__',
                              'f__', 'g__', 's__'] \
                         if prefix in sample]
 

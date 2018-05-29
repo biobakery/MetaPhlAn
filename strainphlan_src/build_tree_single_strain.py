@@ -6,9 +6,9 @@ __author__  = 'Duy Tin Truong (duytin.truong@unitn.it)'
 __version__ = '0.1'
 __date__    = '17 Sep 2015'
 
-import sys
+# import sys
 import os
-import argparse 
+import argparse
 import numpy
 from Bio import SeqIO
 import glob
@@ -17,34 +17,34 @@ import glob
 def read_params():
     p = argparse.ArgumentParser()
     p.add_argument(
-        '--ifn_alignments', 
+        '--ifn_alignments',
         nargs='+',
-        required=True, 
-        default=None, 
+        required=True,
+        default=None,
         type=str,
         help='The alignment file.')
     p.add_argument(
-        '--log_ofn', 
-        required=True, 
-        default=None, 
+        '--log_ofn',
+        required=True,
+        default=None,
         type=str,
         help='The log file.')
     p.add_argument(
-        '--nprocs', 
-        required=True, 
-        default=None, 
+        '--nprocs',
+        required=True,
+        default=None,
         type=int,
         help='Number of processors.')
     p.add_argument(
-        '--bootstrap_raxml', 
-        required=False, 
-        default=0, 
+        '--bootstrap_raxml',
+        required=False,
+        default=0,
         type=int,
         help='The number of runs for bootstraping when building the tree. '\
              'Default 0.')
     p.add_argument(
-        '--verbose', 
-        required=False, 
+        '--verbose',
+        required=False,
         dest='quiet',
         action='store_false',
         help='Show all information. Default "not set".')
@@ -84,15 +84,15 @@ def main(args):
 
         if len(sample2polrate):
             log_line = '%s\t%d\t%d\t%f\n'%\
-                        (os.path.basename(ifn_polymorphic).replace('.polymorphic', ''), 
-                        len(singles), 
-                        len(sample2polrate), 
+                        (os.path.basename(ifn_polymorphic).replace('.polymorphic', ''),
+                        len(singles),
+                        len(sample2polrate),
                         float(len(singles)) / len(sample2polrate))
         else:
             log_line = '%s\t%d\t%d\t%f\n'%\
-                        (os.path.basename(ifn_polymorphic).replace('.polymorphic', ''), 
-                        len(singles), 
-                        len(sample2polrate), 
+                        (os.path.basename(ifn_polymorphic).replace('.polymorphic', ''),
+                        len(singles),
+                        len(sample2polrate),
                         0)
         lfile.write(log_line)
 
@@ -116,7 +116,7 @@ def main(args):
             cmd += '-N %d '%(args.bootstrap_raxml)
             cmd += '-s %s '%os.path.abspath(ifn_alignment2)
             cmd += '-w %s '%os.path.abspath(os.path.dirname(ifn_alignment2))
-            cmd += '-n %s '%output_suffix 
+            cmd += '-n %s '%output_suffix
             cmd += '-p 1234 '
         else:
             cmd = 'raxmlHPC-PTHREADS-SSE3 '
@@ -136,7 +136,7 @@ def main(args):
         '''
         run(cmd)
     lfile.close()
-     
+
 
 
 

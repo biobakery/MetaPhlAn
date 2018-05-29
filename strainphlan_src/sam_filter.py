@@ -7,28 +7,28 @@ __version__ = '0.1'
 __date__    = '18 Jul 2015'
 
 import sys
-import os
-import argparse 
+# import os
+import argparse
 
 
 def read_params():
     p = argparse.ArgumentParser()
     p.add_argument(
-        '--input_file', 
-        required=False, 
-        default=None, 
+        '--input_file',
+        required=False,
+        default=None,
         type=str,
         help='The input sam file.')
     p.add_argument(
-        '--min_align_score', 
-        required=True, 
-        default=None, 
+        '--min_align_score',
+        required=True,
+        default=None,
         type=int,
         help='The sam records with alignment score smaller than this value '
              'will be discarded.')
     p.add_argument(
-        '--verbose', 
-        required=False, 
+        '--verbose',
+        required=False,
         dest='quiet',
         action='store_false',
         help='Show all information. Default "not set".')

@@ -6,78 +6,78 @@ __author__  = 'Duy Tin Truong (duytin.truong@unitn.it)'
 __version__ = '0.1'
 __date__    = '4 May 2015'
 
-import sys
-import os
+# import sys
+# import os
 import argparse as ap
 import dendropy
 from StringIO import StringIO
 import re
 from collections import defaultdict
-import ConfigParser
+# import ConfigParser
 import matplotlib.colors as colors
 import subprocess
 
 
 def read_params():
     p = ap.ArgumentParser()
-    p.add_argument('--ifn_tree', 
-                   required=True, 
-                   default=None, 
+    p.add_argument('--ifn_tree',
+                   required=True,
+                   default=None,
                    type=str,
                    help='The input tree in newick format.')
-    p.add_argument('--colorized_metadata', 
-                   required=False, 
-                   default='unset', 
+    p.add_argument('--colorized_metadata',
+                   required=False,
+                   default='unset',
                    type=str,
                    help='The metadata field to colorize. Default "unset".')
-    p.add_argument('--fig_size', 
-                   required=False, 
-                   default=8, 
+    p.add_argument('--fig_size',
+                   required=False,
+                   default=8,
                    type=float,
                    help='The figure size. Default "8".')
-    p.add_argument('--legend_marker_size', 
-                   required=False, 
-                   default=20, 
+    p.add_argument('--legend_marker_size',
+                   required=False,
+                   default=20,
                    type=int,
                    help='The legend marker size. Default "20".'
                    )
-    p.add_argument('--legend_font_size', 
-                   required=False, 
-                   default=10, 
+    p.add_argument('--legend_font_size',
+                   required=False,
+                   default=10,
                    type=int,
                    help='The legend font size. Default "10".'
                    )
-    p.add_argument('--legend_marker_edge_width', 
-                   required=False, 
-                   default=0.2, 
+    p.add_argument('--legend_marker_edge_width',
+                   required=False,
+                   default=0.2,
                    type=float,
                    help='The legend marker edge width. Default "0.2".'
                    )
-    p.add_argument('--leaf_marker_size', 
-                   required=False, 
-                   default=20, 
+    p.add_argument('--leaf_marker_size',
+                   required=False,
+                   default=20,
                    type=int,
                    help='The legend marker size. Default "20".'
                    )
-    p.add_argument('--leaf_marker_edge_width', 
-                   required=False, 
-                   default=0.2, 
+    p.add_argument('--leaf_marker_edge_width',
+                   required=False,
+                   default=0.2,
                    type=float,
                    help='The legend marker edge width. Default "0.2".'
                    )
-    p.add_argument('--dpi', 
-                   required=False, 
-                   default=300, 
+    p.add_argument('--dpi',
+                   required=False,
+                   default=300,
                    type=int,
                    help='The figure dpi.')
-    p.add_argument('--figure_extension', 
-                   required=False, 
-                   default='.png', 
+    p.add_argument('--figure_extension',
+                   required=False,
+                   default='.png',
                    type=str,
                    help='The figure extension. Default ".png".')
-    p.add_argument('--ofn_prefix', 
-                   required=False, 
-                   default=None, 
+    p.add_argument('--ofn_prefix',
+                   required=False,
+                   default=None,
                    type=str,
                    help='The prefix of output files.')
     return p.parse_args()
@@ -88,7 +88,7 @@ def read_params():
 def run(cmd):
     print cmd
     subprocess.call(cmd.split())
-    
+
 
 
 
@@ -133,7 +133,7 @@ def main(args):
         ofile.write('branch_bracket_depth\t0\n')
         #ofile.write('branch_thickness\t1.25\n')
         ofile.write('annotation_background_width\t0\n')
-        
+
         # legend
         ofile.write('#legends\n')
         ofile.write('class_legend_font_size\t%d\n'%args.legend_font_size)

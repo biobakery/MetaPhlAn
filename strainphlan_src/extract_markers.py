@@ -6,8 +6,8 @@ __author__  = 'Duy Tin Truong (duytin.truong@unitn.it)'
 __version__ = '0.1'
 __date__    = '1 Sep 2014'
 
-import sys
-import os
+# import sys
+# import os
 import argparse as ap
 import pickle
 import bz2
