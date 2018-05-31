@@ -62,7 +62,7 @@ DATABASE_DOWNLOAD = "https://bitbucket.org/biobakery/metaphlan2/downloads/"
 # get the directory that contains this script
 metaphlan2_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 # get the default database folder
-DEFAULT_DB_FOLDER = os.path.join(metaphlan2_script_install_folder, "databases")
+DEFAULT_DB_FOLDER = os.path.join(metaphlan2_script_install_folder, "metaphlan_databases")
 
 
 #**********************************************************************************************

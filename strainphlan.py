@@ -2,9 +2,11 @@
 # Author: Duy Tin Truong (duytin.truong@unitn.it)
 #		at CIBIO, University of Trento, Italy
 
-__author__ = 'Duy Tin Truong (duytin.truong@unitn.it)'
-__version__ = '1.1.0'
-__date__ = '29 May 2018'
+__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+              'Francesco Asnicar (f.asnicar@unitn.it), '
+              'Moreno Zolfo (moreno.zolfo@unitn.it)')
+__version__ = '1.2.0'
+__date__ = '31 May 2018'
 
 import sys
 import os
@@ -89,12 +91,16 @@ def read_params():
         help='The representative sample. The marker list of each species '\
              'extracted from this sample will be used for all other samples.')
 
+    p.add_argument('-x', '--index', required=False, default="v20_m200", type=str,
+                   help=("Specify the id of the database version to use. If the database files are not found "
+                         "on the local MetaPhlAn2 installation they will be automatically downloaded"))
+
     p.add_argument(
         '--mpa_pkl',
         required=False,
-        default=os.path.join(metaphlan2_script_install_folder,"db_v20","mpa_v20_m200.pkl"),
+        default=os.path.join(metaphlan2_script_install_folder, "metaphlan_databases"),
         type=str,
-        help='The database of metaphlan3.py.')
+        help='The database of metaphlan2.py')
 
     p.add_argument(
         '--output_dir',
@@ -1536,6 +1542,12 @@ def check_dependencies(args):
 
 def strainphlan():
     args = read_params()
+
+    # fix db .pkl file
+    if '--mpa_pkl' not in sys.argv:
+        if os.path.isfile(os.path.join(args['mpa_pkl'], "mpa_" + args['index'] + ".pkl")):
+            args['mpa_pkl'] = os.path.join(args['mpa_pkl'], "mpa_" + args['index'] + ".pkl")
+
     check_dependencies(args)
     strainer(args)
 
