@@ -2,6 +2,21 @@
 
 # MetaPhlAn 2: Metagenomic Phylogenetic Analysis
 
+## Installation
+
+MetaPhlAn 2.0 can be obtained
+
+Thorugh **Bioconda**
+
+``$ conda install metaphlan2``
+
+by **direct download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/default.zip)
+
+or **cloning the repository** using the following command
+
+``$ hg clone https://bitbucket.org/biobakery/metaphlan2``
+
+----------------------
 
 ## Description
 MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.
@@ -29,7 +44,7 @@ If you use StrainPhlAn, please cite the MetaPhlAn2 paper and the following Strai
 
 -------------
 
-## MetaPhlAn and StrainPhlAn resources
+## MetaPhlAn and StrainPhlAn tutorials and resources
 
 In addition to the information on this page, you can refer to the following additional resources.
 
@@ -42,7 +57,6 @@ In addition to the information on this page, you can refer to the following addi
 * Related tools including [PanPhlAn](https://bitbucket.org/CibioCM/panphlan/src) (and its [tutorial](https://bitbucket.org/CibioCM/panphlan/wiki/Home)), [GraPhlAn](https://bitbucket.org/nsegata/graphlan/wiki/Home) (and it [tutorial](https://bitbucket.org/biobakery/biobakery/wiki/graphlan)), [PhyloPhlAn2](https://bitbucket.org/nsegata/phylophlan/wiki/Home) (and its [tutorial](https://bitbucket.org/biobakery/biobakery/wiki/phylophlan)), [HUMAnN2](https://bitbucket.org/biobakery/humann2/wiki/Home) (and its [tutorial](https://bitbucket.org/biobakery/biobakery/wiki/humann2)).
 
 * The related [bioBakery workflows](https://bitbucket.org/biobakery/biobakery/wiki/biobakery_workflows)
-
 
 -------------
 
@@ -62,21 +76,7 @@ MetaPhlAn requires *python 2.7* or higher with argparse, tempfile and [*numpy*](
 
 * MetaPhlAn is not tightly integrated with advanced heatmap plotting with [hclust2](https://bitbucket.org/nsegata/hclust2) and cladogram visualization with [GraPhlAn](https://bitbucket.org/nsegata/graphlan/wiki/Home). If you use such visualization tool please refer to their prerequisites. 
 
-----------------------
-
-## Installation
-
-MetaPhlAn 2.0 can be obtained by either
-
-Dowloading MetaPhlAn v2.0 [here](https://bitbucket.org/biobakery/metaphlan2/get/default.zip) or [here](https://www.dropbox.com/s/ztqr8qgbo727zpn/metaphlan2.zip?dl=0)
-
-**OR**
-
-Cloning the repository via the following commands
-``$ hg clone https://bitbucket.org/biobakery/metaphlan2``
-
 --------------------------
-
 
 ## Basic Usage
 
