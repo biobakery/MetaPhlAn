@@ -1175,15 +1175,29 @@ def load_sample(args):
             marker2seq = {}
 
         # reformat 'pileup'
+        marker2seq2exclude = []
         for m in marker2seq:
-            freq = marker2seq[m]['freq']
-            marker2seq[m]['freq'] = [(0.0, 0.0, 0.0) for i in \
-                                     range(len(marker2seq[m]['seq']))]
-            for p in freq:
-                marker2seq[m]['freq'][p] = freq[p]
-            marker2seq[m]['seq'] = marker2seq[m]['seq'].replace('-', 'N') # make sure we have no gaps in the sequence
+            
+            # FIX: Check if freq vector is longer than the reconstructed sequence. In this case, the marker is removed
+            # TODO: uniform the two vectors in samples2markers.py
+            if len(marker2seq[m]['freq']) > len(marker2seq[m]['seq']):
+                logger.info('Skipping marker'+m+' as sequence is reconstructed incorrectly')
+                marker2seq2exclude.append(m)
+
+            else:
+                freq = marker2seq[m]['freq']
+                marker2seq[m]['freq'] = [(0.0, 0.0, 0.0) for i in \
+                                         range(len(marker2seq[m]['seq']))]
+                for p in freq:
+                    marker2seq[m]['freq'][p] = freq[p]
+                marker2seq[m]['seq'] = marker2seq[m]['seq'].replace('-', 'N') # make sure we have no gaps in the sequence
+
+        # returning only the markers for which sequence was reconstructed correctly
+        for marker2exclude in marker2seq2exclude:
+            del marker2seq[marker2exclude]
 
         return marker2seq
+        
     else:
         # remove redundant clades and markers
         clade2n_markers = defaultdict(int)

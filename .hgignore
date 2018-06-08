@@ -1,6 +1,6 @@
 syntax: glob
 
-databases/
+metaphlan_databases/
 tests/
 *.pyc
 build/
