@@ -503,10 +503,11 @@ def read_params(args):
         help=("The BowTie2 database file of the MetaPhlAn database. Used if "
               "--input_type is fastq, fasta, multifasta, or multifastq [default "+DEFAULT_DB_FOLDER+"]\n"))
 
+    INDEX = 'v20_m200'
     arg('-x', '--index', type=str, default='v20_m200',
         help=("Specify the id of the database version to use. If the database\n"
               "files are not found on the local MetaPhlAn2 installation they\n"
-              "will be automatically downloaded\n"))
+              "will be automatically downloaded [default "+INDEX+"]\n"))
 
     bt2ps = ['sensitive', 'very-sensitive', 'sensitive-local', 'very-sensitive-local']
     arg('--bt2_ps', metavar="BowTie2 presets", default='very-sensitive',
@@ -748,7 +749,7 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
             for row in f:
                 md5_md5 = row.strip().split(' ')[0]
     else:
-        sys.stderr.write('File "{}" not found!'.format(md5_file))
+        sys.stderr.write('File "{}" not found!\n'.format(md5_file))
 
     # compute MD5 of .tar.bz2
     if os.path.isfile(tar_file):
@@ -760,7 +761,7 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
 
         md5_tar = hash_md5.hexdigest()[:32]
     else:
-        sys.stderr.write('File "{}" not found!'.format(tar_file))
+        sys.stderr.write('File "{}" not found!\n'.format(tar_file))
 
     if (md5_tar is None) or (md5_md5 is None):
         sys.exit("MD5 checksums not found, something went wrong!")
