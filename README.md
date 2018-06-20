@@ -62,9 +62,13 @@ In addition to the information on this page, you can refer to the following addi
 
 ## Pre-requisites
 
-MetaPhlAn requires *python 2.7* or higher with argparse, tempfile and [*numpy*](http://www.numpy.org/) libraries installed 
-  (apart for numpy they are usually installed together with the python distribution). 
-  Python3 is also now supported.
+MetaPhlAn requires *python 2.7* or higher with argparse, tempfile, [numpy](http://www.numpy.org/), and [Biopython](https://biopython.org/) libraries installed 
+(apart for numpy and Biopython, the others are usually installed together with the python distribution). 
+Python3 is also now supported.
+
+MetaPhlAn requires the `read_fastx.py` script to be present in the system path, if not found MetaPhlAn will try to locate it in the folder containing the `metaphlan2.py` 
+script under `utils/read_fastx.py`.
+In case you moved the `metaphlan2.py` script, please export the `read_fastx.py` script in your PATH bash variable.
 
 **If you provide the SAM output of [BowTie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml) as input, there are no additional prerequisite.**
 
