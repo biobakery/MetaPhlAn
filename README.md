@@ -547,12 +547,12 @@ In addition, the table below shows the number of snps between the sample strains
 In the next sections, we will illustrate step by step how to run MetaPhlAn\_Strainer on this toy example to reproduce the above figures.
 
 ### Pre-requisites
-StrainPhlAn requires *python 2.7* and the libraries [pysam](http://pysam.readthedocs.org/en/latest/) (tested on **version 0.8.3**), [biopython](http://biopython.org/wiki/Main_Page), [msgpack](https://pypi.python.org/pypi/msgpack-python) and [numpy](http://www.numpy.org/), [dendropy](https://pythonhosted.org/DendroPy/) (tested on version **3.12.0**). Besides, StrainPhlAn also needs the following programs in the executable path:
+StrainPhlAn requires *python 2.7* and the libraries [pysam](http://pysam.readthedocs.org/en/latest/) (tested on **version 0.8.3**), [biopython](http://biopython.org/wiki/Main_Page), [msgpack](https://pypi.python.org/pypi/msgpack-python), [pandas](https://pandas.pydata.org) (tested on **version 0.22**), [numpy](http://www.numpy.org/) (tested on **version 1.14.2**) and [scipy](https://www.scipy.org) (tested on **version 1.0.0**), [dendropy](https://pythonhosted.org/DendroPy/) (tested on version **3.12.0**). Besides, StrainPhlAn also needs the following programs in the executable path:
 
 * [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml) for mapping reads against the marker database.
 * [MUSCLE](http://www.drive5.com/muscle/) for the alignment step.
 * [samtools, bcftools and vcfutils.pl](http://samtools.sourceforge.net/) which can be downloaded from [here](https://github.com/samtools) for building consensus markers. Note that vcfutils.pl is included in bcftools and **StrainPhlAn only works with samtools version 0.1.19** as samtools has changed the output format after this version.
-* [blastn](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) for adding reference genomes to the phylogenetic tree.
+* [blast+](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) for adding reference genomes to the phylogenetic tree (blastn and makeblastdb commands)
 * [raxmlHPC and raxmlHPC-PTHREADS-SSE3](http://sco.h-its.org/exelixis/web/software/raxml/index.html) for building the phylogenetic trees.
 
 All dependence binaries on Linux 64 bit can be downloaded in the folder "bin" from [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
