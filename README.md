@@ -355,7 +355,7 @@ Other arguments:
 ```
 ## Docker image
 
-MetaPhlAn2 Docker image is based on [Biobox](http://bioboxes.org/about/). For the execution, MetaPhlAn2 Docker image requires a YAML file with the inputs defined as follows
+MetaPhlAn2 Docker image is based on [Biobox](http://bioboxes.org/about/). For the execution, MetaPhlAn2 Docker image requires a YAML file with the inputs defined as follows:
 
 ```
 #!yaml
@@ -368,7 +368,9 @@ arguments:
           value: /bbx/mnt/input/fastq2.fastq
 ```
 
-The YAML file **MUST** be named *biobox.yaml* and saved in a folder that will contains the input files previously defined in *biobox.yaml* (e.g. ```input```) 
+Each FASTQ sample defined in the ```fastq``` section is a single metagenomic sample.
+
+The YAML file **MUST** be named ```biobox.yaml``` and saved in the input folder (e.g. ```input```) 
 
 To run the docker image, execute the following command:
 
