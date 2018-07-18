@@ -6,9 +6,13 @@
 
 MetaPhlAn 2.0 can be obtained
 
-Thorugh **Bioconda**
+Through **Bioconda**
 
 ``$ conda install metaphlan2``
+
+Through **Docker**
+
+``$ docker pull segatalab/metaphlan2`` 
 
 by **direct download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/default.zip)
 
