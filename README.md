@@ -353,6 +353,39 @@ Other arguments:
 
 
 ```
+## Docker image
+
+MetaPhlAn2 Docker image is based on [Biobox](http://bioboxes.org/about/). For the execution, MetaPhlAn2 Docker image requires a YAML file with the inputs defined as follows
+
+```
+#!yaml
+version: 1.0.0
+arguments:
+    - fastq:
+        - type: fastq
+          value: /bbx/mnt/input/fastq1.fastq.gz
+        - type: fastq
+          value: /bbx/mnt/input/fastq2.fastq
+```
+
+The YAML file **MUST** be named *biobox.yaml* and saved in a folder that will contains the input files previously defined in *biobox.yaml* (e.g. ```input```) 
+
+To run the docker image, execute the following command:
+
+
+```
+#!bash
+docker run --volume="${PWD}/input:/bbx/mnt/input:ro" --volume="${PWD}/output:/bbx/mnt/output:rw" segatalab/metaphlan2
+```
+
+where:
+
+- ```input``` is the folder with the input files and *biobox.yaml*. ```input``` **MUST** be mounted to ```/bbx/mnt/input```
+
+- ```output``` is the output folder in which MetaPhlAn2 output is saved. Like ```input```, ```output``` **MUST** be mounted to ```/bbx/mnt/output```
+
+More folders can be mounted by specifing the mount point via the ```--volume``` parameter. Sym-linking the input files in the input folder will result in a error since Docker will not be able to reach the link source.
+
 
 ## Utility Scripts
 
