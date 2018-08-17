@@ -10,7 +10,7 @@ from q2_types.per_sample_sequences import SequencesWithQuality
 from q2_types.per_sample_sequences import PairedEndSequencesWithQuality
 from q2_types.feature_table import FeatureTable
 from q2_types.feature_table import Frequency
-import metaphlan2
+import q2_metaphlan2
 
 
 plugin = Plugin(
@@ -31,7 +31,7 @@ plugin = Plugin(
 )
 
 plugin.methods.register_function(
-    function=metaphlan2._metaphlan2.profile_single_fastq,
+    function=q2_metaphlan2._metaphlan2.profile_single_fastq,
 
     inputs={'raw_data': SampleData[SequencesWithQuality]},
     input_descriptions={'raw_data': ('metagenomic shotgun sequencing data')},
@@ -53,7 +53,7 @@ plugin.methods.register_function(
 )
 
 plugin.methods.register_function(
-    function=metaphlan2._metaphlan2.profile_paired_fastq,
+    function=q2_metaphlan2._metaphlan2.profile_paired_fastq,
 
     inputs={'raw_data': SampleData[PairedEndSequencesWithQuality]},
     input_descriptions={'raw_data': ('metagenomic shotgun sequencing data')},
