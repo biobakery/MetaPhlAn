@@ -1,4 +1,4 @@
-from metaphlan2 import metaphlan2
+from q2_metaphlan2 import metaphlan2
 from ._metaphlan2 import profile_single_fastq
 from ._metaphlan2 import profile_paired_fastq
 
