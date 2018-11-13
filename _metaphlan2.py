@@ -23,6 +23,12 @@ def metaphlan2_helper(raw_data, nproc, input_type, output_file, verbose=True):
 
     sb.run(cmd, check=True)
 
+    print('\n\nIf you use MetaPhlAn2 in your work, please cite:\n\nTruong DT, '
+          'Franzosa EA, Tickle TL, Scholz M, Weingart G,\nPasolli E, Tett A, '
+          'Huttenhower C, Segata N.\nMetaPhlAn2 for enhanced metagenomic taxonomic '
+          'profiling\nNature Methods, 2015 Oct 1;12(10):902-3\n\nPMID: 26418763\n'
+          'doi: https://doi.org/10.1038/nmeth.3589', end='\n\n')
+
 
 def profile_single_fastq(raw_data: SingleLanePerSampleSingleEndFastqDirFmt,
                          nproc: int=1) -> biom.Table:
