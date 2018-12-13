@@ -914,8 +914,8 @@ class TaxTree:
                 return ""
             if ignore_bacteria and cn.startswith("k__Bacteria"):
                 return ""
-        while len(cl.children) == 1:
-            cl = list(cl.children.values())[0]
+        # while len(cl.children) == 1:
+            # cl = list(cl.children.values())[0]
         cl.markers2nreads[marker] = n
         return (cl.get_full_name(), cl.get_full_taxids(), )
 
@@ -948,28 +948,29 @@ class TaxTree:
 
         for k,v in cl2ab_n.items():
             for cl,tid, ab in sorted(v.get_all_abundances(),key=lambda pars:pars[0]):
-                if not tax_lev:
-                    if cl not in self.all_clades:
-                        to = tax_units.index(cl[0])
-                        t = tax_units[to-1]
-                        cl = t + cl.split("_unclassified")[0][1:]
-                        tid = self.all_clades[cl].get_full_taxids()
-                        cl = self.all_clades[cl].get_full_name()
-                        spl = cl.split("|")
-                        cl = "|".join(spl+[tax_units[to]+spl[-1][1:]+"_unclassified"])
-                        glen = self.all_clades[spl[-1]].glen
-                    else:
-                        glen = self.all_clades[cl].glen
-                        tid = self.all_clades[cl].get_full_taxids()
-                        cl = self.all_clades[cl].get_full_name()
-                elif not cl.startswith(tax_lev):
-                    if cl in self.all_clades:
-                        glen = self.all_clades[cl].glen
-                    else:
-                        glen = 1.0
-                    continue
-                cl2ab[(cl, tid)] = ab
-                cl2glen[(cl, tid)] = glen
+                if cl[:3] != 't__':
+                    if not tax_lev:
+                        if cl not in self.all_clades:
+                            to = tax_units.index(cl[0])
+                            t = tax_units[to-1]
+                            cl = t + cl.split("_unclassified")[0][1:]
+                            tid = self.all_clades[cl].get_full_taxids()
+                            cl = self.all_clades[cl].get_full_name()
+                            spl = cl.split("|")
+                            cl = "|".join(spl+[tax_units[to]+spl[-1][1:]+"_unclassified"])
+                            glen = self.all_clades[spl[-1]].glen
+                        else:
+                            glen = self.all_clades[cl].glen
+                            tid = self.all_clades[cl].get_full_taxids()
+                            cl = self.all_clades[cl].get_full_name()
+                    elif not cl.startswith(tax_lev):
+                        if cl in self.all_clades:
+                            glen = self.all_clades[cl].glen
+                        else:
+                            glen = 1.0
+                        continue
+                    cl2ab[(cl, tid)] = ab
+                    cl2glen[(cl, tid)] = glen
 
         ret_d = dict([( k, float(v) / tot_ab if tot_ab else 0.0) for k,v in cl2ab.items()])
         ret_r = dict([( k, (v,cl2glen[k],float(v)*cl2glen[k])) for k,v in cl2ab.items()])
@@ -1227,9 +1228,12 @@ def metaphlan2():
         pars['output'] = pars['output_file']
 
     with (open(pars['output'],"w") if pars['output'] else sys.stdout) as outf:
-        outf.write('#{}\n'.format(pars['index']))
-        outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
-        outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
+        if not pars['legacy_output']:
+            outf.write('#{}\n'.format(pars['index']))
+            outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
+            outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
+        else:
+            outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
         if pars['t'] == 'reads_map':
             outf.write( "\n".join( map_out ) + "\n" )
         elif pars['t'] == 'rel_ab':
@@ -1239,12 +1243,15 @@ def metaphlan2():
             if outpred:
                 for (cl, tid),ab in sorted(  outpred, reverse=True,
                                     key=lambda x:x[1]+(100.0*(8-x[0].count("|")))  ):
-                    if not pars['legacy-output']:
+                    if not pars['legacy_output']:
                         outf.write( "\t".join( [cl, tid, str(ab)] ) + "\n" )
                     else:
                         outf.write( "\t".join( [cl, str(ab)] ) + "\n" )
             else:
-                outf.write( "unclassified\t\-1\t100.0\n" )
+                if not pars['legacy_output']:
+                    outf.write( "unclassified\t\-1\t100.0\n" )
+                else:
+                    outf.write( "unclassified\t100.0\n" )
             maybe_generate_biom_file(tree, pars, outpred)
         elif pars['t'] == 'rel_ab_w_read_stats':
             cl2ab, rr = tree.relative_abundances(
@@ -1271,7 +1278,10 @@ def metaphlan2():
 
                 outf.write( "#estimated total number of reads from known clades: " + str(totl)+"\n")
             else:
-                outf.write( "unclassified\t-1\t100.0\n" )
+                if not pars['legacy_output']:
+                    outf.write( "unclassified\t-1\t100.0\n" )
+                else:
+                    outf.write( "unclassified\t100.0\n" )
             maybe_generate_biom_file(tree, pars, outpred)
 
         elif pars['t'] == 'clade_profiles':
