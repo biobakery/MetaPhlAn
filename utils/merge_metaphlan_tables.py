@@ -9,9 +9,9 @@ import argparse
 import csv
 import os
 import sys
+import re
 
-
-def merge( aaastrIn, astrLabels, iCol, ostm ):
+def merge( aaastrIn, astrLabels, iCol, ofn ):
     """
     Outputs the table join of the given pre-split string collection.
 
@@ -21,8 +21,8 @@ def merge( aaastrIn, astrLabels, iCol, ostm ):
     :type   astrLabels: collection of strings
     :param  iCol:       Data column in which IDs are matched (zero-indexed).
     :type   iCol:       int
-    :param  ostm:       Output stream to which matched rows are written.
-    :type   ostm:       output stream
+    :param  ofn:       Output file name to which matched rows are written.
+    :type   ofn:       output file name
 
     """
 
@@ -37,6 +37,7 @@ def merge( aaastrIn, astrLabels, iCol, ostm ):
     strHeader = "ID"
     """The ID column header."""
 
+    listmpaVersion = set()
     # For each input datum in each input stream...
     pos = 0
     dCol = None
@@ -53,6 +54,13 @@ def merge( aaastrIn, astrLabels, iCol, ostm ):
             for astrLine in iIn:
                 if astrLine[0].startswith('#'):
                     dCol = astrLine.index('relative_abundance') if 'relative_abundance' in astrLine else None
+                    mpaVersion = astrLine[0] if re.match('#v[0-9]{2,}_CHOCOPhlAn_',astrLine[0]) else None
+
+                    if mpaVersion is not None:
+                        listmpaVersion.add(mpaVersion)
+                    if len(listmpaVersion) > 1:
+                        print('merge_metaphlan_tables found tables made with different versions of the MetaPhlAn2 database.\nPlease re-run MetaPhlAn2 with the same database.\n')
+                        return
                     continue
 
                 iLine += 1
@@ -71,31 +79,35 @@ def merge( aaastrIn, astrLabels, iCol, ostm ):
 
         pos += 1
 
-    # Create writer
-    csvw = csv.writer( ostm, csv.excel_tab, lineterminator='\n' )
+    with open(ofn, 'w') as ostm:
+        # Create writer
+        csvw = csv.writer( ostm, csv.excel_tab, lineterminator='\n' )
+        # Write MetaPhlAn2+CHOCOPhlAn DB version
+        csvw.writerow(list(listmpaVersion))
+        # Make the file names the column names
+        csvw.writerow( [strHeader] + [os.path.splitext(f)[0] for f in astrLabels] )
 
-    # Make the file names the column names
-    csvw.writerow( [strHeader] + [os.path.splitext(f)[0] for f in astrLabels] )
-
-    # Write out data
-    for strID in sorted( setstrIDs ):
-        astrOut = []
-        for iIn in range( len( aaastrIn ) ):
-            aastrData, hashIDs = (a[iIn] for a in (aaastrData, ahashIDs))
-            # Look up the row number of the current ID in the current dataset, if any
-            iID = hashIDs.get( strID )
-            # If not, start with no data; if yes, pull out stored data row
-            astrData = [0.0] if ( iID == None ) else aastrData[iID]
-            # Pad output data as needed
-            astrData += [None] * ( len( aastrHeaders[iIn] ) - len( astrData ) )
-            astrOut += astrData
-        csvw.writerow( [strID] + astrOut )
+        # Write out data
+        for strID in sorted( setstrIDs ):
+            astrOut = []
+            for iIn in range( len( aaastrIn ) ):
+                aastrData, hashIDs = (a[iIn] for a in (aaastrData, ahashIDs))
+                # Look up the row number of the current ID in the current dataset, if any
+                iID = hashIDs.get( strID )
+                # If not, start with no data; if yes, pull out stored data row
+                astrData = [0.0] if ( iID == None ) else aastrData[iID]
+                # Pad output data as needed
+                astrData += [None] * ( len( aastrHeaders[iIn] ) - len( astrData ) )
+                astrOut += astrData
+            csvw.writerow( [strID] + astrOut )
 
 
 argp = argparse.ArgumentParser( prog = "merge_metaphlan_tables.py",
     description = """Performs a table join on one or more metaphlan output files.""")
 argp.add_argument( "aistms",    metavar = "input.txt", nargs = "+",
     help = "One or more tab-delimited text tables to join" )
+argp.add_argument( "outfn",    metavar = "output.txt", nargs = 1,
+    help = "Name of output file in which joined tables are saved" )
 
 __doc__ = "::\n\n\t" + argp.format_help( ).replace( "\n", "\n\t" )
 
@@ -104,7 +116,7 @@ argp.usage = argp.format_usage()[7:]+"\n\n\tPlease make sure to supply file path
 
 def _main( ):
     args = argp.parse_args( )
-    merge(args.aistms, [os.path.split(os.path.basename(f))[1] for f in args.aistms], 0, sys.stdout)
+    merge(args.aistms, [os.path.split(os.path.basename(f))[1] for f in args.aistms], 0, args.outfn[0])
 
 
 if __name__ == "__main__":
