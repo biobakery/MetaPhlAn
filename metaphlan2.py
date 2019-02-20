@@ -242,8 +242,8 @@ def read_params(args):
         help=("The BowTie2 database file of the MetaPhlAn database. Used if "
               "--input_type is fastq, fasta, multifasta, or multifastq [default "+DEFAULT_DB_FOLDER+"]\n"))
 
-    INDEX = 'v20_m200'
-    arg('-x', '--index', type=str, default='v20_m200',
+    INDEX = 'v25_CHOCOPhlAn_0.2'
+    arg('-x', '--index', type=str, default='v25_CHOCOPhlAn_0.2',
         help=("Specify the id of the database version to use. If the database\n"
               "files are not found on the local MetaPhlAn2 installation they\n"
               "will be automatically downloaded [default "+INDEX+"]\n"))
