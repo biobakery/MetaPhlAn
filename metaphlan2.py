@@ -17,8 +17,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)'
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.7.8'
-__date__ = '07 Dec 2018'
+__version__ = '2.8'
+__date__ = '20 Feb 2019'
 
 
 import sys
@@ -242,8 +242,8 @@ def read_params(args):
         help=("The BowTie2 database file of the MetaPhlAn database. Used if "
               "--input_type is fastq, fasta, multifasta, or multifastq [default "+DEFAULT_DB_FOLDER+"]\n"))
 
-    INDEX = 'v20_m200'
-    arg('-x', '--index', type=str, default='v20_m200',
+    INDEX = 'v25_CHOCOPhlAn_0.2'
+    arg('-x', '--index', type=str, default='v25_CHOCOPhlAn_0.2',
         help=("Specify the id of the database version to use. If the database\n"
               "files are not found on the local MetaPhlAn2 installation they\n"
               "will be automatically downloaded [default "+INDEX+"]\n"))
@@ -312,7 +312,7 @@ def read_params(args):
     arg( '--avoid_disqm', action="store_true", help =
          "Deactivate the procedure of disambiguating the quasi-markers based on the \n"
          "marker abundance pattern found in the sample. It is generally recommended \n"
-         "too keep the disambiguation procedure in order to minimize false positives\n")
+         "to keep the disambiguation procedure in order to minimize false positives\n")
     arg( '--stat', metavar="", choices=stat_choices, default="tavg_g", type=str, help =
          "EXPERIMENTAL! Statistical approach for converting marker abundances into clade abundances\n"
          "'avg_g'  : clade global (i.e. normalizing all markers together) average\n"
@@ -759,7 +759,8 @@ class TaxClade:
 
                     nonzeros = sum([v>0 for v in m2nr.values()])
                     if len(m2nr):
-                        if float(nonzeros) / len(m2nr) > 0.33:
+                        # At least 50% of maerkers present!
+                        if float(nonzeros) / len(m2nr) > 0.5:
                             misidentified = True
                             removed.append( (self.markers2lens[m],n) )
                             break
@@ -1239,10 +1240,10 @@ def metaphlan2():
         elif pars['t'] == 'rel_ab':
             cl2ab, _ = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
-            outpred = [(k,round(v*100.0,5)) for k,v in cl2ab.items() if v > 0.0]
+            outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
             if outpred:
-                for (cl, tid),ab in sorted(  outpred, reverse=True,
-                                    key=lambda x:x[1]+(100.0*(8-x[0].count("|")))  ):
+                for cl, tid,ab in sorted(  outpred, reverse=True,
+                                    key=lambda x:x[2 if not pars['legacy_output'] else 1]+(100.0*(8-(x[0].count("|"))))):
                     if not pars['legacy_output']:
                         outf.write( "\t".join( [cl, tid, str(ab)] ) + "\n" )
                     else:
@@ -1253,10 +1254,12 @@ def metaphlan2():
                 else:
                     outf.write( "unclassified\t100.0\n" )
             maybe_generate_biom_file(tree, pars, outpred)
+
+        # TODO Implement with new output format 
         elif pars['t'] == 'rel_ab_w_read_stats':
             cl2ab, rr = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
-            outpred = [(k,round(v*100.0,5)) for k,v in cl2ab.items() if v > 0.0]
+            outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
             totl = 0
             if outpred:
                 outf.write( "\t".join( [    "#clade_name",
@@ -1265,16 +1268,17 @@ def metaphlan2():
                                             "average_genome_length_in_the_clade",
                                             "estimated_number_of_reads_from_the_clade" ]) +"\n" )
 
-                for k,v in sorted(  outpred, reverse=True,
-                                    key=lambda x:x[1]+(100.0*(8-x[0].count("|")))  ):
-                    outf.write( "\t".join( [    k,
-                                                str(v),
-                                                str(rr[k][0]) if k in rr else "-",
-                                                str(rr[k][1]) if k in rr else "-",
-                                                str(int(round(rr[k][2],0)) if k in rr else "-")
+                for taxstr, taxid, relab in sorted(  outpred, reverse=True,
+                                    key=lambda x:x[2 if not pars['legacy_output'] else 1]+(100.0*(8-(x[0].count("|"))))):
+                    outf.write( "\t".join( [    taxstr,
+                                                taxid,
+                                                str(relab),
+                                                str(rr[taxstr][0]) if taxstr in rr else "-",
+                                                str(rr[taxstr][1]) if taxstr in rr else "-",
+                                                str(int(round(rr[taxstr][2],0)) if taxstr in rr else "-")
                                                 ] ) + "\n" )
-                    if "|" not in k:
-                        totl += (int(round(rr[k][2],0)) if k in rr else 0)
+                    if "|" not in taxstr:
+                        totl += (int(round(rr[taxstr][2],0)) if taxstr in rr else 0)
 
                 outf.write( "#estimated total number of reads from known clades: " + str(totl)+"\n")
             else:

@@ -6,7 +6,8 @@ import os
 import bz2
 import gzip
 import glob
-from Bio import SeqIO
+from Bio.SeqIO.QualityIO import FastqGeneralIterator
+from Bio.SeqIO.FastaIO import SimpleFastaParser
 try:
     import StringIO as uio
 except ImportError:
@@ -34,6 +35,12 @@ def fastx(l):
     sys.stderr.write("\nError, input data has to be in fastq or fasta format\n\n")
     sys.exit(-1)
 
+def print_record(description, sequence, qual, fmt):
+    if fmt == 'fastq':
+        return '@{}\n{}\n+\n{}\n'.format(description, sequence, qual)
+
+    if fmt == 'fasta':
+        return '>{}\n{}\n'.format(description, sequence)
 
 def fopen(fn):
     fileName, fileExtension = os.path.splitext(fn)
@@ -49,7 +56,6 @@ def fopen(fn):
 
 def read_and_write_raw_int(fd, min_len=None):
     fmt = None
-
     if min_len:
         r = []
 
@@ -58,6 +64,7 @@ def read_and_write_raw_int(fd, min_len=None):
 
             if not fmt:
                 fmt = fastx(l)
+                parser = FastqGeneralIterator if fmt == 'fastq' else SimpleFastaParser
                 readn = 4 if fmt == 'fastq' else 2
 
             r.append(l)
@@ -65,17 +72,39 @@ def read_and_write_raw_int(fd, min_len=None):
             if len(r) == readn:
                 break
 
-        for record in SeqIO.parse(uio.StringIO("".join(r)), fmt):
-            if len(record) >= min_len:
-                record.id = ignore_spaces(record.description, forced=True)
-                record.description = ""
-                SeqIO.write(record, sys.stdout, fmt)
+        for record in parser(uio.StringIO("".join(r))):
+            if readn == 4:
+                description, sequence, qual = record
+            else:
+                qual = None
+                description, sequence = record
 
-        for record in SeqIO.parse(fd, fmt):
-            if len(record) >= min_len:
-                record.id = ignore_spaces(record.description, forced=True)
-                record.description = ""
-                SeqIO.write(record, sys.stdout, fmt)
+            if len(sequence) >= min_len:
+                description = ignore_spaces(description, forced=True)
+                _ = sys.stdout.write(print_record(description, sequence, qual, fmt))
+
+        for record in parser(fd):
+            if readn == 4:
+                description, sequence, qual = record
+            else:
+                qual = None
+                description, sequence = record
+
+            if len(sequence) >= min_len:
+                description = ignore_spaces(description, forced=True)
+                _ = sys.stdout.write(print_record(description, sequence, qual, fmt))
+
+        # for record in SeqIO.parse(uio.StringIO("".join(r)), fmt):
+        #     if len(record) >= min_len:
+        #         record.id = ignore_spaces(record.description, forced=True)
+        #         record.description = ""
+        #         SeqIO.write(record, sys.stdout, fmt)
+
+        # for record in SeqIO.parse(fd, fmt):
+        #     if len(record) >= min_len:
+        #         record.id = ignore_spaces(record.description, forced=True)
+        #         record.description = ""
+        #         SeqIO.write(record, sys.stdout, fmt)
     else:
         for l in fd:
             sys.stdout.write(ignore_spaces(l))
