@@ -56,6 +56,8 @@ def fopen(fn):
 
 def read_and_write_raw_int(fd, min_len=None):
     fmt = None
+    nreads = 0
+    discarded = 0
     if min_len:
         r = []
 
@@ -82,8 +84,10 @@ def read_and_write_raw_int(fd, min_len=None):
             if len(sequence) >= min_len:
                 description = ignore_spaces(description, forced=True)
                 _ = sys.stdout.write(print_record(description, sequence, qual, fmt))
+            else:
+                discarded = discarded + 1
 
-        for record in parser(fd):
+        for idx, record in enumerate(parser(fd),2):
             if readn == 4:
                 description, sequence, qual = record
             else:
@@ -93,25 +97,16 @@ def read_and_write_raw_int(fd, min_len=None):
             if len(sequence) >= min_len:
                 description = ignore_spaces(description, forced=True)
                 _ = sys.stdout.write(print_record(description, sequence, qual, fmt))
-
-        # for record in SeqIO.parse(uio.StringIO("".join(r)), fmt):
-        #     if len(record) >= min_len:
-        #         record.id = ignore_spaces(record.description, forced=True)
-        #         record.description = ""
-        #         SeqIO.write(record, sys.stdout, fmt)
-
-        # for record in SeqIO.parse(fd, fmt):
-        #     if len(record) >= min_len:
-        #         record.id = ignore_spaces(record.description, forced=True)
-        #         record.description = ""
-        #         SeqIO.write(record, sys.stdout, fmt)
+            else:
+                discarded = discarded + 1
     else:
-        for l in fd:
-            sys.stdout.write(ignore_spaces(l))
-
+        for idx, l in enumerate(fd,1):
+            _ = sys.stdout.write(ignore_spaces(l))
+    nreads = idx - discarded
+    _ = sys.stderr.write(str(nreads))
 
 def read_and_write_raw(fd, opened=False, min_len=None):
-    if opened:
+    if opened:  #fd is stdin
         read_and_write_raw_int(fd, min_len=min_len)
     else:
         with fopen(fd) as inf:
