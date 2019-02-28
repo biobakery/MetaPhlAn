@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import with_statement
 
 # ==============================================================================
@@ -606,9 +606,10 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
 
     try:
         if fna_in:
-            readin = subp.Popen([read_fastx, '-l', str(read_min_len), fna_in], stdout=subp.PIPE)
+            readin = subp.Popen([read_fastx, '-l', str(read_min_len), fna_in], stdout=subp.PIPE, stderr=subp.PIPE)
+
         else:
-            readin = subp.Popen([read_fastx, '-l', str(read_min_len)], stdin=sys.stdin, stdout=subp.PIPE)
+            readin = subp.Popen([read_fastx, '-l', str(read_min_len)], stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
 
         bowtie2_cmd = [exe if exe else 'bowtie2', "--quiet", "--no-unal", "--{}".format(preset),
                        "-S", "-", "-x", bowtie2_db]
@@ -624,7 +625,6 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
         p = subp.Popen(bowtie2_cmd, stdout=subp.PIPE, stdin=readin.stdout)
         readin.stdout.close()
         lmybytes, outf = (mybytes, bz2.BZ2File(outfmt6_out, "w")) if outfmt6_out.endswith(".bz2") else (str, open(outfmt6_out, "w"))
-
         try:
             if samout:
                 if samout[-4:] == '.bz2':
@@ -652,8 +652,10 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
         if samout:
             sam_file.close()
 
+        # readin.communicate()
         p.communicate()
-
+        n_metagenome_reads = int(readin.stderr.readline())
+        
     except OSError as e:
         sys.stderr.write('OSError: "{}"\nFatal error running BowTie2.\n'.format(e))
         sys.exit(1)
@@ -672,6 +674,7 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
         sys.stderr.write("Error while running bowtie2.\n")
         sys.exit(1)
 
+    return n_metagenome_reads
 #def guess_input_format( inp_file ):
 #    if "," in inp_file:
 #        sys.stderr.write( "Sorry, I cannot guess the format of the input, when "
@@ -1102,7 +1105,7 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
 
 def metaphlan2():
     pars = read_params(sys.argv)
-
+    
     # check if the database is installed, if not then install
     check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'])
 
@@ -1112,12 +1115,6 @@ def metaphlan2():
 
     # set correct map_pkl and bowtie2db variables
     pars['mpa_pkl'], pars['bowtie2db'] = set_mapping_arguments(pars['index'], pars['bowtie2db'])
-
-    #if pars['inp'] is None and ( pars['input_type'] is None or  pars['input_type'] == 'automatic'):
-    #    sys.stderr.write( "The --input_type parameter need top be specified when the "
-    #                      "input is provided from the standard input.\n"
-    #                      "Type metaphlan.py -h for more info\n")
-    #    sys.exit(0)
 
     if (pars['bt2_ps'] in ["sensitive-local", "very-sensitive-local"]) and (pars['min_alignment_len'] is None):
             pars['min_alignment_len'] = 100
@@ -1129,13 +1126,6 @@ def metaphlan2():
         pars['input_type'] = 'multifastq'
     if pars['input_type'] == 'fasta':
         pars['input_type'] = 'multifasta'
-
-    #if pars['input_type'] == 'automatic':
-    #    pars['input_type'] = guess_input_format( pars['inp'] )
-    #    if not pars['input_type']:
-    #        sys.stderr.write( "Sorry, I cannot guess the format of the input file, please "
-    #                          "specify the --input_type parameter \n" )
-    #        sys.exit(1)
 
     # check for the mpa_pkl file
     if not os.path.isfile(pars['mpa_pkl']):
@@ -1193,10 +1183,10 @@ def metaphlan2():
             sys.exit(1)
 
         if bow:
-            run_bowtie2(pars['inp'], pars['bowtie2out'], pars['bowtie2db'],
-                        pars['bt2_ps'], pars['nproc'], file_format=pars['input_type'],
-                        exe=pars['bowtie2_exe'], samout=pars['samout'],
-                        min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'])
+            n_metagenome_reads = run_bowtie2(pars['inp'], pars['bowtie2out'], pars['bowtie2db'],
+                                pars['bt2_ps'], pars['nproc'], file_format=pars['input_type'],
+                                exe=pars['bowtie2_exe'], samout=pars['samout'],
+                                min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'])
             pars['input_type'] = 'bowtie2out'
         pars['inp'] = pars['bowtie2out'] # !!!
 
