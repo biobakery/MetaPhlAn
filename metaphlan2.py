@@ -634,7 +634,6 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
         except IOError as e:
             sys.stderr.write('IOError: "{}"\nUnable to open sam output file.\n'.format(e))
             sys.exit(1)
-
         for line in p.stdout:
             if samout:
                 sam_file.write(line)
@@ -647,15 +646,16 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
                             (max([int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x]) >= min_alignment_len)):
                         outf.write(lmybytes("\t".join([o[0], o[2]]) + "\n"))
 
-        outf.close()
 
         if samout:
             sam_file.close()
 
-        # readin.communicate()
         p.communicate()
-        n_metagenome_reads = int(readin.stderr.readline())
         
+        n_metagenome_reads = int(readin.stderr.readline())
+        outf.write(lmybytes('#nreads\t{}'.format(n_metagenome_reads)))
+        outf.close()
+
     except OSError as e:
         sys.stderr.write('OSError: "{}"\nFatal error running BowTie2.\n'.format(e))
         sys.exit(1)
@@ -673,8 +673,6 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
     elif p.returncode != 0:
         sys.stderr.write("Error while running bowtie2.\n")
         sys.exit(1)
-
-    return n_metagenome_reads
 #def guess_input_format( inp_file ):
 #    if "," in inp_file:
 #        sys.stderr.write( "Sorry, I cannot guess the format of the input, when "
@@ -742,33 +740,35 @@ class TaxClade:
 
     def compute_abundance( self ):
         if self.abundance is not None: return self.abundance
+
         sum_ab = sum([c.compute_abundance() for c in self.children.values()])
-        rat_nreads = sorted([(self.markers2lens[m],n)
-                                    for m,n in self.markers2nreads.items()],
-                                            key = lambda x: x[1])
+
+        # rat_nreads = sorted([(self.markers2lens[marker], n_reads)
+        #                             for marker,n_reads in self.markers2nreads.items()],
+        #                                     key = lambda x: x[1])
 
         rat_nreads, removed = [], []
-        for m,n in sorted(self.markers2nreads.items(),key=lambda pars:pars[0]):
+        for marker, n_reads in sorted(self.markers2nreads.items(),key=lambda x:x[0]):
             misidentified = False
 
             if not self.avoid_disqm:
-                for e in self.markers2exts[m]:
-                    toclade = self.taxa2clades[e]
-                    m2nr = toclade.markers2nreads
-                    tocladetmp = toclade
+                for ext in self.markers2exts[marker]:
+                    ext_clade = self.taxa2clades[ext]
+                    m2nr = ext_clade.markers2nreads
+                    
+                    tocladetmp = ext_clade
                     while len(tocladetmp.children) == 1:
                         tocladetmp = list(tocladetmp.children.values())[0]
                         m2nr = tocladetmp.markers2nreads
 
                     nonzeros = sum([v>0 for v in m2nr.values()])
                     if len(m2nr):
-                        # At least 50% of maerkers present!
-                        if float(nonzeros) / len(m2nr) > 0.5:
+                        if float(nonzeros) / len(m2nr) > 0.33:
                             misidentified = True
-                            removed.append( (self.markers2lens[m],n) )
+                            removed.append( (self.markers2lens[marker],n_reads) )
                             break
             if not misidentified:
-                rat_nreads.append( (self.markers2lens[m],n) )
+                rat_nreads.append( (self.markers2lens[marker],n_reads) )
 
         if not self.avoid_disqm and len(removed):
             n_rat_nreads = float(len(rat_nreads))
@@ -898,7 +898,7 @@ class TaxTree:
     def set_min_cu_len( self, min_cu_len ):
         TaxClade.min_cu_len = min_cu_len
 
-    def set_stat( self, stat, quantile, avoid_disqm = False ):
+    def set_stat( self, stat, quantile, avoid_disqm = False):
         TaxClade.stat = stat
         TaxClade.quantile = quantile
         TaxClade.avoid_disqm = avoid_disqm
@@ -943,42 +943,46 @@ class TaxTree:
         return cl2pr
 
     def relative_abundances( self, tax_lev  ):
-        cl2ab_n = dict([(k,v) for k,v in self.all_clades.items()
-                    if k.startswith("k__") and not v.uncl])
+        clade2abundance_n = dict([(tax_label, clade) for tax_label, clade in self.all_clades.items()
+                    if tax_label.startswith("k__") and not clade.uncl])
 
-        cl2ab, cl2glen, tot_ab = {}, {}, 0.0
-        for k,v in cl2ab_n.items():
-            tot_ab += v.compute_abundance()
+        clade2abundance, clade2genomelen, clade2est_nreads, tot_ab = {}, {}, {}, 0.0
 
-        for k,v in cl2ab_n.items():
-            for cl,tid, ab in sorted(v.get_all_abundances(),key=lambda pars:pars[0]):
-                if cl[:3] != 't__':
+        for tax_label, clade in clade2abundance_n.items():
+            tot_ab += clade.compute_abundance()
+
+        for tax_label, clade in clade2abundance_n.items():
+            for clade_label, tax_id, abundance in sorted(clade.get_all_abundances(), key=lambda pars:pars[0]):
+                if clade_label[:3] != 't__':
                     if not tax_lev:
-                        if cl not in self.all_clades:
-                            to = tax_units.index(cl[0])
+                        if clade_label not in self.all_clades:
+                            to = tax_units.index(clade_label[0])
                             t = tax_units[to-1]
-                            cl = t + cl.split("_unclassified")[0][1:]
-                            tid = self.all_clades[cl].get_full_taxids()
-                            cl = self.all_clades[cl].get_full_name()
-                            spl = cl.split("|")
-                            cl = "|".join(spl+[tax_units[to]+spl[-1][1:]+"_unclassified"])
+                            clade_label = t + clade_label.split("_unclassified")[0][1:]
+                            tax_id = self.all_clades[clade_label].get_full_taxids()
+                            clade_label = self.all_clades[clade_label].get_full_name()
+                            spl = clade_label.split("|")
+                            clade_label = "|".join(spl+[tax_units[to]+spl[-1][1:]+"_unclassified"])
                             glen = self.all_clades[spl[-1]].glen
                         else:
-                            glen = self.all_clades[cl].glen
-                            tid = self.all_clades[cl].get_full_taxids()
-                            cl = self.all_clades[cl].get_full_name()
-                    elif not cl.startswith(tax_lev):
-                        if cl in self.all_clades:
-                            glen = self.all_clades[cl].glen
+                            glen = self.all_clades[clade_label].glen
+                            tax_id = self.all_clades[clade_label].get_full_taxids()
+                            clade_label = self.all_clades[clade_label].get_full_name()
+                    elif not clade_label.startswith(tax_lev):
+                        if clade_label in self.all_clades:
+                            glen = self.all_clades[clade_label].glen
                         else:
                             glen = 1.0
                         continue
-                    cl2ab[(cl, tid)] = ab
-                    cl2glen[(cl, tid)] = glen
+                    clade2abundance[(clade_label, tax_id)] = abundance
+                    clade2genomelen[(clade_label, tax_id)] = glen
+                    if 's__' in clade_label and abundance > 0:
+                        clade2est_nreads[(clade_label, tax_id)] = float(abundance)*glen
 
-        ret_d = dict([( k, float(v) / tot_ab if tot_ab else 0.0) for k,v in cl2ab.items()])
-        ret_r = dict([( k, (v,cl2glen[k],float(v)*cl2glen[k])) for k,v in cl2ab.items()])
-        #ret_r = dict([( k, float(v) / tot_ab if tot_ab else 0.0) for k,v in cl2ab.items()])
+        ret_d = dict([( tax, float(abundance) / tot_ab if tot_ab else 0.0) for tax, abundance in clade2abundance.items()])
+
+        ret_r = dict([( tax, (abundance, clade2genomelen[tax], float(abundance)*clade2genomelen[tax])) for tax, abundance in clade2abundance.items()])
+
         if tax_lev:
             ret_d[tax_lev+"unclassified"] = 1.0 - sum(ret_d.values())
         return ret_d, ret_r
@@ -994,10 +998,14 @@ def map2bbh(mapping_f, input_type='bowtie2out', min_alignment_len=None):
             ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, open(mapping_f)
 
     reads2markers = {}
+    n_metagenoges_reads = None
 
     if input_type == 'bowtie2out':
         for r, c in ras(inpf):
-            reads2markers[r] = c
+            if r.startswith('#') and 'nreads' in r:
+                n_metagenoges_reads = int(c)
+            else:
+                reads2markers[r] = c
     elif input_type == 'sam':
         for line in inpf:
             o = ras_line(line)
@@ -1014,7 +1022,7 @@ def map2bbh(mapping_f, input_type='bowtie2out', min_alignment_len=None):
     for r, m in reads2markers.items():
         markers2reads[m].add(r)
 
-    return markers2reads
+    return (markers2reads, n_metagenoges_reads)
 
 
 def maybe_generate_biom_file(tree, pars, abundance_predictions):
@@ -1183,7 +1191,7 @@ def metaphlan2():
             sys.exit(1)
 
         if bow:
-            n_metagenome_reads = run_bowtie2(pars['inp'], pars['bowtie2out'], pars['bowtie2db'],
+            run_bowtie2(pars['inp'], pars['bowtie2out'], pars['bowtie2db'],
                                 pars['bt2_ps'], pars['nproc'], file_format=pars['input_type'],
                                 exe=pars['bowtie2_exe'], samout=pars['samout'],
                                 min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'])
@@ -1195,12 +1203,20 @@ def metaphlan2():
 
     tree = TaxTree( mpa_pkl, ignore_markers )
     tree.set_min_cu_len( pars['min_cu_len'] )
-    tree.set_stat( pars['stat'], pars['stat_q'], pars['avoid_disqm']  )
+    tree.set_stat( pars['stat'], pars['stat_q'], pars['avoid_disqm'])
 
-    markers2reads = map2bbh(pars['inp'], pars['input_type'],
+    markers2reads, n_metagenome_reads = map2bbh(pars['inp'], pars['input_type'],
                             pars['min_alignment_len'])
     if no_map:
         os.remove( pars['inp'] )
+
+    if not n_metagenome_reads and not pars['nreads']:
+        sys.stderr.write(
+                "Please provide the size of the metagenome using the"
+                "--nreads parameter when running MetaPhlAn2"
+                "Exiting...\n\n" )
+        sys.exit(1)
+
 
     map_out = []
     for marker,reads in sorted(markers2reads.items(), key=lambda pars: pars[0]):
@@ -1221,13 +1237,18 @@ def metaphlan2():
     with (open(pars['output'],"w") if pars['output'] else sys.stdout) as outf:
         if not pars['legacy_output']:
             outf.write('#{}\n'.format(pars['index']))
-            outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
-            outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
-        else:
-            outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
+
+        outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
+
         if pars['t'] == 'reads_map':
+            if not pars['legacy_output']:
+               outf.write('#read_id\tNCBI_taxlineage_str\tNCBI_taxlineage_ids\n')
             outf.write( "\n".join( map_out ) + "\n" )
+
         elif pars['t'] == 'rel_ab':
+            if not pars['legacy_output']:
+                outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
+
             cl2ab, _ = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
             outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
@@ -1245,7 +1266,6 @@ def metaphlan2():
                     outf.write( "unclassified\t100.0\n" )
             maybe_generate_biom_file(tree, pars, outpred)
 
-        # TODO Implement with new output format 
         elif pars['t'] == 'rel_ab_w_read_stats':
             cl2ab, rr = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
@@ -1253,6 +1273,7 @@ def metaphlan2():
             totl = 0
             if outpred:
                 outf.write( "\t".join( [    "#clade_name",
+                                            "clade_taxid",
                                             "relative_abundance",
                                             "coverage",
                                             "average_genome_length_in_the_clade",
@@ -1263,12 +1284,12 @@ def metaphlan2():
                     outf.write( "\t".join( [    taxstr,
                                                 taxid,
                                                 str(relab),
-                                                str(rr[taxstr][0]) if taxstr in rr else "-",
-                                                str(rr[taxstr][1]) if taxstr in rr else "-",
-                                                str(int(round(rr[taxstr][2],0)) if taxstr in rr else "-")
+                                                str(rr[(taxstr, taxid)][0]) if (taxstr, taxid) in rr else "-",          #coverage
+                                                str(rr[(taxstr, taxid)][1]) if (taxstr, taxid) in rr else "-",          #avg genome length in clade
+                                                str(int(round(rr[(taxstr, taxid)][2],0)) if (taxstr, taxid) in rr else "-")      #estimated_number_of_reads_from_the_clade
                                                 ] ) + "\n" )
                     if "|" not in taxstr:
-                        totl += (int(round(rr[taxstr][2],0)) if taxstr in rr else 0)
+                        totl += (int(round(rr[(taxstr, taxid)][2],0)) if (taxstr, taxid) in rr else 0)
 
                 outf.write( "#estimated total number of reads from known clades: " + str(totl)+"\n")
             else:
@@ -1284,11 +1305,13 @@ def metaphlan2():
                 mn,n = zip(*p)
                 outf.write( "\t".join( [""]+[str(s) for s in mn] ) + "\n" )
                 outf.write( "\t".join( [c]+[str(s) for s in n] ) + "\n" )
+
         elif pars['t'] == 'marker_ab_table':
             cl2pr = tree.clade_profiles( pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None  )
             for v in cl2pr.values():
                 outf.write( "\n".join(["\t".join([str(a),str(b/float(pars['nreads'])) if pars['nreads'] else str(b)])
                                 for a,b in v if b > 0.0]) + "\n" )
+
         elif pars['t'] == 'marker_pres_table':
             cl2pr = tree.clade_profiles( pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None  )
             for v in cl2pr.values():
