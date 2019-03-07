@@ -103,19 +103,21 @@ def read_and_write_raw_int(fd, min_len=None):
         for idx, l in enumerate(fd,1):
             _ = sys.stdout.write(ignore_spaces(l))
     nreads = idx - discarded
-    _ = sys.stderr.write(str(nreads))
+    return nreads
 
 def read_and_write_raw(fd, opened=False, min_len=None):
     if opened:  #fd is stdin
-        read_and_write_raw_int(fd, min_len=min_len)
+        nreads = read_and_write_raw_int(fd, min_len=min_len)
     else:
         with fopen(fd) as inf:
-            read_and_write_raw_int(inf, min_len=min_len)
+            nreads = read_and_write_raw_int(inf, min_len=min_len)
+    return nreads
 
 
 if __name__ == '__main__':
     min_len = None
     args = []
+    nreads = 0
 
     if len(sys.argv) > 1:
         for l in sys.argv[1:]:
@@ -132,7 +134,7 @@ if __name__ == '__main__':
                 args.append(l)
 
     if len(args) == 0:
-        read_and_write_raw(sys.stdin, opened=True, min_len=min_len)
+        nreads = read_and_write_raw(sys.stdin, opened=True, min_len=min_len)
     else:
         files = []
 
@@ -144,4 +146,6 @@ if __name__ == '__main__':
                     files += [f]
 
         for f in files:
-            read_and_write_raw(f, opened=False, min_len=min_len)
+            nreads += read_and_write_raw(f, opened=False, min_len=min_len)
+
+    sys.stderr.write(str(nreads))
