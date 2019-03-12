@@ -369,6 +369,8 @@ def read_params(args):
         type=str, default=None, help="The sam output file\n")
 
     arg( '--legacy-output', action='store_true', help="Old two columns output\n")
+    arg( '--no-unknown-estimation', action='store_true', help="Ignore estimation of reads mapping to unkwnown clades\n")
+
     #*************************************************************
     #* Parameters related to biom file generation                *
     #*************************************************************
@@ -961,7 +963,7 @@ class TaxTree:
         clade2abundance_n = dict([(tax_label, clade) for tax_label, clade in self.all_clades.items()
                     if tax_label.startswith("k__") and not clade.uncl])
 
-        clade2abundance, clade2genomelen, clade2est_nreads, tot_ab, tot_reads = {}, {}, {}, 0.0, 0
+        clade2abundance, clade2est_nreads, tot_ab, tot_reads = {}, {}, 0.0, 0
 
         for tax_label, clade in clade2abundance_n.items():
             tot_ab += clade.compute_abundance()
@@ -993,7 +995,6 @@ class TaxTree:
                             glen = 1.0
                         continue
                     clade2abundance[(clade_label, tax_id)] = abundance
-                    clade2genomelen[(clade_label, tax_id)] = glen
         
         for tax_label, clade in clade2abundance_n.items():
             tot_reads += clade.compute_mapped_reads()
@@ -1006,7 +1007,7 @@ class TaxTree:
 
         ret_d = dict([( tax, float(abundance) / tot_ab if tot_ab else 0.0) for tax, abundance in clade2abundance.items()])
 
-        ret_r = dict([( tax, (abundance, clade2genomelen[tax], clade2est_nreads[tax] )) for tax, abundance in clade2abundance.items() if tax in clade2est_nreads])
+        ret_r = dict([( tax, (abundance, clade2est_nreads[tax] )) for tax, abundance in clade2abundance.items() if tax in clade2est_nreads])
 
         if tax_lev:
             ret_d[tax_lev+"unclassified"] = 1.0 - sum(ret_d.values())  
@@ -1277,15 +1278,16 @@ def metaphlan2():
             cl2ab, _, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
 
-            fraction_mapped_reads = tot_nreads/n_metagenome_reads
+            fraction_mapped_reads = tot_nreads/n_metagenome_reads if not pars['no_unknown_estimation'] else 1
             unmapped_reads = n_metagenome_reads - tot_nreads
 
-            outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
+            outpred = [(taxstr, taxid,round(relab*100.0,3)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
 
             if outpred:
-                outf.write( "\t".join( [    "UNKNOWN",
-                                            "-1",
-                                            str((1-fraction_mapped_reads)*100) ]) + "\n" )
+                if not pars['no_unknown_estimation']:
+                    outf.write( "\t".join( [    "UNKNOWN",
+                                                "-1",
+                                                str(round((1-fraction_mapped_reads)*100),3) + "\n" )
                                                 
                 for clade, taxid, relab in sorted(  outpred, reverse=True,
                                     key=lambda x:x[2 if not pars['legacy_output'] else 1]+(100.0*(8-(x[0].count("|"))))):
@@ -1306,10 +1308,11 @@ def metaphlan2():
         elif pars['t'] == 'rel_ab_w_read_stats':
             cl2ab, rr, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
-            fraction_mapped_reads = tot_nreads/n_metagenome_reads
+
+            fraction_mapped_reads = tot_nreads/n_metagenome_reads if not pars['no_unknown_estimation'] else 1
             unmapped_reads = n_metagenome_reads - tot_nreads
 
-            outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
+            outpred = [(taxstr, taxid,round(relab*100.0*fraction_mapped_reads,3)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
 
             if outpred:
                 outf.write( "#estimated_reads_mapped_to_known_clades:{}\n".format(tot_nreads) )
@@ -1317,23 +1320,21 @@ def metaphlan2():
                                             "clade_taxid",
                                             "relative_abundance",
                                             "coverage",
-                                            "average_genome_length_in_the_clade",
                                             "estimated_number_of_reads_from_the_clade" ]) +"\n" )
-                outf.write( "\t".join( [    "UNKNOWN",
-                                            "-1",
-                                            str((1-fraction_mapped_reads)*100),
-                                            "-",
-                                            "-",
-                                            str(unmapped_reads) ]) + "\n" )
+                if not pars['no_unknown_estimation']:
+                    outf.write( "\t".join( [    "UNKNOWN",
+                                                "-1",
+                                                str(round((1-fraction_mapped_reads)*100,3)),
+                                                "-",
+                                                str(unmapped_reads) ]) + "\n" )
                                                 
                 for taxstr, taxid, relab in sorted(  outpred, reverse=True,
                                     key=lambda x:x[2 if not pars['legacy_output'] else 1]+(100.0*(8-(x[0].count("|"))))):
                     outf.write( "\t".join( [    taxstr,
                                                 taxid,
-                                                str(relab*fraction_mapped_reads),
-                                                str(rr[(taxstr, taxid)][0]) if (taxstr, taxid) in rr else "-",          #coverage
-                                                str(rr[(taxstr, taxid)][1]) if (taxstr, taxid) in rr else "-",          #avg genome length in clade
-                                                str(int(round(rr[(taxstr, taxid)][2],0)) if (taxstr, taxid) in rr else "-")      #estimated_number_of_reads_from_the_clade
+                                                str(relab),
+                                                str(round(rr[(taxstr, taxid)][0],3)) if (taxstr, taxid) in rr else '-',          #coverage
+                                                str( int( round( rr[(taxstr, taxid)][1], 0) )  if (taxstr, taxid) in rr else '-')       #estimated_number_of_reads_from_the_clade
                                                 ] ) + "\n" )
             else:
                 if not pars['legacy_output']:
