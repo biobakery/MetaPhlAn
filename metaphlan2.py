@@ -720,12 +720,14 @@ class TaxClade:
         return terms
 
     def get_full_taxids( self ):
-        fullname = [self.tax_id]
-        cl = self.father
-        while cl:
-            fullname = [cl.tax_id] + fullname
-            cl = cl.father
-        return "|".join(fullname[1:])
+        if self.tax_id:
+            fullname = [self.tax_id]
+            cl = self.father
+            while cl:
+                fullname = [cl.tax_id] + fullname
+                cl = cl.father
+            return "|".join(fullname[1:])
+        return ""
 
     def get_full_name( self ):
         fullname = [self.name]
@@ -866,16 +868,21 @@ class TaxTree:
         TaxClade.markers2exts = self.markers2exts
         TaxClade.taxa2clades = self.taxa2clades
 
-        # clades_txt = ((l.strip().split("|"),n) for l,n in mpa_pkl['taxonomy'].items())
-        clades_txt = ((l.strip().split("|"), t.strip().split("|"), n) for l, (t, n) in mpa['taxonomy'].items())
+        for clade, value in mpa['taxonomy'].items():
+            clade = clade.strip().split("|")
+            if isinstance(value,tuple):
+                taxids, lenc = value
+                taxids = taxids.strip().split("|")
+            if isinstance(value,int):
+                lenc = value
+                taxids = None
 
-        for clade, taxids, lenc in clades_txt:
             father = self.root
             for i in range(len(clade)):
                 clade_lev = clade[i]
-                clade_taxid = taxids[i] if i < 7 else clade_lev[3:]
+                clade_taxid = taxids[i] if i < 7 and taxids is not None else None
                 if not clade_lev in father.children:
-                    father.add_child(clade_lev, tax_id=clade_taxid)              
+                    father.add_child(clade_lev, tax_id=clade_taxid)
                     self.all_clades[clade_lev] = father.children[clade_lev]
                 if clade_lev[0] == "t":
                     self.taxa2clades[clade_lev[3:]] = father
@@ -889,15 +896,15 @@ class TaxTree:
             lens = []
             for c in node.children.values():
                 lens.append( add_lens( c ) )
-            node.glen = sum(lens) / len(lens)
+            node.glen = np.median(lens)
             return node.glen
+        
         add_lens(self.root)
 
         # for k,p in mpa_pkl['markers'].items():
         for k, p in mpa['markers'].items():
             if k in markers_to_ignore:
                 continue
-
             self.markers2lens[k] = p['len']
             self.markers2clades[k] = p['clade']
             self.add_reads(k, 0)
@@ -975,7 +982,6 @@ class TaxTree:
                         else:
                             glen = self.all_clades[clade_label].glen
                             tax_id = self.all_clades[clade_label].get_full_taxids()
-                            
                             if 's__' in clade_label and abundance > 0:
                                 self.all_clades[clade_label].nreads = int(round(abundance*glen,0))
 
@@ -1000,10 +1006,10 @@ class TaxTree:
 
         ret_d = dict([( tax, float(abundance) / tot_ab if tot_ab else 0.0) for tax, abundance in clade2abundance.items()])
 
-        ret_r = dict([( tax, (abundance, clade2genomelen[tax], clade2est_nreads[tax] )) for tax, abundance in clade2abundance.items()])
+        ret_r = dict([( tax, (abundance, clade2genomelen[tax], clade2est_nreads[tax] )) for tax, abundance in clade2abundance.items() if tax in clade2est_nreads])
 
         if tax_lev:
-            ret_d[tax_lev+"unclassified"] = 1.0 - sum(ret_d.values())
+            ret_d[tax_lev+"unclassified"] = 1.0 - sum(ret_d.values())  
         return ret_d, ret_r, tot_reads
 
 
