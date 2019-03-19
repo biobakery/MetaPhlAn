@@ -1287,7 +1287,7 @@ def metaphlan2():
                 if not pars['no_unknown_estimation']:
                     outf.write( "\t".join( [    "UNKNOWN",
                                                 "-1",
-                                                str(round((1-fraction_mapped_reads)*100),3) + "\n" )
+                                                str(round((1-fraction_mapped_reads)*100,3))]) + "\n" )
                                                 
                 for clade, taxid, relab in sorted(  outpred, reverse=True,
                                     key=lambda x:x[2 if not pars['legacy_output'] else 1]+(100.0*(8-(x[0].count("|"))))):
