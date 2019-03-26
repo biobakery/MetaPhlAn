@@ -1385,4 +1385,6 @@ def metaphlan2():
 
 
 if __name__ == '__main__':
+    t0 = time.time()
     metaphlan2()
+    sys.stderr.write('Elapsed time to run MetaPhlAn2: {} s\n'.format( (time.time()-t0) ) )
