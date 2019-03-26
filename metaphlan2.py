@@ -242,7 +242,7 @@ def read_params(args):
         help=("The BowTie2 database file of the MetaPhlAn database. Used if "
               "--input_type is fastq, fasta, multifasta, or multifastq [default "+DEFAULT_DB_FOLDER+"]\n"))
 
-    INDEX = 'v25_CHOCOPhlAn_0.2'
+    INDEX = 'v25_CHOCOPhlAn_0.21'
     arg('-x', '--index', type=str, default='v25_CHOCOPhlAn_0.2',
         help=("Specify the id of the database version to use. If the database\n"
               "files are not found on the local MetaPhlAn2 installation they\n"
@@ -590,11 +590,11 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
     read_fastx = "read_fastx.py"
 
     try:
-        subp.check_call([read_fastx, "-h"], stdout=DEVNULL)
+        subp.check_call([read_fastx, "-h"], stdout=DEVNULL, stderr=DEVNULL)
     except Exception as e:
         try:
             read_fastx = os.path.join(os.path.join(os.path.dirname(__file__), "utils"), read_fastx)
-            subp.check_call([read_fastx, "-h"], stdout=DEVNULL)
+            subp.check_call([read_fastx, "-h"], stdout=DEVNULL, stderr=DEVNULL)
         except Exception as e:
             sys.stderr.write("OSError: fatal error running '{}'. Is it in the system path?\n".format(read_fastx))
             sys.exit(1)
