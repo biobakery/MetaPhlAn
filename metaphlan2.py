@@ -243,7 +243,7 @@ def read_params(args):
               "--input_type is fastq, fasta, multifasta, or multifastq [default "+DEFAULT_DB_FOLDER+"]\n"))
 
     INDEX = 'v25_CHOCOPhlAn_0.21'
-    arg('-x', '--index', type=str, default='v25_CHOCOPhlAn_0.21',
+    arg('-x', '--index', type=str, default=INDEX,
         help=("Specify the id of the database version to use. If the database\n"
               "files are not found on the local MetaPhlAn2 installation they\n"
               "will be automatically downloaded [default "+INDEX+"]\n"))
@@ -389,6 +389,8 @@ def read_params(args):
         help="The number of CPUs to use for parallelizing the mapping [default 4]")
     arg('--install', action='store_true',
         help="Only checks if the MetaPhlAn2 DB is installed and installs it if not. All other parameters are ignored.")
+    arg('--force_download', action='store_true',
+        help="Force the re-download of the latest MetaPhlAn2 database.")
     arg('--read_min_len', type=int, default=70,
         help="Specify the minimum length of the reads to be considered when parsing the input file with "
              "'read_fastx.py' script, default value is 70")
@@ -558,8 +560,25 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
     os.remove(fna_file)
 
 
-def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc):
+def resolve_latest_database(bowtie2_db, force=False):
+    if os.path.exists(os.path.join(bowtie2_db,'mpa_latest')):
+        ctime_latest_db = int(os.path.getctime(os.path.join(bowtie2_db,'mpa_latest')))
+        if int(time.time()) - ctime_latest_db > 2419200:         #1 month in epoch
+            download(DATABASE_DOWNLOAD+'mpa_latest', os.path.join(bowtie2_db,'mpa_latest'))
+
+    if not os.path.exists(os.path.join(bowtie2_db,'mpa_latest') or force):
+        download(DATABASE_DOWNLOAD+'mpa_latest', os.path.join(bowtie2_db,'mpa_latest'))
+
+    with open(os.path.join(bowtie2_db,'mpa_latest')) as mpa_latest:
+        latest_db_version = [line.strip()[4:] for line in mpa_latest if not line.startswith('#') and line.startswith('mpa_')]
+    
+    return ''.join(latest_db_version)
+
+
+def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_redownload_latest):
     """ Check if the database is installed, if not download and install """
+    if index == 'latest':
+        index = resolve_latest_database(bowtie2_db, force_redownload_latest)
 
     if len(glob(os.path.join(bowtie2_db, "mpa_{}*".format(index)))) >= 7:
         return
@@ -1139,9 +1158,8 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
 
 def metaphlan2():
     pars = read_params(sys.argv)
-    
     # check if the database is installed, if not then install
-    check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'])
+    check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'])
 
     if pars['install']:
         sys.stderr.write('The database is installed\n')
