@@ -307,6 +307,9 @@ def read_params(args):
     arg( '--stat_q', metavar="", type = float, default=0.1, help =
          "Quantile value for the robust average\n"
          "[default 0.1]"   )
+    arg( '--perc_nonzero', metavar="", type = float, default=0.33, help =
+         "Percentage of non zero relative abundance of marker to be exclude TODO\n"
+         "[default 0.33]"   )
     arg( '--ignore_markers', type=str, default = None, help =
          "File containing a list of markers to ignore. \n")
     arg( '--avoid_disqm', action="store_true", help =
@@ -581,7 +584,7 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
         index = resolve_latest_database(bowtie2_db, force_redownload_latest)
 
     if len(glob(os.path.join(bowtie2_db, "mpa_{}*".format(index)))) >= 7:
-        return
+        return index
 
     # download the tar archive and decompress
     sys.stderr.write("\nDownloading MetaPhlAn2 database\nPlease note due to "
@@ -673,7 +676,7 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
 
         p.communicate()
         
-        n_metagenome_reads = int(readin.stderr.readline())
+        n_metagenome_reads = ''.join(read_and_split_line(readin.stderr.readline()))
         outf.write(lmybytes('#nreads\t{}'.format(n_metagenome_reads)))
         outf.close()
 
@@ -714,6 +717,7 @@ class TaxClade:
     min_cu_len = -1
     markers2lens = None
     stat = None
+    perc_nonzero = None
     quantile = None
     avoid_disqm = False
 
@@ -794,7 +798,7 @@ class TaxClade:
 
                     nonzeros = sum([v>0 for v in m2nr.values()])
                     if len(m2nr):
-                        if float(nonzeros) / len(m2nr) > 0.33:
+                        if float(nonzeros) / len(m2nr) > self.perc_nonzero:
                             misidentified = True
                             removed.append( (self.markers2lens[marker],n_reads) )
                             break
@@ -934,8 +938,9 @@ class TaxTree:
     def set_min_cu_len( self, min_cu_len ):
         TaxClade.min_cu_len = min_cu_len
 
-    def set_stat( self, stat, quantile, avoid_disqm = False):
+    def set_stat( self, stat, quantile, perc_nonzero, avoid_disqm = False):
         TaxClade.stat = stat
+        TaxClade.perc_nonzero = perc_nonzero
         TaxClade.quantile = quantile
         TaxClade.avoid_disqm = avoid_disqm
 
@@ -1159,7 +1164,7 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
 def metaphlan2():
     pars = read_params(sys.argv)
     # check if the database is installed, if not then install
-    check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'])
+    pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'])
 
     if pars['install']:
         sys.stderr.write('The database is installed\n')
@@ -1241,13 +1246,12 @@ def metaphlan2():
                                 min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'])
             pars['input_type'] = 'bowtie2out'
         pars['inp'] = pars['bowtie2out'] # !!!
-
     with open( pars['mpa_pkl'], 'rb' ) as a:
         mpa_pkl = pickle.loads( bz2.decompress( a.read() ) )
 
     tree = TaxTree( mpa_pkl, ignore_markers )
     tree.set_min_cu_len( pars['min_cu_len'] )
-    tree.set_stat( pars['stat'], pars['stat_q'], pars['avoid_disqm'])
+    tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], pars['avoid_disqm'])
 
     markers2reads, n_metagenome_reads = map2bbh(pars['inp'], pars['input_type'],
                             pars['min_alignment_len'])
@@ -1256,9 +1260,9 @@ def metaphlan2():
 
     if not n_metagenome_reads and not pars['nreads']:
         sys.stderr.write(
-                "Please provide the size of the metagenome using the"
+                "Please provide the size of the metagenome using the "
                 "--nreads parameter when running MetaPhlAn2"
-                "Exiting...\n\n" )
+                "\nExiting...\n\n" )
         sys.exit(1)
 
 
@@ -1299,16 +1303,16 @@ def metaphlan2():
             fraction_mapped_reads = tot_nreads/n_metagenome_reads if not pars['no_unknown_estimation'] else 1
             unmapped_reads = n_metagenome_reads - tot_nreads
 
-            outpred = [(taxstr, taxid,round(relab*100.0,3)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
+            outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
 
             if outpred:
                 if not pars['no_unknown_estimation']:
                     outf.write( "\t".join( [    "UNKNOWN",
                                                 "-1",
-                                                str(round((1-fraction_mapped_reads)*100,3))]) + "\n" )
+                                                str(round((1-fraction_mapped_reads)*100,5))]) + "\n" )
                                                 
                 for clade, taxid, relab in sorted(  outpred, reverse=True,
-                                    key=lambda x:x[2 if not pars['legacy_output'] else 1]+(100.0*(8-(x[0].count("|"))))):
+                                    key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
                     if not pars['legacy_output']:
                         outf.write( "\t".join( [clade, 
                                                 taxid, 
@@ -1330,7 +1334,7 @@ def metaphlan2():
             fraction_mapped_reads = tot_nreads/n_metagenome_reads if not pars['no_unknown_estimation'] else 1
             unmapped_reads = n_metagenome_reads - tot_nreads
 
-            outpred = [(taxstr, taxid,round(relab*100.0*fraction_mapped_reads,3)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
+            outpred = [(taxstr, taxid,round(relab*100.0*fraction_mapped_reads,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
 
             if outpred:
                 outf.write( "#estimated_reads_mapped_to_known_clades:{}\n".format(tot_nreads) )
@@ -1342,16 +1346,16 @@ def metaphlan2():
                 if not pars['no_unknown_estimation']:
                     outf.write( "\t".join( [    "UNKNOWN",
                                                 "-1",
-                                                str(round((1-fraction_mapped_reads)*100,3)),
+                                                str(round((1-fraction_mapped_reads)*100,5)),
                                                 "-",
                                                 str(unmapped_reads) ]) + "\n" )
                                                 
                 for taxstr, taxid, relab in sorted(  outpred, reverse=True,
-                                    key=lambda x:x[2 if not pars['legacy_output'] else 1]+(100.0*(8-(x[0].count("|"))))):
+                                    key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
                     outf.write( "\t".join( [    taxstr,
                                                 taxid,
                                                 str(relab),
-                                                str(round(rr[(taxstr, taxid)][0],3)) if (taxstr, taxid) in rr else '-',          #coverage
+                                                str(round(rr[(taxstr, taxid)][0],5)) if (taxstr, taxid) in rr else '-',          #coverage
                                                 str( int( round( rr[(taxstr, taxid)][1], 0) )  if (taxstr, taxid) in rr else '-')       #estimated_number_of_reads_from_the_clade
                                                 ] ) + "\n" )
             else:

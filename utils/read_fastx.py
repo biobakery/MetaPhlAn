@@ -117,7 +117,7 @@ def read_and_write_raw(fd, opened=False, min_len=None):
 if __name__ == '__main__':
     min_len = None
     args = []
-    nreads = 0
+    nreads = None
 
     if len(sys.argv) > 1:
         for l in sys.argv[1:]:
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         nreads = read_and_write_raw(sys.stdin, opened=True, min_len=min_len)
     else:
         files = []
-
+        nreads = 0
         for a in args:
             for f in a.split(','):
                 if os.path.isdir(f):
@@ -148,4 +148,7 @@ if __name__ == '__main__':
         for f in files:
             nreads += read_and_write_raw(f, opened=False, min_len=min_len)
 
-    sys.stderr.write(str(nreads))
+    if nreads:
+        sys.stderr.write(str(nreads))
+    else:
+        exit(1)
