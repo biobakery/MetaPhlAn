@@ -4,7 +4,7 @@
 
 ## Installation
 
-MetaPhlAn 2.0 can be obtained
+MetaPhlAn 2.9 can be obtained
 
 Through **Bioconda**
 
@@ -23,9 +23,9 @@ or **cloning the repository** using the following command
 ----------------------
 
 ## Description
-MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.
+MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea and Eukaryotes) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.
 
-MetaPhlAn 2 relies on ~1M unique clade-specific marker genes ([the marker information file `mpa_v20_m200_marker_info.txt.bz2` can be found in the Download page here](https://bitbucket.org/biobakery/metaphlan2/downloads/mpa_v20_m200_marker_info.txt.bz2)) identified from ~17,000 reference genomes (~13,500 bacterial and archaeal, ~3,500 viral, and ~110 eukaryotic), allowing:
+MetaPhlAn 2 relies on ~1M unique clade-specific marker genes ([the latest marker information file `mpa_v25_CHOCOPhlAn_201901_marker_info.txt.bz2` can be found in the Download page here](https://bitbucket.org/biobakery/metaphlan2/downloads/mpa_v25_CHOCOPhlAn_201901_marker_info.txt.bz2)) identified from ~100,000 reference genomes (~99,500 bacterial and archaeal and ~500 eukaryotic), allowing:
 
 * unambiguous taxonomic assignments;
 * accurate estimation of organismal relative abundance;
@@ -66,9 +66,8 @@ In addition to the information on this page, you can refer to the following addi
 
 ## Pre-requisites
 
-MetaPhlAn requires *python 2.7* or higher with argparse, tempfile, [numpy](http://www.numpy.org/), and [Biopython](https://biopython.org/) libraries installed 
+MetaPhlAn requires *python 3* with argparse, tempfile, [numpy](http://www.numpy.org/), and [Biopython](https://biopython.org/) libraries installed 
 (apart for numpy and Biopython, the others are usually installed together with the python distribution). 
-Python3 is also now supported.
 
 MetaPhlAn requires the `read_fastx.py` script to be present in the system path, if not found MetaPhlAn will try to locate it in the folder containing the `metaphlan2.py` 
 script under `utils/read_fastx.py`.
