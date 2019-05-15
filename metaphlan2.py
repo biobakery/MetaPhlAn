@@ -1,25 +1,11 @@
 #!/usr/bin/env python3
-from __future__ import with_statement
-
-# ==============================================================================
-# MetaPhlAn v2.x: METAgenomic PHyLogenetic ANalysis for taxonomic classification
-#                 of metagenomic data
-#
-# Authors: Nicola Segata (nicola.segata@unitn.it),
-#          Duy Tin Truong,
-#          Francesco Asnicar (f.asnicar@unitn.it)
-#
-# Please type "./metaphlan2.py -h" for usage help
-#
-# ==============================================================================
 
 __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
-              'Francesco Asnicar (f.asnicar@unitn.it)'
+              'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.8'
-__date__ = '20 Feb 2019'
-
+__version__ = '2.9'
+__date__ = '15 May 2019'
 
 import sys
 import os
@@ -27,7 +13,7 @@ import stat
 import re
 import time
 import tarfile
-# from binascii import b2a_uu
+
 try:
     import numpy as np
 except ImportError:
@@ -36,24 +22,13 @@ except ImportError:
 import tempfile as tf
 import argparse as ap
 import subprocess as subp
-try:
-    from subprocess import DEVNULL  # py3k
-except ImportError:
-    DEVNULL = open(os.devnull, 'wb')
-# import multiprocessing as mp
+from subprocess import DEVNULL  # py3k
 from collections import defaultdict as defdict
 import bz2
 import itertools
 from distutils.version import LooseVersion
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
-# try to import urllib.request.urlretrieve for python3
-try:
-    from urllib.request import urlretrieve
-except ImportError:
-    from urllib import urlretrieve
+import pickle
+from urllib.request import urlretrieve
 from glob import glob
 import hashlib
 
@@ -76,14 +51,12 @@ DEFAULT_DB_FOLDER = os.path.join(metaphlan2_script_install_folder, "metaphlan_da
 #**********************************************************************************************
 
 
-
 #*************************************************************
 #*  Imports related to biom file generation                  *
 #*************************************************************
 try:
     import biom
     import biom.table
-    # import numpy as np  # numpy already imported above
 except ImportError:
     sys.stderr.write("Warning! Biom python library not detected!"
                      "\n Exporting to biom format will not work!\n")
@@ -96,35 +69,20 @@ except ImportError:
 
 tax_units = "kpcofgst"
 
-if float(sys.version_info[0]) < 3.0:
-    def read_and_split(ofn):
-        return (l.strip().split('\t') for l in ofn)
+def read_and_split(ofn):
+    return (l.decode('utf-8').strip().split('\t') for l in ofn)
 
-    def read_and_split_line(line):
-        return line.strip().split('\t')
-else:
-    def read_and_split(ofn):
-        return (l.decode('utf-8').strip().split('\t') for l in ofn)
-
-    def read_and_split_line(line):
-        return line.decode('utf-8').strip().split('\t')
-
+def read_and_split_line(line):
+    return line.decode('utf-8').strip().split('\t')
 
 def plain_read_and_split(ofn):
     return (l.strip().split('\t') for l in ofn)
 
-
 def plain_read_and_split_line(l):
     return l.strip().split('\t')
 
-
-if float(sys.version_info[0]) < 3.0:
-    def mybytes(val):
-        return val
-else:
-    def mybytes(val):
-        return bytes(val, encoding='utf-8')
-
+def mybytes(val):
+    return bytes(val, encoding='utf-8')
 
 def read_params(args):
     p = ap.ArgumentParser( description=
@@ -140,68 +98,65 @@ def read_params(args):
             "\n========== MetaPhlAn 2 clade-abundance estimation ================= \n\n"
             "The basic usage of MetaPhlAn 2 consists in the identification of the clades (from phyla to species and \n"
             "strains in particular cases) present in the metagenome obtained from a microbiome sample and their \n"
-            "relative abundance. This correspond to the default analysis type (--analysis_type rel_ab).\n\n"
+            "relative abundance. This correspond to the default analysis type (-t rel_ab).\n\n"
 
             "*  Profiling a metagenome from raw reads:\n"
-            "$ metaphlan2.py metagenome.fastq --input_type fastq\n\n"
+            "$ metaphlan2.py metagenome.fastq --input_type fastq -o profiled_metagenome.txt\n\n"
 
             "*  You can take advantage of multiple CPUs and save the intermediate BowTie2 output for re-running\n"
             "   MetaPhlAn extremely quickly:\n"
-            "$ metaphlan2.py metagenome.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
+            "$ metaphlan2.py metagenome.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq -o profiled_metagenome.txt\n\n"
 
             "*  If you already mapped your metagenome against the marker DB (using a previous MetaPhlAn run), you\n"
             "   can obtain the results in few seconds by using the previously saved --bowtie2out file and \n"
             "   specifying the input (--input_type bowtie2out):\n"
-            "$ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out\n\n"
+            "$ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out -o profiled_metagenome.txt\n\n"
+            
+            "*  bowtie2out files generated with MetaPhlAn2 versions below 2.9 are not compatibile.\n"
+            "   Starting from MetaPhlAn2 2.9, the BowTie2 ouput now includes the size of the profiled metagenome.\n"
+            "   If you want to re-run MetaPhlAn2 using these file you should provide the metagenome size via --nreads:\n"
+            "$ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out --nreads 520000 -o profiled_metagenome.txt\n\n"
 
             "*  You can also provide an externally BowTie2-mapped SAM if you specify this format with \n"
             "   --input_type. Two steps: first apply BowTie2 and then feed MetaPhlAn2 with the obtained sam:\n"
-            "$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/db_v20/mpa_v20_m200 -U metagenome.fastq\n"
-            "$ metaphlan2.py metagenome.sam --input_type sam > profiled_metagenome.txt\n\n"
-
-            # "*  Multiple alternative ways to pass the input are also available:\n"
-            # "$ cat metagenome.fastq | metaphlan2.py --input_type fastq \n"
-            # "$ tar xjf metagenome.tar.bz2 --to-stdout | metaphlan2.py --input_type fastq \n"
-            # "$ metaphlan2.py --input_type fastq < metagenome.fastq\n"
-            # "$ metaphlan2.py --input_type fastq <(bzcat metagenome.fastq.bz2)\n"
-            # "$ metaphlan2.py --input_type fastq <(zcat metagenome_1.fastq.gz metagenome_2.fastq.gz)\n\n"
+            "$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/metaphlan_databases/mpa_v25_CHOCOPhlAn_201901 -U metagenome.fastq\n"
+            "$ metaphlan2.py metagenome.sam --input_type sam -o profiled_metagenome.txt\n\n"
 
             "*  We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in \n"
             "  multiple files (but you need to specify the --bowtie2out parameter):\n"
             "$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
             "\n------------------------------------------------------------------- \n \n\n"
 
-
             "\n========== Marker level analysis ============================ \n\n"
             "MetaPhlAn 2 introduces the capability of charachterizing organisms at the strain level using non\n"
             "aggregated marker information. Such capability comes with several slightly different flavours and \n"
             "are a way to perform strain tracking and comparison across multiple samples.\n"
-            "Usually, MetaPhlAn 2 is first ran with the default --analysis_type to profile the species present in\n"
+            "Usually, MetaPhlAn 2 is first ran with the default -t to profile the species present in\n"
             "the community, and then a strain-level profiling can be performed to zoom-in into specific species\n"
             "of interest. This operation can be performed quickly as it exploits the --bowtie2out intermediate \n"
             "file saved during the execution of the default analysis type.\n\n"
 
-            "*  The following command will output the abundance of each marker with a RPK (reads per kil-base) \n"
+            "*  The following command will output the abundance of each marker with a RPK (reads per kilo-base) \n"
             "   higher 0.0. (we are assuming that metagenome_outfmt.bz2 has been generated before as \n"
             "   shown above).\n"
-            "$ metaphlan2.py -t marker_ab_table metagenome_outfmt.bz2 --input_type bowtie2out > marker_abundance_table.txt\n"
+            "$ metaphlan2.py -t marker_ab_table metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
             "   The obtained RPK can be optionally normalized by the total number of reads in the metagenome \n"
             "   to guarantee fair comparisons of abundances across samples. The number of reads in the metagenome\n"
             "   needs to be passed with the '--nreads' argument\n\n"
 
             "*  The list of markers present in the sample can be obtained with '-t marker_pres_table'\n"
-            "$ metaphlan2.py -t marker_pres_table metagenome_outfmt.bz2 --input_type bowtie2out > marker_abundance_table.txt\n"
+            "$ metaphlan2.py -t marker_pres_table metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
             "   The --pres_th argument (default 1.0) set the minimum RPK value to consider a marker present\n\n"
 
             "*  The list '-t clade_profiles' analysis type reports the same information of '-t marker_ab_table'\n"
             "   but the markers are reported on a clade-by-clade basis.\n"
-            "$ metaphlan2.py -t clade_profiles metagenome_outfmt.bz2 --input_type bowtie2out > marker_abundance_table.txt\n\n"
+            "$ metaphlan2.py -t clade_profiles metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n\n"
 
             "*  Finally, to obtain all markers present for a specific clade and all its subclades, the \n"
             "   '-t clade_specific_strain_tracker' should be used. For example, the following command\n"
             "   is reporting the presence/absence of the markers for the B. fragulis species and its strains\n"
             "   the optional argument --min_ab specifies the minimum clade abundance for reporting the markers\n\n"
-            "$ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --input_type bowtie2out > marker_abundance_table.txt\n"
+            "$ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
 
             "\n------------------------------------------------------------------- \n\n"
             "",
@@ -242,7 +197,7 @@ def read_params(args):
         help=("The BowTie2 database file of the MetaPhlAn database. Used if "
               "--input_type is fastq, fasta, multifasta, or multifastq [default "+DEFAULT_DB_FOLDER+"]\n"))
 
-    INDEX = 'v25_CHOCOPhlAn_0.21'
+    INDEX = 'latest'
     arg('-x', '--index', type=str, default=INDEX,
         help=("Specify the id of the database version to use. If the database\n"
               "files are not found on the local MetaPhlAn2 installation they\n"
@@ -296,8 +251,6 @@ def read_params(args):
          "The sam records for aligned reads with the longest subalignment\n"
          "length smaller than this threshold will be discarded.\n"
          "[default None]\n"   )
-    arg( '--ignore_viruses', action='store_true', help=
-         "Do not profile viral organisms" )
     arg( '--ignore_eukaryotes', action='store_true', help=
          "Do not profile eukaryotic organisms" )
     arg( '--ignore_bacteria', action='store_true', help=
@@ -308,7 +261,7 @@ def read_params(args):
          "Quantile value for the robust average\n"
          "[default 0.1]"   )
     arg( '--perc_nonzero', metavar="", type = float, default=0.33, help =
-         "Percentage of non zero relative abundance of marker to be exclude TODO\n"
+         "Percentage of markers with a non zero relative abundance for misidentify a species\n"
          "[default 0.33]"   )
     arg( '--ignore_markers', type=str, default = None, help =
          "File containing a list of markers to ignore. \n")
@@ -328,8 +281,6 @@ def read_params(args):
          "[default tavg_g]"   )
 
     arg = p.add_argument
-
-
 
     g = p.add_argument_group('Additional analysis types and arguments')
     arg = g.add_argument
@@ -697,21 +648,6 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
     elif p.returncode != 0:
         sys.stderr.write("Error while running bowtie2.\n")
         sys.exit(1)
-#def guess_input_format( inp_file ):
-#    if "," in inp_file:
-#        sys.stderr.write( "Sorry, I cannot guess the format of the input, when "
-#                          "more than one file is specified. Please set the --input_type parameter \n" )
-#        sys.exit(1)
-#
-#    with open( inp_file ) as inpf:
-#        for i,l in enumerate(inpf):
-#            line = l.strip()
-#            if line[0] == '#': continue
-#            if line[0] == '>': return 'multifasta'
-#            if line[0] == '@': return 'multifastq'
-#            if len(l.split('\t')) == 2: return 'bowtie2out'
-#            if i > 20: break
-#    return None
 
 class TaxClade:
     min_cu_len = -1
@@ -945,14 +881,12 @@ class TaxTree:
         TaxClade.avoid_disqm = avoid_disqm
 
     def add_reads(  self, marker, n,
-                    ignore_viruses = False, ignore_eukaryotes = False,
+                    ignore_eukaryotes = False,
                     ignore_bacteria = False, ignore_archaea = False  ):
         clade = self.markers2clades[marker]
         cl = self.all_clades[clade]
-        if ignore_viruses or ignore_eukaryotes or ignore_bacteria or ignore_archaea:
+        if ignore_eukaryotes or ignore_bacteria or ignore_archaea:
             cn = cl.get_full_name()
-            if ignore_viruses and cn.startswith("k__Viruses"):
-                return ""
             if ignore_eukaryotes and cn.startswith("k__Eukaryota"):
                 return ""
             if ignore_archaea and cn.startswith("k__Archaea"):
@@ -1271,7 +1205,6 @@ def metaphlan2():
         if marker not in tree.markers2lens:
             continue
         tax_seq, ids_seq = tree.add_reads( marker, len(reads),
-                                  ignore_viruses = pars['ignore_viruses'],
                                   ignore_eukaryotes = pars['ignore_eukaryotes'],
                                   ignore_bacteria = pars['ignore_bacteria'],
                                   ignore_archaea = pars['ignore_archaea'],
