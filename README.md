@@ -70,11 +70,27 @@ In case you moved the `metaphlan2.py` script, please export the `read_fastx.py` 
 * MetaPhlAn2 is integrated with advanced heatmap plotting with [hclust2](https://bitbucket.org/nsegata/hclust2) and cladogram visualization with [GraPhlAn](https://bitbucket.org/nsegata/graphlan/wiki/Home). If you use such visualization tool please refer to their prerequisites. 
 
 ## Installation
-You can install MetaPhlAn2 2.9 and all its dependencies with conda:
+The best way to install MetaPhlAn2 2.9 is through conda:
 
 ```
 #!bash
 $ conda install -c bioconda metaphlan2
+```
+
+It is recommended to create an isolated conda environment and install MetaPhlAn2 into it. 
+
+```
+#!bash
+$ conda create --name mpa2 -c bioconda metaphlan2
+```
+
+This allow to have the correct version of all the dependencies isolated from the system's python installation.
+
+Before using MetaPhlAn2, you should activate the `mpa` environment:
+
+```
+#!bash
+$ conda activate mpa2
 ```
 
 Alternatively, you can **manually download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/default.zip) or **clone the repository** using the following command ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``.
@@ -546,7 +562,9 @@ StrainPhlAn requires *python 2.7* and the libraries [pysam](http://pysam.readthe
 * [blast+](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) for adding reference genomes to the phylogenetic tree (blastn and makeblastdb commands)
 * [raxmlHPC and raxmlHPC-PTHREADS-SSE3](http://sco.h-its.org/exelixis/web/software/raxml/index.html) for building the phylogenetic trees.
 
-All dependence binaries on Linux 64 bit can be downloaded in the folder "bin" from [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
+If MetaPhlAn2 was installed through conda and you have the `mpa` activated, all the pre-requisites are satisfied.
+
+Otherwise, all dependence binaries on Linux 64 bit can be downloaded in the folder "bin" from [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
 
 The script files in folder "strainphlan_src" should be changed to executable mode by:
 
@@ -564,7 +582,7 @@ export PATH=$PATH:$(pwd -P)/strainphlan_src
 
 ### Usage
 
-Let's reproduce the toy example result in the introduction section. Note that all the commands to run the below steps are in the "strainer_tutorial/step?*.sh" files (? corresponding to the step number). All the below steps are excuted under the "strainer_tutorial" folder.
+Let's reproduce the toy example result in the introduction section. Note that all the commands to run the below steps are in the "strainphlan_tutorial/step?*.sh" files (? corresponding to the step number). All the below steps are excuted under the "strainphlan_tutorial" folder.
 The steps are as follows:
 
 Step 1. Download 6 HMP gut metagenomic samples, the metadata.txt file and one reference genome from the folder "fastqs" and "reference_genomes" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0) and put these folders under the "strainer_tutorial" folder.
@@ -581,8 +599,8 @@ mkdir -p sams
 for f in $(ls fastqs/*.bz2)
 do
     echo "Running metaphlan2 on ${f}"
-    bn=$(basename ${f} | cut -d . -f 1)
-    tar xjfO ${f} | ../metaphlan2.py --bowtie2db ../databases/mpa_v20_m200 --mpa_pkl ../databases/mpa_v20_m200.pkl --input_type multifastq --nproc 10 -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o sams/${bn}.profile
+    bn=$(basename ${f} | cut -d '.' -f 1)
+     ../metaphlan2.py --index v25_CHOCOPhlAn_201901 --input_type multifastq --nproc 10s -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o ssams/${bn}.profile ${f}
 done
 ```
 
@@ -615,8 +633,8 @@ The commands to run are:
 ```
 #!python
 mkdir -p db_markers
-bowtie2-inspect ../databases/mpa_v20_m200 > db_markers/all_markers.fasta
-python ../strainphlan_src/extract_markers.py --mpa_pkl ../databases/mpa_v20_m200.pkl --ifn_markers db_markers/all_markers.fasta --clade s__Bacteroides_caccae --ofn_markers db_markers/s__Bacteroides_caccae.markers.fasta
+bowtie2-inspect ../metaphlan_databases/mpa_v25_CHOCOPhlAn_201901 > db_markers/all_markers.fasta
+python ../strainphlan_src/extract_markers.py --mpa_pkl ../metaphlan_databases/mpa_v25_CHOCOPhlAn_201901.pkl --ifn_markers db_markers/all_markers.fasta --clade s__Bacteroides_caccae --ofn_markers db_markers/s__Bacteroides_caccae.markers.fasta
 ```
 
 Note that the "all\_markers.fasta" file consists can be reused for extracting other reference genomes. 
@@ -627,7 +645,7 @@ Before building the trees, we should get the list of all clades detected from th
 
 ```
 #!python
-python ../strainphlan.py --mpa_pkl ../databases/mpa_v20_m200.pkl --ifn_samples consensus_markers/*.markers --output_dir output --nprocs_main 10 --print_clades_only > output/clades.txt
+python ../strainphlan.py --mpa_pkl ../metaphlan_databases/mpa_v25_CHOCOPhlAn_201901.pkl --ifn_samples consensus_markers/*.markers --output_dir output --nprocs_main 10 --print_clades_only > output/clades.txt
 ```
 
 The clade names in the output file "clades.txt" will be used for the next step.
@@ -642,7 +660,7 @@ The commands to run are:
 ```
 #!python
 mkdir -p output
-python ../strainphlan.py --mpa_pkl ../databases/mpa_v20_m200.pkl --ifn_samples consensus_markers/*.markers --ifn_markers db_markers/s__Bacteroides_caccae.markers.fasta --ifn_ref_genomes reference_genomes/G000273725.fna.bz2 --output_dir output --nprocs_main 10 --clades s__Bacteroides_caccae &> output/log_full.txt
+python ../strainphlan.py --mpa_pkl ../metaphlan_databases/mpa_v25_CHOCOPhlAn_201901.pkl --ifn_samples consensus_markers/*.markers --ifn_markers db_markers/s__Bacteroides_caccae.markers.fasta --ifn_ref_genomes reference_genomes/G000273725.fna.bz2 --output_dir output --nprocs_main 10 --clades s__Bacteroides_caccae | tee output/log_full.txt
 ```
 
 This step will take around 2 minutes. After this step, you will find the tree "output/RAxML\_bestTree.s\_\_Bacteroides\_caccae.tree". All the output files can be found in the folder "output" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
