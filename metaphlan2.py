@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-
+#!/usr/bin/env python
 __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
@@ -19,16 +18,26 @@ try:
 except ImportError:
     sys.stderr.write("Error! numpy python library not detected!!\n")
     sys.exit(1)
+p2 = float(sys.version_info[0]) < 3.0
+
+if p2:
+    from __future__ import with_statement
+    DEVNULL = open(os.devnull, 'wb')
+    import cPickle as pickle
+    from urllib import urlretrieve
+else:
+    from subprocess import DEVNULL
+    import pickle
+    from urllib.request import urlretrieve
+
 import tempfile as tf
 import argparse as ap
 import subprocess as subp
-from subprocess import DEVNULL  # py3k
 from collections import defaultdict as defdict
 import bz2
 import itertools
 from distutils.version import LooseVersion
 import pickle
-from urllib.request import urlretrieve
 from glob import glob
 import hashlib
 
@@ -69,11 +78,19 @@ except ImportError:
 
 tax_units = "kpcofgst"
 
-def read_and_split(ofn):
-    return (l.decode('utf-8').strip().split('\t') for l in ofn)
+if float(sys.version_info[0]) < 3.0:
+    def read_and_split(ofn):
+        return (l.strip().split('\t') for l in ofn)
 
-def read_and_split_line(line):
-    return line.decode('utf-8').strip().split('\t')
+    def read_and_split_line(line):
+        return line.strip().split('\t')
+else:
+    def read_and_split(ofn):
+        return (l.decode('utf-8').strip().split('\t') for l in ofn)
+
+    def read_and_split_line(line):
+        return line.decode('utf-8').strip().split('\t')
+
 
 def plain_read_and_split(ofn):
     return (l.strip().split('\t') for l in ofn)
@@ -81,8 +98,12 @@ def plain_read_and_split(ofn):
 def plain_read_and_split_line(l):
     return l.strip().split('\t')
 
-def mybytes(val):
-    return bytes(val, encoding='utf-8')
+if float(sys.version_info[0]) < 3.0:
+    def mybytes(val):
+        return val
+else:
+    def mybytes(val):
+        return bytes(val, encoding='utf-8')
 
 def read_params(args):
     p = ap.ArgumentParser( description=

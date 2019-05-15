@@ -55,7 +55,7 @@ In addition to the information on this page, you can refer to the following addi
 
 ## Pre-requisites
 
-MetaPhlAn2 requires *python 3* with argparse, tempfile, [numpy](http://www.numpy.org/), and [Biopython](https://biopython.org/) libraries installed 
+MetaPhlAn2 requires *python 2.7* or newer with argparse, tempfile, [numpy](http://www.numpy.org/), and [Biopython](https://biopython.org/) libraries installed 
 (apart for numpy and Biopython, the others are usually installed together with the python distribution). 
 
 MetaPhlAn2 requires the `read_fastx.py` script to be present in the system path, if not found MetaPhlAn2 will try to locate it in the folder containing the `metaphlan2.py` 
@@ -78,7 +78,8 @@ MetaPhlAn2 2.9 can be obtained by
 
 or **cloning the repository** using the following command ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``
 
-MetaPhlAn2 needs the clade markers and the database to be downloaded locally.  
+
+MetaPhlAn2 needs the clade markers and the database to be downloaded locally. To obtain them:
 
 ```
 #!bash
@@ -420,7 +421,7 @@ $ python utils/merge_metaphlan_tables.py metaphlan_output*.txt  output/merged_ab
 
 
 
-## Heatmap Visualization
+### Heatmap Visualization
 
 The hclust2 script generates a hierarchically-clustered heatmap from MetaPhlAn2 abundance profiles. To generate the heatmap for a merged MetaPhlAn2 output table (as described above), you need to run the script as below:
 
