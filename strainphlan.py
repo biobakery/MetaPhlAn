@@ -1160,16 +1160,17 @@ def load_sample(args):
             # remove redundant clades and markers
             nmarkers = 0
             for marker in marker2seq.keys():
-                clade = db['markers'][marker]['taxon'].split('|')[-1]
-                if kept_markers:
-                    if marker in kept_markers and clade == kept_clade:
+                if marker in db['markers']:
+                    clade = db['markers'][marker]['taxon'].split('|')[-1]
+                    if kept_markers:
+                        if marker in kept_markers and clade == kept_clade:
+                            nmarkers += 1
+                        else:
+                            del marker2seq[marker]
+                    elif clade == kept_clade:
                         nmarkers += 1
                     else:
                         del marker2seq[marker]
-                elif clade == kept_clade:
-                    nmarkers += 1
-                else:
-                    del marker2seq[marker]
         total_num_markers = clade2num_markers[kept_clade] if not kept_markers else len(kept_markers)
         if float(nmarkers) / total_num_markers < marker_in_clade:
             marker2seq = {}
@@ -1203,15 +1204,16 @@ def load_sample(args):
         clade2n_markers = defaultdict(int)
         remove_clade = []
         for marker in marker2seq:
-            clade = db['markers'][marker]['taxon'].split('|')[-1]
-            if 's__' in clade or clade in sing_clades:
-                clade2n_markers[clade] = clade2n_markers[clade] + 1
-            else:
-                remove_clade.append(clade)
+            if marker in db['markers']:
+                clade = db['markers'][marker]['taxon'].split('|')[-1]
+                if 's__' in clade or clade in sing_clades:
+                    clade2n_markers[clade] = clade2n_markers[clade] + 1
+                else:
+                    remove_clade.append(clade)
         remove_clade += [clade for clade in clade2n_markers if
                          float(clade2n_markers[clade]) \
                          / float(clade2num_markers[clade]) < marker_in_clade]
-        remove_marker = [marker for marker in marker2seq if
+        remove_marker = [marker for marker in marker2seq if marker in db['markers'] if
                          db['markers'][marker]['taxon'].split('|')[-1] in
                          remove_clade]
         for marker in remove_marker:
@@ -1219,8 +1221,9 @@ def load_sample(args):
 
         sample_clades = set([])
         for marker in marker2seq:
-            clade = db['markers'][marker]['taxon'].split('|')[-1]
-            sample_clades.add(clade)
+            if marker in db['markers']:
+                clade = db['markers'][marker]['taxon'].split('|')[-1]
+                sample_clades.add(clade)
         return sample_clades
 
 
@@ -1398,9 +1401,10 @@ def strainer(args):
             repr_marker2seq = msgpack.load(ifile, use_list=False)
         if args['clades'] != ['all'] and args['clades'] != ['singleton']:
             for marker in repr_marker2seq:
-                clade = db['markers'][marker]['taxon'].split('|')[-1]
-                if clade in args['clades']:
-                    kept_markers.add(marker)
+                if marker in db['markers']:
+                    clade = db['markers'][marker]['taxon'].split('|')[-1]
+                    if clade in args['clades']:
+                        kept_markers.add(marker)
         else:
             kept_markers = set(repr_marker2seq.keys())
         logger.debug('Number of markers in the representative '\
@@ -1494,7 +1498,8 @@ def strainer(args):
                     c = 'singleton'
                 else:
                     marker = sample2marker[sample].keys()[0]
-                    c = db['markers'][marker]['taxon'].split('|')[-1]
+                    if marker in db['markers']:
+                        c = db['markers'][marker]['taxon'].split('|')[-1]
                 if len(sample2marker[sample]) / \
                     float(clade2num_markers[c]) < args['marker_in_clade']:
                         del sample2marker[sample]
