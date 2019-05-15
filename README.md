@@ -9,6 +9,7 @@
 * Calculation of metagenome size for improved estimation of reads mapped to a given clade
 * Inclusion of NCBI taxonomy ID in the ouput file
 
+-------------
 
 ## Description
 MetaPhlAn2 is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea and Eukaryotes) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.
