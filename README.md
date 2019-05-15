@@ -77,7 +77,7 @@ MetaPhlAn2 2.9 can be obtained by
 
 
 or **cloning the repository** using the following command ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``
-
+{HTMLcomment:hidden}
 <!-- Through **Bioconda**
 
 ``$ conda install metaphlan2``
@@ -85,7 +85,7 @@ or **cloning the repository** using the following command ``$ hg clone https://b
 Through **Docker**
 
 ``$ docker pull segatalab/metaphlan2``  -->
-
+{HTMLcomment}
 MetaPhlAn2 needs the clade markers and the database to be downloaded locally.  
 
 ```
@@ -168,7 +168,7 @@ For advanced options and other analysis types (such as strain tracking) please r
   INCLUDE COMMAND LINE
 
 
-<!-- ## Docker image
+{HTMLcomment:hidden} ## Docker image
 
 MetaPhlAn2 Docker image is based on [Biobox](http://bioboxes.org/about/). For the execution, MetaPhlAn2 Docker image requires a YAML file with the inputs defined as follows:
 
@@ -201,8 +201,8 @@ where:
 
 - ```output``` is the output folder in which MetaPhlAn2 output is saved. Like ```input```, ```output``` **MUST** be mounted to ```/bbx/mnt/output```
 
-More folders can be mounted by specifing the mount point via the ```--volume``` parameter. Sym-linking the input files in the input folder will result in a error since Docker will not be able to reach the link source. -->
-
+More folders can be mounted by specifing the mount point via the ```--volume``` parameter. Sym-linking the input files in the input folder will result in a error since Docker will not be able to reach the link source.
+{HTMLcomment}
 
 ## Utility Scripts
 
@@ -299,7 +299,8 @@ ofile.close()
 
 * To use the new database, switch to metaphlan2/db_v21 instead of metaphlan2/db\_v20 when running metaphlan2.py with option "--mpa\_pkl".
 
-<!-- ## Metagenomic strain-level population genomics
+{HTMLcomment:hidden}
+## Metagenomic strain-level population genomics
 
 StrainPhlAn is a computational tool for tracking individual strains across large set of samples. **The input** of StrainPhlAn is a set of metagenomic samples and for each species, **the output** is a multiple sequence alignment (MSA) file of all species strains reconstructed directly from the samples. From this MSA, StrainPhlAn calls RAxML (or other phylogenetic tree builders) to build the phylogenetic tree showing the strain evolution of the sample strains. 
 For each sample, StrainPhlAn extracts the strain of a specific species by merging and concatenating all reads mapped against that species markers in the MetaPhlAn2 database.
@@ -506,4 +507,7 @@ In the output folder, you can find the following files:
 1. clade_name.fasta: the alignment file of all metagenomic strains.
 3. *.marker_pos: this file shows the starting position of each marker in the strains.
 3. *.info: this file shows the general information like the total length of the concatenated markers (full sequence length), number of used markers, etc.
-4. *.polymorphic: this file shows the statistics on the polymorphic site, where "sample" is the sample name, "percentage\_of\_polymorphic_sites" is the percentage of sites that are suspected to be polymorphic, "avg\_freq" is the average frequency of the dominant alleles on all polymorphic sites, "avg\_coverage" is the average coverage at all polymorphic sites. -->
+4. *.polymorphic: this file shows the statistics on the polymorphic site, where "sample" is the sample name, "percentage\_of\_polymorphic_sites" is the percentage of sites that are suspected to be polymorphic, "avg\_freq" is the average frequency of the dominant alleles on all polymorphic sites, "avg\_coverage" is the average coverage at all polymorphic sites.
+{HTMLcomment}
+
+
