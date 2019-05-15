@@ -299,8 +299,7 @@ ofile.close()
 
 * To use the new database, switch to metaphlan2/db_v21 instead of metaphlan2/db\_v20 when running metaphlan2.py with option "--mpa\_pkl".
 
-<!---
-## Metagenomic strain-level population genomics
+<!-- ## Metagenomic strain-level population genomics
 
 StrainPhlAn is a computational tool for tracking individual strains across large set of samples. **The input** of StrainPhlAn is a set of metagenomic samples and for each species, **the output** is a multiple sequence alignment (MSA) file of all species strains reconstructed directly from the samples. From this MSA, StrainPhlAn calls RAxML (or other phylogenetic tree builders) to build the phylogenetic tree showing the strain evolution of the sample strains. 
 For each sample, StrainPhlAn extracts the strain of a specific species by merging and concatenating all reads mapped against that species markers in the MetaPhlAn2 database.
@@ -507,5 +506,4 @@ In the output folder, you can find the following files:
 1. clade_name.fasta: the alignment file of all metagenomic strains.
 3. *.marker_pos: this file shows the starting position of each marker in the strains.
 3. *.info: this file shows the general information like the total length of the concatenated markers (full sequence length), number of used markers, etc.
-4. *.polymorphic: this file shows the statistics on the polymorphic site, where "sample" is the sample name, "percentage\_of\_polymorphic_sites" is the percentage of sites that are suspected to be polymorphic, "avg\_freq" is the average frequency of the dominant alleles on all polymorphic sites, "avg\_coverage" is the average coverage at all polymorphic sites.
--->
+4. *.polymorphic: this file shows the statistics on the polymorphic site, where "sample" is the sample name, "percentage\_of\_polymorphic_sites" is the percentage of sites that are suspected to be polymorphic, "avg\_freq" is the average frequency of the dominant alleles on all polymorphic sites, "avg\_coverage" is the average coverage at all polymorphic sites. -->
