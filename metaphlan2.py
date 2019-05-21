@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import with_statement
 __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
@@ -21,7 +22,6 @@ except ImportError:
 p2 = float(sys.version_info[0]) < 3.0
 
 if p2:
-    from __future__ import with_statement
     DEVNULL = open(os.devnull, 'wb')
     import cPickle as pickle
     from urllib import urlretrieve
@@ -213,7 +213,7 @@ def read_params(args):
     arg = g.add_argument
     arg('--mpa_pkl', type=str, default=None,
         help="The metadata pickled MetaPhlAn file [deprecated]")
-
+    arg('--force', action='store_true')
     arg('--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default=DEFAULT_DB_FOLDER,
         help=("The BowTie2 database file of the MetaPhlAn database. Used if "
               "--input_type is fastq, fasta, multifasta, or multifastq [default "+DEFAULT_DB_FOLDER+"]\n"))
@@ -1179,13 +1179,15 @@ def metaphlan2():
                     fname = "fifo_map"
                 pars['bowtie2out'] = fname + ".bowtie2out.txt"
 
-            if os.path.exists( pars['bowtie2out'] ):
+            if os.path.exists( pars['bowtie2out'] ) and not pars['force']:
                 sys.stderr.write(
                     "BowTie2 output file detected: " + pars['bowtie2out'] + "\n"
                     "Please use it as input or remove it if you want to "
                     "re-perform the BowTie2 run.\n"
                     "Exiting...\n\n" )
                 sys.exit(1)
+            if pars['force']:
+                os.remove( pars['bowtie2out'] )
 
         if bow and not all([os.path.exists(".".join([str(pars['bowtie2db']), p]))
                             for p in ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]]):
