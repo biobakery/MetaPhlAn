@@ -6,3 +6,4 @@ tests/
 build/
 dist/
 *.egg-info/
+test/
