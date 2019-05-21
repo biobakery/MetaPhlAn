@@ -6,7 +6,8 @@ import os
 import bz2
 import gzip
 import glob
-from Bio import SeqIO
+from Bio.SeqIO.QualityIO import FastqGeneralIterator
+from Bio.SeqIO.FastaIO import SimpleFastaParser
 try:
     import StringIO as uio
 except ImportError:
@@ -34,6 +35,12 @@ def fastx(l):
     sys.stderr.write("\nError, input data has to be in fastq or fasta format\n\n")
     sys.exit(-1)
 
+def print_record(description, sequence, qual, fmt):
+    if fmt == 'fastq':
+        return '@{}\n{}\n+\n{}\n'.format(description, sequence, qual)
+
+    if fmt == 'fasta':
+        return '>{}\n{}\n'.format(description, sequence)
 
 def fopen(fn):
     fileName, fileExtension = os.path.splitext(fn)
@@ -49,7 +56,8 @@ def fopen(fn):
 
 def read_and_write_raw_int(fd, min_len=None):
     fmt = None
-
+    nreads = 0
+    discarded = 0
     if min_len:
         r = []
 
@@ -58,6 +66,7 @@ def read_and_write_raw_int(fd, min_len=None):
 
             if not fmt:
                 fmt = fastx(l)
+                parser = FastqGeneralIterator if fmt == 'fastq' else SimpleFastaParser
                 readn = 4 if fmt == 'fastq' else 2
 
             r.append(l)
@@ -65,33 +74,50 @@ def read_and_write_raw_int(fd, min_len=None):
             if len(r) == readn:
                 break
 
-        for record in SeqIO.parse(uio.StringIO("".join(r)), fmt):
-            if len(record) >= min_len:
-                record.id = ignore_spaces(record.description, forced=True)
-                record.description = ""
-                SeqIO.write(record, sys.stdout, fmt)
+        for record in parser(uio.StringIO("".join(r))):
+            if readn == 4:
+                description, sequence, qual = record
+            else:
+                qual = None
+                description, sequence = record
 
-        for record in SeqIO.parse(fd, fmt):
-            if len(record) >= min_len:
-                record.id = ignore_spaces(record.description, forced=True)
-                record.description = ""
-                SeqIO.write(record, sys.stdout, fmt)
+            if len(sequence) >= min_len:
+                description = ignore_spaces(description, forced=True)
+                _ = sys.stdout.write(print_record(description, sequence, qual, fmt))
+            else:
+                discarded = discarded + 1
+
+        for idx, record in enumerate(parser(fd),2):
+            if readn == 4:
+                description, sequence, qual = record
+            else:
+                qual = None
+                description, sequence = record
+
+            if len(sequence) >= min_len:
+                description = ignore_spaces(description, forced=True)
+                _ = sys.stdout.write(print_record(description, sequence, qual, fmt))
+            else:
+                discarded = discarded + 1
     else:
-        for l in fd:
-            sys.stdout.write(ignore_spaces(l))
-
+        for idx, l in enumerate(fd,1):
+            _ = sys.stdout.write(ignore_spaces(l))
+    nreads = idx - discarded
+    return nreads
 
 def read_and_write_raw(fd, opened=False, min_len=None):
-    if opened:
-        read_and_write_raw_int(fd, min_len=min_len)
+    if opened:  #fd is stdin
+        nreads = read_and_write_raw_int(fd, min_len=min_len)
     else:
         with fopen(fd) as inf:
-            read_and_write_raw_int(inf, min_len=min_len)
+            nreads = read_and_write_raw_int(inf, min_len=min_len)
+    return nreads
 
 
 if __name__ == '__main__':
     min_len = None
     args = []
+    nreads = None
 
     if len(sys.argv) > 1:
         for l in sys.argv[1:]:
@@ -108,10 +134,10 @@ if __name__ == '__main__':
                 args.append(l)
 
     if len(args) == 0:
-        read_and_write_raw(sys.stdin, opened=True, min_len=min_len)
+        nreads = read_and_write_raw(sys.stdin, opened=True, min_len=min_len)
     else:
         files = []
-
+        nreads = 0
         for a in args:
             for f in a.split(','):
                 if os.path.isdir(f):
@@ -120,4 +146,9 @@ if __name__ == '__main__':
                     files += [f]
 
         for f in files:
-            read_and_write_raw(f, opened=False, min_len=min_len)
+            nreads += read_and_write_raw(f, opened=False, min_len=min_len)
+
+    if nreads:
+        sys.stderr.write(str(nreads))
+    else:
+        exit(1)
