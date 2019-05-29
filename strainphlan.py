@@ -17,7 +17,7 @@ os.environ['PATH'] += ':' + MAIN_DIR
 os.environ['PATH'] += ':' + os.path.join(MAIN_DIR, 'strainphlan_src')
 sys.path.append(os.path.join(MAIN_DIR, 'strainphlan_src'))
 
-import which
+
 import argparse as ap
 try:
     import cPickle as pickle
@@ -37,13 +37,9 @@ from Bio.Alphabet import IUPAC
 import pandas
 import logging
 import logging.config
-# import sample2markers
-# import copy
-# import threading
 import numpy
 import random
 import gc
-#import ipdb
 
 shared_variables = type('shared_variables', (object,), {})
 
@@ -1561,7 +1557,6 @@ def check_dependencies(args):
 
 def strainphlan():
     args = read_params()
-
     # fix db .pkl file
     if '--mpa_pkl' not in sys.argv:
         if os.path.isfile(os.path.join(args['mpa_pkl'], "mpa_" + args['index'] + ".pkl")):

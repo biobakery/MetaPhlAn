@@ -8,12 +8,10 @@ import os
 import multiprocessing
 from multiprocessing.pool import ThreadPool
 import sys
-# import cStringIO
 from tempfile import NamedTemporaryFile
 import which
 import functools
 import traceback
-# import numpy
 
 
 class ooSubprocessException(Exception):
