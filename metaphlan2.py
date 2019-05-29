@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9'
-__date__ = '22 May 2019'
+__version__ = '2.9.1'
+__date__ = '29 May 2019'
 
 import sys
 import os
@@ -439,19 +439,6 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
     """
     Download the url to the file and decompress into the folder
     """
-
-    # Create the folder if it does not already exist
-    if not os.path.isdir(folder):
-        try:
-            os.makedirs(folder)
-        except EnvironmentError:
-            sys.exit("ERROR: Unable to create folder for database install: " + folder)
-
-    # Check the directory permissions
-    if not os.access(folder, os.W_OK):
-        sys.exit("ERROR: The directory is not writeable: " + folder + ". "
-                 "Please modify the permissions.")
-
     tar_file = os.path.join(folder, "mpa_" + download_file_name + ".tar")
     url_tar_file = os.path.join(url, "mpa_" + download_file_name + ".tar")
     download(url_tar_file, tar_file)
@@ -551,6 +538,18 @@ def resolve_latest_database(bowtie2_db, force=False):
 
 
 def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_redownload_latest):
+    # Create the folder if it does not already exist
+    if not os.path.isdir(bowtie2_db):
+        try:
+            os.makedirs(bowtie2_db)
+        except EnvironmentError:
+            sys.exit("ERROR: Unable to create folder for database install: " + bowtie2_db)
+
+    # Check the directory permissions
+    if not os.access(bowtie2_db, os.W_OK):
+        sys.exit("ERROR: The directory is not writeable: " + bowtie2_db + ". "
+                 "Please modify the permissions.")
+
     """ Check if the database is installed, if not download and install """
     if index == 'latest':
         index = resolve_latest_database(bowtie2_db, force_redownload_latest)
