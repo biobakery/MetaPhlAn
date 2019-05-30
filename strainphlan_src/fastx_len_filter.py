@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 from Bio import SeqIO
 import argparse as ap
 import sys
