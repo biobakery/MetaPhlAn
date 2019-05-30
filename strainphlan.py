@@ -4,9 +4,10 @@
 
 __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
-              'Moreno Zolfo (moreno.zolfo@unitn.it)')
-__version__ = '1.2.0'
-__date__ = '31 May 2018'
+              'Moreno Zolfo (moreno.zolfo@unitn.it), '
+              'Francesco Beghini (francesco.beghini@unitn.it)')
+__version__ = '1.2.1'
+__date__ = '30 May 2019'
 
 import sys
 import os
@@ -17,7 +18,7 @@ os.environ['PATH'] += ':' + MAIN_DIR
 os.environ['PATH'] += ':' + os.path.join(MAIN_DIR, 'strainphlan_src')
 sys.path.append(os.path.join(MAIN_DIR, 'strainphlan_src'))
 
-
+import which
 import argparse as ap
 try:
     import cPickle as pickle
