@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # Author: Duy Tin Truong (duytin.truong@unitn.it)
 #		at CIBIO, University of Trento, Italy
 
