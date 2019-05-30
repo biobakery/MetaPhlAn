@@ -1,18 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 #Author: Duy Tin Truong (duytin.truong@unitn.it)
 #        at CIBIO, University of Trento, Italy
 
-
-# import sys
-# import os
 import argparse as ap
 import pandas
-# import copy
-# import ConfigParser
 import dendropy
-# import numpy
-# import ipdb
-
 
 def read_params():
     p = ap.ArgumentParser()
@@ -68,6 +60,7 @@ def main(args):
         with open(ifn_tree, 'r') as ifile:
             line = ifile.readline()
         line = line.replace(args['string_to_remove'], '')
+        print ifn_tree
         tree = dendropy.Tree(stream=open(ifn_tree, 'r'), schema='newick')
         for node in tree.leaf_nodes():
             sample = node.get_node_str().strip("'")
