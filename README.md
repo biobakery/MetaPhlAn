@@ -2,7 +2,7 @@
 
 # MetaPhlAn2: Metagenomic Phylogenetic Analysis
 
-## What's new
+## What's new in version 2.9
 
 * Automatic retrieval and installation of the latest MetaPhlAn2 database
 * New MetaPhlAn2 marker genes extracted with a newer version of ChocoPhlAn based on UniRef
