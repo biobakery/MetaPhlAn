@@ -4,7 +4,7 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.1'
+__version__ = '2.9.11'
 __date__ = '5 Jun 2019'
 
 import sys
@@ -1185,7 +1185,8 @@ def metaphlan2():
                     "Exiting...\n\n" )
                 sys.exit(1)
             if pars['force']:
-                os.remove( pars['bowtie2out'] )
+                if os.path.exists(pars['bowtie2out']):
+                    os.remove( pars['bowtie2out'] )
 
         if bow and not all([os.path.exists(".".join([str(pars['bowtie2db']), p]))
                             for p in ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]]):
@@ -1254,7 +1255,7 @@ def metaphlan2():
             cl2ab, _, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
 
-            fraction_mapped_reads = tot_nreads/n_metagenome_reads if not pars['no_unknown_estimation'] else 1
+            fraction_mapped_reads = tot_nreads/float(n_metagenome_reads) if not pars['no_unknown_estimation'] else 1
             unmapped_reads = n_metagenome_reads - tot_nreads
 
             outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
@@ -1285,7 +1286,7 @@ def metaphlan2():
             cl2ab, rr, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
 
-            fraction_mapped_reads = tot_nreads/n_metagenome_reads if not pars['no_unknown_estimation'] else 1
+            fraction_mapped_reads = tot_nreads/float(n_metagenome_reads) if not pars['no_unknown_estimation'] else 1
             unmapped_reads = n_metagenome_reads - tot_nreads
 
             outpred = [(taxstr, taxid,round(relab*100.0*fraction_mapped_reads,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
