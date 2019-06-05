@@ -5,7 +5,7 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
 __version__ = '2.9.1'
-__date__ = '29 May 2019'
+__date__ = '5 Jun 2019'
 
 import sys
 import os
@@ -562,7 +562,7 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
                      "the size this might take a few minutes\n")
     download_unpack_tar(DATABASE_DOWNLOAD, index, bowtie2_db, bowtie2_build, nproc)
     sys.stderr.write("\nDownload complete\n")
-
+    return index
 
 def set_mapping_arguments(index, bowtie2_db):
     mpa_pkl = 'mpa_pkl'
@@ -1142,7 +1142,6 @@ def metaphlan2():
     if not os.path.isfile(pars['mpa_pkl']):
         sys.stderr.write("Error: Unable to find the mpa_pkl file at: " + pars['mpa_pkl'] +
                          "\nExpecting location ${mpa_dir}/db_v20/map_v20_m200.pkl "
-                         "\nSelect the file location with the option --mpa_pkl.\n"
                          "Exiting...\n\n")
         sys.exit(1)
 
