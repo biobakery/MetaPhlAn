@@ -648,6 +648,9 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
         p.communicate()
         
         n_metagenome_reads = ''.join(read_and_split_line(readin.stderr.readline()))
+        if not len(n_metagenome_reads):
+            sys.stderr.write('Fatal error running MetaPhlAn2. Total metagenome size was not estimated.\nPlease update read_fastx.py to the latest version.\n'.format(e))
+            sys.exit(1)
         outf.write(lmybytes('#nreads\t{}'.format(n_metagenome_reads)))
         outf.close()
 
