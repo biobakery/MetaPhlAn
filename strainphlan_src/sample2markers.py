@@ -16,30 +16,30 @@ import argparse as ap
 import glob
 import ooSubprocess
 from ooSubprocess import print_stderr, trace_unhandled_exceptions
-# import ConfigParser
 from Bio import SeqIO, Seq, SeqRecord
-# import cStringIO
 import msgpack
-# import random
-# import subprocess
-# import bz2
-# import gzip
 import logging
 import logging.config
-# import tarfile
-# import threading
 import multiprocessing
 import pysam
 from collections import defaultdict
 from scipy import stats
-# import numpy
+from urllib import urlretrieve
+import errno
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stderr,
                     disable_existing_loggers=False,
                     format='%(asctime)s | %(levelname)s | %(name)s | %(funcName)s | %(lineno)d | %(message)s')
 logger = logging.getLogger(__name__)
 
-
+if not os.path.isfile(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19')):
+    urlretrieve('https://www.dropbox.com/sh/m4na8wefp53j8ej/AACU1-Nc0q2dUNRmc9pesUi4a/bin/bcftools', os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'))
+try:
+    os.symlink(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'), os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools'))
+except OSError as e:
+    if e.errno == errno.EEXIST:
+        os.remove(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools'))
+        os.symlink(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'),os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools'))
 
 def read_params():
     p = ap.ArgumentParser()
