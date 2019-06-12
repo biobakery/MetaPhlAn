@@ -599,7 +599,7 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
         sys.stderr.write('OSError: "{}"\nFatal error running BowTie2. Is BowTie2 in the system path?\n'.format(e))
         sys.exit(1)
 
-    try:
+    try:    
         if fna_in:
             readin = subp.Popen([read_fastx, '-l', str(read_min_len), fna_in], stdout=subp.PIPE, stderr=subp.PIPE)
 
@@ -649,7 +649,7 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
         
         n_metagenome_reads = ''.join(read_and_split_line(readin.stderr.readline()))
         if not len(n_metagenome_reads):
-            sys.stderr.write('Fatal error running MetaPhlAn2. Total metagenome size was not estimated.\nPlease update read_fastx.py to the latest version.\n'.format(e))
+            sys.stderr.write('Fatal error running MetaPhlAn2. Total metagenome size was not estimated.\nPlease update read_fastx.py to the latest version.\n')
             sys.exit(1)
         outf.write(lmybytes('#nreads\t{}'.format(n_metagenome_reads)))
         outf.close()

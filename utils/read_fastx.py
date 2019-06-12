@@ -47,7 +47,6 @@ def fopen(fn):
 
     if fileExtension == '.bz2':
         return (bz2.open(fn, "rt") if not p2 else bz2.BZ2File(fn, "r"))
-
     if fileExtension == '.gz':
         return gzip.open(fn, "rt")
 
@@ -86,7 +85,7 @@ def read_and_write_raw_int(fd, min_len=None):
                 _ = sys.stdout.write(print_record(description, sequence, qual, fmt))
             else:
                 discarded = discarded + 1
-
+        
         for idx, record in enumerate(parser(fd),2):
             if readn == 4:
                 description, sequence, qual = record
@@ -102,6 +101,7 @@ def read_and_write_raw_int(fd, min_len=None):
     else:
         for idx, l in enumerate(fd,1):
             _ = sys.stdout.write(ignore_spaces(l))
+
     nreads = idx - discarded
     return nreads
 
