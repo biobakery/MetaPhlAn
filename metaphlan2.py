@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.12'
-__date__ = '12 Jun 2019'
+__version__ = '2.9.13'
+__date__ = '3 Jul 2019'
 
 import sys
 import os
@@ -77,6 +77,9 @@ except ImportError:
 
 
 tax_units = "kpcofgst"
+
+def remove_prefix(text):
+        return re.sub(r'^[a-z]__', '', text)
 
 if float(sys.version_info[0]) < 3.0:
     def read_and_split(ofn):
@@ -213,14 +216,15 @@ def read_params(args):
     arg = g.add_argument
     arg('--mpa_pkl', type=str, default=None,
         help="The metadata pickled MetaPhlAn file [deprecated]")
-    arg('--force', action='store_true')
+    arg('--force', action='store_true', help="Force profiling of the input file by removing the bowtie2out file")
     arg('--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default=DEFAULT_DB_FOLDER,
-        help=("The BowTie2 database file of the MetaPhlAn database. Used if "
+        help=("Folder containing the MetaPhlAn database. Used if "
               "--input_type is fastq, fasta, multifasta, or multifastq [default "+DEFAULT_DB_FOLDER+"]\n"))
 
     INDEX = 'latest'
     arg('-x', '--index', type=str, default=INDEX,
-        help=("Specify the id of the database version to use. If the database\n"
+        help=("Specify the id of the database version to use. "
+              "If \"latest\", MetaPhlAn2 will get the latest version. If the database\n"
               "files are not found on the local MetaPhlAn2 installation they\n"
               "will be automatically downloaded [default "+INDEX+"]\n"))
 
@@ -344,6 +348,7 @@ def read_params(args):
         type=str, default=None, help="The sam output file\n")
 
     arg( '--legacy-output', action='store_true', help="Old two columns output\n")
+    arg( '--CAMI_format_output', action='store_true', help="Report the profiling using the CAMI output format\n")
     arg( '--no-unknown-estimation', action='store_true', help="Ignore estimation of reads mapping to unkwnown clades\n")
 
     #*************************************************************
@@ -419,12 +424,12 @@ class ReportHook():
             sys.stderr.write(status)
 
 
-def download(url, download_file):
+def download(url, download_file, force=False):
     """
     Download a file from a url
     """
 
-    if not os.path.isfile(download_file):
+    if not os.path.isfile(download_file) or force:
         try:
             sys.stderr.write("\nDownloading " + url + "\n")
             file, headers = urlretrieve(url, download_file,
@@ -439,13 +444,13 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
     """
     Download the url to the file and decompress into the folder
     """
-    tar_file = os.path.join(folder, "mpa_" + download_file_name + ".tar")
-    url_tar_file = os.path.join(url, "mpa_" + download_file_name + ".tar")
+    tar_file = os.path.join(folder, download_file_name + ".tar")
+    url_tar_file = os.path.join(url, download_file_name + ".tar")
     download(url_tar_file, tar_file)
 
     # download MD5 checksum
-    md5_file = os.path.join(folder, "mpa_" + download_file_name + ".md5")
-    url_md5_file = os.path.join(url, "mpa_" + download_file_name + ".md5")
+    md5_file = os.path.join(folder, download_file_name + ".md5")
+    url_md5_file = os.path.join(url, download_file_name + ".md5")
     download(url_md5_file, md5_file)
 
     md5_md5 = None
@@ -487,8 +492,8 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
         sys.stderr.write("Warning: Unable to extract {}.\n".format(tar_file))
 
     # uncompress sequences
-    bz2_file = os.path.join(folder, "mpa_" + download_file_name + ".fna.bz2")
-    fna_file = os.path.join(folder, "mpa_" + download_file_name + ".fna")
+    bz2_file = os.path.join(folder, download_file_name + ".fna.bz2")
+    fna_file = os.path.join(folder, download_file_name + ".fna")
 
     if not os.path.isfile(fna_file):
         sys.stderr.write('\n\nDecompressing {} into {}\n'.format(bz2_file, fna_file))
@@ -498,8 +503,8 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
                 fna_h.write(data)
 
     # build bowtie2 indexes
-    if not glob(os.path.join(folder, "mpa_" + download_file_name + "*.bt2")):
-        bt2_base = os.path.join(folder, "mpa_" + download_file_name)
+    if not glob(os.path.join(folder, download_file_name + "*.bt2")):
+        bt2_base = os.path.join(folder, download_file_name)
         bt2_cmd = [bowtie2_build, '--quiet']
 
         if nproc > 1:
@@ -526,13 +531,14 @@ def resolve_latest_database(bowtie2_db, force=False):
     if os.path.exists(os.path.join(bowtie2_db,'mpa_latest')):
         ctime_latest_db = int(os.path.getctime(os.path.join(bowtie2_db,'mpa_latest')))
         if int(time.time()) - ctime_latest_db > 2419200:         #1 month in epoch
-            download(DATABASE_DOWNLOAD+'mpa_latest', os.path.join(bowtie2_db,'mpa_latest'))
+            os.remove(os.path.join(bowtie2_db,'mpa_latest'))
+            download(DATABASE_DOWNLOAD+'mpa_latest', os.path.join(bowtie2_db,'mpa_latest'), force=True)
 
     if not os.path.exists(os.path.join(bowtie2_db,'mpa_latest') or force):
         download(DATABASE_DOWNLOAD+'mpa_latest', os.path.join(bowtie2_db,'mpa_latest'))
 
     with open(os.path.join(bowtie2_db,'mpa_latest')) as mpa_latest:
-        latest_db_version = [line.strip()[4:] for line in mpa_latest if not line.startswith('#') and line.startswith('mpa_')]
+        latest_db_version = [line.strip() for line in mpa_latest if not line.startswith('#')]
     
     return ''.join(latest_db_version)
 
@@ -554,7 +560,7 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
     if index == 'latest':
         index = resolve_latest_database(bowtie2_db, force_redownload_latest)
 
-    if len(glob(os.path.join(bowtie2_db, "mpa_{}*".format(index)))) >= 7:
+    if len(glob(os.path.join(bowtie2_db, "*{}*".format(index)))) >= 7:
         return index
 
     # download the tar archive and decompress
@@ -568,11 +574,11 @@ def set_mapping_arguments(index, bowtie2_db):
     mpa_pkl = 'mpa_pkl'
     bowtie2db = 'bowtie2db'
 
-    if os.path.isfile(os.path.join(bowtie2_db, "mpa_{}.pkl".format(index))):
-        mpa_pkl = os.path.join(bowtie2_db, "mpa_{}.pkl".format(index))
+    if os.path.isfile(os.path.join(bowtie2_db, "{}.pkl".format(index))):
+        mpa_pkl = os.path.join(bowtie2_db, "{}.pkl".format(index))
 
-    if glob(os.path.join(bowtie2_db, "mpa_{}*.bt2".format(index))):
-        bowtie2db = os.path.join(bowtie2_db, "mpa_{}".format(index))
+    if glob(os.path.join(bowtie2_db, "{}*.bt2".format(index))):
+        bowtie2db = os.path.join(bowtie2_db, "{}".format(index))
 
     return (mpa_pkl, bowtie2db)
 
@@ -1119,6 +1125,8 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
 
 
 def metaphlan2():
+    ranks2code = { 'k' : 'superkingdom', 'p' : 'phylum', 'c':'class',
+                   'o' : 'order', 'f' : 'family', 'g' : 'genus', 's' : 'species'}
     pars = read_params(sys.argv)
     # check if the database is installed, if not then install
     pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'])
@@ -1160,7 +1168,7 @@ def metaphlan2():
 
         if not bow:
             sys.stderr.write( "No MetaPhlAn BowTie2 database provided\n "
-                              "[--bowtie2db options]!\n"
+                              "[--bowtie2db and --index options]!\n"
                               "Exiting...\n\n" )
             sys.exit(1)
 
@@ -1205,8 +1213,8 @@ def metaphlan2():
                                 min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'])
             pars['input_type'] = 'bowtie2out'
         pars['inp'] = pars['bowtie2out'] # !!!
-    with open( pars['mpa_pkl'], 'rb' ) as a:
-        mpa_pkl = pickle.loads( bz2.decompress( a.read() ) )
+    with bz2.BZ2File( pars['mpa_pkl'], 'r' ) as a:
+        mpa_pkl = pickle.load( a )
 
     tree = TaxTree( mpa_pkl, ignore_markers )
     tree.set_min_cu_len( pars['min_cu_len'] )
@@ -1244,7 +1252,8 @@ def metaphlan2():
         if not pars['legacy_output']:
             outf.write('#{}\n'.format(pars['index']))
 
-        outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
+        if not pars['CAMI_format_output']:
+            outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
 
         if pars['t'] == 'reads_map':
             if not pars['legacy_output']:
@@ -1252,7 +1261,9 @@ def metaphlan2():
             outf.write( "\n".join( map_out ) + "\n" )
 
         elif pars['t'] == 'rel_ab':
-            if not pars['legacy_output']:
+            if pars['CAMI_format_output']:
+                outf.write('@SampleID:{}\n@Version:0.9.1\n@__program__:MetaPhlAn{}\n@Ranks:superkingdom|phylum|class|order|family|genus|species\n@@TAXID\tRANK\tTAXPATH\tTAXPATHSN\tPERCENTAGE\n'.format(pars["sample_id"],__version__))
+            elif not pars['legacy_output']:
                 outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
 
             cl2ab, _, tot_nreads = tree.relative_abundances(
@@ -1264,20 +1275,28 @@ def metaphlan2():
             outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
 
             if outpred:
-                if not pars['no_unknown_estimation']:
-                    outf.write( "\t".join( [    "UNKNOWN",
-                                                "-1",
-                                                str(round((1-fraction_mapped_reads)*100,5))]) + "\n" )
-                                                
-                for clade, taxid, relab in sorted(  outpred, reverse=True,
-                                    key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
-                    if not pars['legacy_output']:
-                        outf.write( "\t".join( [clade, 
-                                                taxid, 
-                                                str(relab*fraction_mapped_reads)] ) + "\n" )
-                    else:
-                        outf.write( "\t".join( [clade, 
-                                                str(relab*fraction_mapped_reads)] ) + "\n" )
+                if pars['CAMI_format_output']:
+                    for clade, taxid, relab in sorted(  outpred, reverse=True,
+                                        key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
+                        rank = ranks2code[clade.split('|')[-1][0]]
+                        leaf_taxid = taxid.split('|')[-1]
+                        taxpathsh = '|'.join([remove_prefix(name) for name in clade.split('|')])
+                        outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(relab*fraction_mapped_reads) ] ) + '\n' )
+                else:
+                    if not pars['no_unknown_estimation']:
+                        outf.write( "\t".join( [    "UNKNOWN",
+                                                    "-1",
+                                                    str(round((1-fraction_mapped_reads)*100,5))]) + "\n" )
+                                                    
+                    for clade, taxid, relab in sorted(  outpred, reverse=True,
+                                        key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
+                        if not pars['legacy_output']:
+                            outf.write( "\t".join( [clade, 
+                                                    taxid, 
+                                                    str(relab*fraction_mapped_reads)] ) + "\n" )
+                        else:
+                            outf.write( "\t".join( [clade, 
+                                                    str(relab*fraction_mapped_reads)] ) + "\n" )
             else:
                 if not pars['legacy_output']:
                     outf.write( "unclassified\t\-1\t100.0\n" )
