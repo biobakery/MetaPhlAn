@@ -8,7 +8,7 @@
 * New MetaPhlAn2 marker genes extracted with a newer version of ChocoPhlAn based on UniRef
 * Calculation of metagenome size for improved estimation of reads mapped to a given clade
 * Inclusion of NCBI taxonomy ID in the ouput file
-
+* CAMI (Taxonomic) Profiling Output Format included
 -------------
 
 ## Description
