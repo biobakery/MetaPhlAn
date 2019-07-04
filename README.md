@@ -2,8 +2,9 @@
 
 # MetaPhlAn2: Metagenomic Phylogenetic Analysis
 
-## What's new in version 2.9
+## What's new in version 2.9.13
 
+* Estimation of metagenome composed by unknown microbes
 * Automatic retrieval and installation of the latest MetaPhlAn2 database
 * New MetaPhlAn2 marker genes extracted with a newer version of ChocoPhlAn based on UniRef
 * Calculation of metagenome size for improved estimation of reads mapped to a given clade
@@ -97,10 +98,10 @@ You can also install and run MetaPhlAn2 through Docker
 
 ```
 #!bash
-$ docker pull quay.io/biocontainers/metaphlan2:2.9.1--py_0
+$ docker pull quay.io/biocontainers/metaphlan2:2.9.13
 ```
 
-Alternatively, you can **manually download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/default.zip) or **clone the repository** using the following command ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``.
+Alternatively, you can **manually download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/2.9.13.zip) or **clone the repository** using the following command ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``.
 
 If you choose this way, **you'll need to install manually all the dependencies!**
 
@@ -139,6 +140,10 @@ Here is the basic example to profile a metagenome from raw reads (requires BowTi
 #!bash
 $ metaphlan2.py metagenome.fastq --input_type fastq -o profiled_metagenome.txt
 ```
+
+### Starting from version 2.9, MetaPhlAn2 estimates the fraction of the metagenome composed by microbes that are unknown. The relative abundance profile is scaled according the percentage of reads mapping to a known clade. 
+
+### To obtain the old behavior in version 2.9 you can set the flag "--no-unknown-estimation"
 
 It is highly recommended to save the intermediate BowTie2 output for re-running MetaPhlAn2 extremely quickly (`--bowtie2out`), and use multiple CPUs (`--nproc`) if available:
 
