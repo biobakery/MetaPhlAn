@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.13'
-__date__ = '3 Jul 2019'
+__version__ = '2.9.14'
+__date__ = '8 Jul 2019'
 
 import sys
 import os
@@ -997,7 +997,7 @@ class TaxTree:
         ret_r = dict([( tax, (abundance, clade2est_nreads[tax] )) for tax, abundance in clade2abundance.items() if tax in clade2est_nreads])
 
         if tax_lev:
-            ret_d[tax_lev+"unclassified"] = 1.0 - sum(ret_d.values())  
+            ret_d[(tax_lev+"unclassified", '-1')] = 1.0 - sum(ret_d.values())  
         return ret_d, ret_r, tot_reads
 
 
@@ -1055,7 +1055,7 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
 
     def istip(clade_name):
         end_name = clade_name.split(delimiter)[-1]
-        return end_name.startswith("t__") or end_name.endswith("_unclassified")
+        return end_name.startswith("s__") or end_name.endswith("_unclassified")
 
     def findclade(clade_name):
         if clade_name.endswith('_unclassified'):
@@ -1068,7 +1068,7 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
         return {'taxonomy': clade_name.split(delimiter)}
 
     clades = iter((abundance, findclade(name))
-                  for (name, abundance) in abundance_predictions if istip(name))
+                  for (name, taxid, abundance) in abundance_predictions if istip(name))
     packed = iter(([abundance], clade.get_full_name(), clade.tax_id)
                   for (abundance, clade) in clades)
 
@@ -1271,8 +1271,8 @@ def metaphlan2():
 
             fraction_mapped_reads = tot_nreads/float(n_metagenome_reads) if not pars['no_unknown_estimation'] else 1
             unmapped_reads = n_metagenome_reads - tot_nreads
-
-            outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
+            
+            outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid), relab in cl2ab.items() if relab > 0.0]
 
             if outpred:
                 if pars['CAMI_format_output']:
