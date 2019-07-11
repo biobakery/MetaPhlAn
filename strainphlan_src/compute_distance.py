@@ -1,10 +1,11 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 #Author: Duy Tin Truong (duytin.truong@unitn.it)
 #        at CIBIO, University of Trento, Italy
 
-__author__  = 'Duy Tin Truong (duytin.truong@unitn.it)'
-__version__ = '0.1'
-__date__    = '1 Sep 2014'
+__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '0.2'
+__date__    = '10 Jul 19'
 
 import sys
 import os
@@ -13,10 +14,11 @@ MAIN_DIR = os.path.dirname(ABS_PATH)
 os.environ['PATH'] += ':%s'%MAIN_DIR
 sys.path.append(MAIN_DIR)
 
+PYTHON_VERSION = float(sys.version_info[0])
+
 from mixed_utils import dist2file, statistics
 import argparse as ap
-from Bio import SeqIO#, Seq, SeqRecord
-# from collections import defaultdict
+from Bio import SeqIO
 import numpy
 from ooSubprocess import ooSubprocess
 
@@ -50,9 +52,13 @@ def read_params():
 
 
 def get_dist(seq1, seq2, ignore_gaps):
-    if len(seq1) != len(seq2):
-        print >> sys.stderr, 'Error: Two sequences have different lengths!'
-        print >> sys.stderr, 'Cannot compute the distance!'
+    if len(seq1) != len(seq2):        
+        if(PYTHON_VERSION < 3):
+            print >> sys.stderr, 'Error: Two sequences have different lengths!'
+            print >> sys.stderr, 'Cannot compute the distance!'
+        else:
+            print('Error: Two sequences have different lengths!', file=sys.stderr)
+            print('Cannot compute the distance!', file=sys.stderr)
         exit(1)
 
     abs_dist = 0.0
@@ -77,11 +83,10 @@ def get_dist(seq1, seq2, ignore_gaps):
 def compute_dist_matrix(ifn_alignment, ofn_prefix, ignore_gaps, overwrite):
     ofn_abs_dist = ofn_prefix + '.abs_dist'
     if (not overwrite) and os.path.isfile(ofn_abs_dist.replace('.abs_dist', '.rel_dist')):
-        print 'File %s exists, skip!'%ofn_abs_dist
+        print('File %s exists, skip!'%ofn_abs_dist)
         return
     else:
-        print 'Compute dist_matrix for %s'%ofn_abs_dist
-    #print 'Compute dist_matrix for %s'%ofn_abs_dist
+        print('Compute dist_matrix for %s'%ofn_abs_dist)
 
     recs = [rec for rec in SeqIO.parse(open((ifn_alignment), 'r'), 'fasta')]
     abs_dist = numpy.zeros((len(recs), len(recs)))
