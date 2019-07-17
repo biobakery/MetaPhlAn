@@ -349,7 +349,7 @@ def read_params(args):
 
     arg( '--legacy-output', action='store_true', help="Old two columns output\n")
     arg( '--CAMI_format_output', action='store_true', help="Report the profiling using the CAMI output format\n")
-    arg( '--no-unknown-estimation', action='store_true', help="Ignore estimation of reads mapping to unkwnown clades\n")
+    arg( '--unknown_estimation', action='store_true', help="Ignore estimation of reads mapping to unkwnown clades\n")
 
     #*************************************************************
     #* Parameters related to biom file generation                *
@@ -997,7 +997,7 @@ class TaxTree:
         ret_r = dict([( tax, (abundance, clade2est_nreads[tax] )) for tax, abundance in clade2abundance.items() if tax in clade2est_nreads])
 
         if tax_lev:
-            ret_d[(tax_lev+"unclassified", '-1')] = 1.0 - sum(ret_d.values())  
+            ret_d[("UNKNOWN", '-1')] = 1.0 - sum(ret_d.values())  
         return ret_d, ret_r, tot_reads
 
 
@@ -1269,8 +1269,8 @@ def metaphlan2():
             cl2ab, _, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
 
-            fraction_mapped_reads = tot_nreads/float(n_metagenome_reads) if not pars['no_unknown_estimation'] else 1
-            unmapped_reads = n_metagenome_reads - tot_nreads
+            fraction_mapped_reads = tot_nreads/float(n_metagenome_reads) if pars['unknown_estimation'] else 1.0
+            if fraction_mapped_reads > 1.0: fraction_mapped_reads = 1.0
             
             outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid), relab in cl2ab.items() if relab > 0.0]
 
@@ -1283,7 +1283,7 @@ def metaphlan2():
                         taxpathsh = '|'.join([remove_prefix(name) for name in clade.split('|')])
                         outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(relab*fraction_mapped_reads) ] ) + '\n' )
                 else:
-                    if not pars['no_unknown_estimation']:
+                    if pars['unknown_estimation']:
                         outf.write( "\t".join( [    "UNKNOWN",
                                                     "-1",
                                                     str(round((1-fraction_mapped_reads)*100,5))]) + "\n" )
@@ -1299,9 +1299,9 @@ def metaphlan2():
                                                     str(relab*fraction_mapped_reads)] ) + "\n" )
             else:
                 if not pars['legacy_output']:
-                    outf.write( "unclassified\t\-1\t100.0\n" )
+                    outf.write( "UNKNOWN\t-1\t100.0\n" )
                 else:
-                    outf.write( "unclassified\t100.0\n" )
+                    outf.write( "UNKNOWN\t100.0\n" )
             maybe_generate_biom_file(tree, pars, outpred)
 
         elif pars['t'] == 'rel_ab_w_read_stats':
