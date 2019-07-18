@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 from __future__ import with_statement
 __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
@@ -498,7 +498,8 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
     if not os.path.isfile(fna_file):
         sys.stderr.write('\n\nDecompressing {} into {}\n'.format(bz2_file, fna_file))
 
-        with open(fna_file, 'wb') as fna_h, bz2.BZ2File(bz2_file, 'rb') as bz2_h:
+        with open(fna_file, 'wb') as fna_h, \
+            bz2.BZ2File(bz2_file, 'rb') as bz2_h:
             for data in iter(lambda: bz2_h.read(100 * 1024), b''):
                 fna_h.write(data)
 
