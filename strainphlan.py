@@ -1,13 +1,14 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # Author: Duy Tin Truong (duytin.truong@unitn.it)
 #		at CIBIO, University of Trento, Italy
 
 __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
-              'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '1.2.1'
-__date__ = '30 May 2019'
+              'Francesco Beghini (francesco.beghini@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '1.2.2'
+__date__ = '10 Jul 2019'
 
 import sys
 import os
@@ -17,6 +18,8 @@ MAIN_DIR = os.path.dirname(ABS_PATH)
 os.environ['PATH'] += ':' + MAIN_DIR
 os.environ['PATH'] += ':' + os.path.join(MAIN_DIR, 'strainphlan_src')
 sys.path.append(os.path.join(MAIN_DIR, 'strainphlan_src'))
+
+PYTHON_VERSION = float(sys.version_info[0])
 
 import which
 import argparse as ap
@@ -45,7 +48,8 @@ import gc
 shared_variables = type('shared_variables', (object,), {})
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stderr,
-                    disable_existing_loggers=False,
+                    # ToDo: Fix this
+                    #disable_existing_loggers=False,
                     format='%(asctime)s | %(levelname)s | %(name)s | %(funcName)s | %(lineno)d | %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -483,11 +487,7 @@ def get_db_clades(db):
         tax_clades = tax.split('|')
         for i, clade in enumerate(tax_clades):
             if 't__' not in clade and 's__' not in clade:
-                if i < len(tax_clades)-1:
-                    if 't__' in tax_clades[-1]:
-                        clade2subclades[clade].add('|'.join(tax_clades[i+1:-1]))
-                    else:
-                        clade2subclades[clade].add('|'.join(tax_clades[i+1:]))
+                clade2subclades[clade].add('|'.join(tax_clades[i+1:-1]))
     sing_clades = [clade for clade in clade2subclades if
                              len(clade2subclades[clade]) == 1]
 
@@ -539,11 +539,10 @@ def clean_alignment(
         N_count,
         N_col):
 
-    length = len(sample2seq[sample2seq.keys()[0]])
+    length = len(sample2seq[list(sample2seq)[0]])
     logger.debug('marker length: %d', length)
-    aligned_samples = sample2seq.keys()
     for sample in samples:
-        if sample not in aligned_samples:
+        if sample not in sample2seq:
             sample2seq[sample] = ['-' for i in range(length)]
             sample2freq[sample] = [(0.0, 0.0, 0.0) for i in range(length)]
 
@@ -620,7 +619,7 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir,
 
     # marker list
     if len(genome2marker) == 0:
-        unique_markers = set(marker_records.keys())
+        unique_markers = set(list(marker_records))
     else:
         unique_markers = set([])
         for sample in genome2marker:
@@ -632,14 +631,20 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir,
     # add ifn_ref_genomes
     oosp = ooSubprocess.ooSubprocess(tmp_dir=tmp_dir)
     logger.debug('load genome contigs')
-    p1 = SpooledTemporaryFile(dir=tmp_dir)
+    p1 = NamedTemporaryFile(dir=tmp_dir)
     contigs = defaultdict(dict)
     for ifn_genome in ifn_ref_genomes:
         genome = ooSubprocess.splitext(ifn_genome)[0]
         if ifn_genome[-4:] == '.bz2':
-            ifile_genome = bz2.BZ2File(ifn_genome, 'r')
+            if(PYTHON_VERSION < 3):
+                ifile_genome = bz2.BZ2File(ifn_genome, 'r')
+            else:    
+                ifile_genome = bz2.open(ifn_genome, 'rt')
         elif ifn_genome[-3:] == '.gz':
-            ifile_genome = gzip.GzipFile(ifn_genome, 'r')
+            if(PYTHON_VERSION < 3):
+                ifile_genome = gzip.GzipFile(ifn_genome, 'r')
+            else: 
+                ifile_genome = gzip.open(ifn_genome, 'rt')
         elif ifn_genome[-4:] == '.fna':
             ifile_genome = open(ifn_genome, 'r')
         else:
@@ -648,7 +653,8 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir,
             exit(1)
 
         # extract genome contigs
-        for rec in SeqIO.parse(ifile_genome, 'fasta'):
+        reference_sequences = list(SeqIO.parse(ifile_genome, 'fasta'))
+        for rec in reference_sequences:
             #rec.name = genome + '___' + rec.name
             if rec.name in contigs:
                 logger.error(
@@ -658,9 +664,8 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir,
                 exit(1)
             contigs[rec.name]['seq'] = str(rec.seq)
             contigs[rec.name]['genome'] = genome
-            SeqIO.write(rec, p1, 'fasta')
-
         ifile_genome.close()
+        SeqIO.write(reference_sequences, p1.name, 'fasta')
     p1.seek(0)
 
     # build blastdb
@@ -678,10 +683,13 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir,
 
     # blast markers against contigs
     logger.debug('blast markers against contigs')
-    p1 = SpooledTemporaryFile(dir=tmp_dir)
-
+    p1 = NamedTemporaryFile(dir=tmp_dir)
+    unique_marker_records = []
     for marker in unique_markers:
-        SeqIO.write(marker_records[marker], p1, 'fasta')
+        #SeqIO.write(marker_records[marker], p1.name, 'fasta')
+        unique_marker_records.append(marker_records[marker])
+    SeqIO.write(unique_marker_records, p1.name, 'fasta')
+
 
     p1.seek(0)
     blastn_args = ['-db', blastdb_prefix, '-outfmt', '6', '-evalue', '1e-10',
@@ -697,7 +705,7 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir,
     for line in output:
         if line.strip() == '':
             break
-        line = line.strip().split()
+        line = line.decode("utf-8").strip().split()
         query = line[0]
         target = line[1]
         pstart = int(line[8])-1
@@ -745,17 +753,17 @@ def align_clean(args):
     marker_file = NamedTemporaryFile(dir=tmp_dir, delete=False)
     marker_fn = marker_file.name
     sample_count = 0
-    for sample in iter(sample2marker.keys()):
-        if marker in iter(sample2marker[sample].keys()):
+    list_sample_markers = []
+    for sample in iter(list(sample2marker)):
+        if marker in iter(list(sample2marker[sample])):
             sample_count += 1
-            SeqIO.write(
+            list_sample_markers.append(
                 SeqRecord.SeqRecord(
                     id=sample,
                     description='',
-                    seq=Seq.Seq(sample2marker[sample][marker]['seq'])),
-                marker_file,
-                'fasta')
+                    seq=Seq.Seq(sample2marker[sample][marker]['seq'])))
     marker_file.close()
+    SeqIO.write(list_sample_markers, marker_fn, 'fasta')
     ratio = float(sample_count) / len(sample2marker)
     if  ratio < sample_in_marker:
         os.remove(marker_fn)
@@ -768,7 +776,8 @@ def align_clean(args):
 
     sample2seq = {}
     sample2freq = {}
-    for rec in SeqIO.parse(alignment_file, 'fasta'):
+
+    for rec in SeqIO.parse(alignment_file.name, 'fasta'):
         sample = rec.name
         sample2seq[sample] = list(str(rec.seq))
         sample2freq[sample] = list(sample2marker[sample][marker]['freq'])
@@ -778,7 +787,7 @@ def align_clean(args):
         logger.debug('alignment length of sample %s is %d, %d'%(
                         sample,
                         len(sample2seq[sample]),
-                        len(sample2freq[sample])))
+                        len(sample2freq[sample])))  
     if alignment_fn:
         shutil.copyfile(alignment_file.name, alignment_fn)
 
@@ -791,7 +800,7 @@ def align_clean(args):
         exit(1)
 
     sample2seq, sample2freq = clean_alignment(
-                                    sample2marker.keys(),
+                                    list(sample2marker),
                                     sample2seq,
                                     sample2freq,
                                     gap_in_trailing_col,
@@ -941,10 +950,10 @@ def build_tree(
 
     # remove long gaps
     logger.debug('full sequence length before long_gap_length: %d'\
-                    %(len(sample2fullseq[sample2fullseq.keys()[0]])))
+                    %(len(sample2fullseq[list(sample2fullseq)[0]])))
     ofile_cladeinfo.write(
                     'full sequence length before long_gap_length: %d\n'\
-                    %(len(sample2fullseq[sample2fullseq.keys()[0]])))
+                    %(len(sample2fullseq[list(sample2fullseq)[0]])))
 
     df_seq = pandas.DataFrame.from_dict(sample2fullseq, orient='index')
     df_freq = pandas.DataFrame.from_dict(sample2fullfreq, orient='index')
@@ -979,10 +988,10 @@ def build_tree(
             sample2fullseq[sample] = df_seq.loc[sample].tolist()
             sample2fullfreq[sample] = df_freq.loc[sample].tolist()
         logger.debug('full sequence length after long_gap_length: %d'\
-                        %(len(sample2fullseq[sample2fullseq.keys()[0]])))
+                        %(len(sample2fullseq[list(sample2fullseq)[0]])))
         ofile_cladeinfo.write(
                         'full sequence length after long_gap_length: %d\n'\
-                        %(len(sample2fullseq[sample2fullseq.keys()[0]])))
+                        %(len(sample2fullseq[list(sample2fullseq)[0]])))
 
         for i in range(len(marker_pos)):
             num_del = 0
@@ -1148,7 +1157,7 @@ def load_sample(args):
     kept_markers = args['kept_markers']
     sample = ooSubprocess.splitext(ifn_sample)[0]
     with open(ifn_sample, 'rb') as ifile:
-        marker2seq = msgpack.load(ifile, use_list=False)
+        marker2seq = msgpack.unpack(ifile, use_list=False, encoding='utf-8')
 
     if kept_clade:
         if kept_clade == 'singleton':
@@ -1156,7 +1165,7 @@ def load_sample(args):
         else:
             # remove redundant clades and markers
             nmarkers = 0
-            for marker in marker2seq.keys():
+            for marker in list(marker2seq):
                 if marker in db['markers']:
                     clade = db['markers'][marker]['taxon'].split('|')[-1]
                     if kept_markers:
@@ -1356,7 +1365,7 @@ def strainer(args):
 
         # reduce and convert to shared memory
         #logger.debug('converting db')
-        db['taxonomy'] = db['taxonomy'].keys()
+        db['taxonomy'] = list(db['taxonomy'])
         for m in db['markers']:
             del db['markers'][m]['clade']
             del db['markers'][m]['ext']
@@ -1403,7 +1412,7 @@ def strainer(args):
                     if clade in args['clades']:
                         kept_markers.add(marker)
         else:
-            kept_markers = set(repr_marker2seq.keys())
+            kept_markers = set(list(repr_marker2seq))
         logger.debug('Number of markers in the representative '\
                      'sample: %d'%len(kept_markers))
         if not kept_markers:
@@ -1422,6 +1431,7 @@ def strainer(args):
             if c.startswith('s__'):
                 print(c)
             else:
+                ##ToDo: Fix this on Python 3
                 print(c, '(%s)'%(','.join(list(clade2subclades[c]))))
         return
 
@@ -1431,7 +1441,7 @@ def strainer(args):
     if (args['ifn_markers'] is not None) and (args['ifn_ref_genomes'] is not None):
         logger.info('Add reference genomes')
         marker_records = {}
-
+        # Gets the markers of the reference genome
         for rec in SeqIO.parse(open(args['ifn_markers'], 'r'), 'fasta'):
             if rec.id in kept_markers or (not kept_markers):
                 marker_records[rec.id] = rec
@@ -1458,6 +1468,7 @@ def strainer(args):
         else:
             sample2order[ref] = 'first'
 
+ 
     # build tree for each clade
     for clade in args['clades']:
         logger.info('Build the tree for %s'%clade)
@@ -1489,12 +1500,12 @@ def strainer(args):
         # remove samples with percentage of markers less than marker_in_clade
         logger.debug('remove samples with percentage of markers '\
                      'less than marker_in_clade')
-        for sample in sample2marker.keys():
+        for sample in list(sample2marker):
             if len(sample2marker[sample]):
                 if clade == 'singleton':
                     c = 'singleton'
                 else:
-                    marker = sample2marker[sample].keys()[0]
+                    marker = list(sample2marker[sample])[0]
                     if marker in db['markers']:
                         c = db['markers'][marker]['taxon'].split('|')[-1]
                 if len(sample2marker[sample]) / \
@@ -1559,6 +1570,7 @@ def check_dependencies(args):
 def strainphlan():
     args = read_params()
     # fix db .pkl file
+    
     if '--mpa_pkl' not in sys.argv:
         if os.path.isfile(os.path.join(args['mpa_pkl'], "mpa_" + args['index'] + ".pkl")):
             args['mpa_pkl'] = os.path.join(args['mpa_pkl'], "mpa_" + args['index'] + ".pkl")

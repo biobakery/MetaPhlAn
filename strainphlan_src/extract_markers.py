@@ -1,13 +1,12 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 #Author: Duy Tin Truong (duytin.truong@unitn.it)
 #        at CIBIO, University of Trento, Italy
 
-__author__  = 'Duy Tin Truong (duytin.truong@unitn.it)'
-__version__ = '0.1'
-__date__    = '1 Sep 2014'
+__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '0.2'
+__date__    = '10 Jul 19'
 
-# import sys
-# import os
 import argparse as ap
 import pickle
 import bz2
@@ -29,7 +28,7 @@ def extract_markers(mpa_pkl, ifn_markers, clade, ofn_markers):
     for marker in db['markers']:
         if clade == db['markers'][marker]['taxon'].split('|')[-1]:
             markers.add(marker)
-    print 'number of markers', len(markers)
+    print('number of markers: {}'.format(len(markers)))
     with open(ofn_markers, 'w') as ofile:
         for rec in SeqIO.parse(open(ifn_markers, 'r'), 'fasta'):
             if rec.name in markers:

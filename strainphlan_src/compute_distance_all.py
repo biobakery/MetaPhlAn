@@ -1,10 +1,11 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 #Author: Duy Tin Truong (duytin.truong@unitn.it)
 #        at CIBIO, University of Trento, Italy
 
-__author__  = 'Duy Tin Truong (duytin.truong@unitn.it)'
-__version__ = '0.1'
-__date__    = '9 Feb 2015'
+__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '0.2'
+__date__    = '10 Jul 19'
 
 import sys
 import os
@@ -13,9 +14,7 @@ MAIN_DIR = os.path.dirname(ABS_PATH)
 os.environ['PATH'] += ':%s'%MAIN_DIR
 sys.path.append(MAIN_DIR)
 import argparse as ap
-from Bio import SeqIO#, Seq, SeqRecord
-# from collections import defaultdict
-# import numpy
+from Bio import SeqIO
 from compute_distance import compute_dist_matrix
 from ooSubprocess import parallelize
 

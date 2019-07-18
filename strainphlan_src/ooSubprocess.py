@@ -1,7 +1,11 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # Author: Duy Tin Truong (duytin.truong@unitn.it)
 #        at CIBIO, University of Trento, Italy
 
+__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '0.2'
+__date__    = '10 Jul 19'
 
 import subprocess
 import os
@@ -58,7 +62,7 @@ class ooSubprocess:
                                                 stdin=in_pipe,
                                                 **kwargs)
         elif get_out_pipe:
-            tmp_file = NamedTemporaryFile(dir=self.tmp_dir)
+            tmp_file = NamedTemporaryFile(dir=self.tmp_dir, delete=False)
             p = subprocess.Popen(
                                         cmd,
                                         stdin=in_pipe,

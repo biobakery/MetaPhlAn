@@ -1,10 +1,16 @@
-#!/usr/bin/env python2
-#Author: Duy Tin Truong (duytin.truong@unitn.it)
+#!/usr/bin/env python
+#Authors: Duy Tin Truong (duytin.truong@unitn.it)
 #        at CIBIO, University of Trento, Italy
 
 import argparse as ap
 import pandas
 import dendropy
+import numpy
+
+__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '0.2'
+__date__    = '10 Jul 19'
 
 def read_params():
     p = ap.ArgumentParser()
@@ -37,7 +43,7 @@ def get_index_col(ifn):
 def main(args):
     add_fields = args['metadatas']
     for ifn_tree in args['ifn_trees']:
-        print 'Input:', ifn_tree
+        print ('Input:', ifn_tree)
         df_list = []
         samples = []
         for ifn in args['ifn_metadatas']:
@@ -45,7 +51,7 @@ def main(args):
             df = pandas.read_csv(
                 ifn,
                 sep='\t',
-                dtype=unicode,
+                dtype=numpy.unicode_,
                 header=0,
                 index_col=index_col)
             df = df.transpose()
@@ -55,15 +61,14 @@ def main(args):
                 with open(ifn, 'r') as ifile:
                     add_fields = [f for f in ifile.readline().strip().split('\t') \
                                   if f.upper() != 'SAMPLEID']
-        print 'number of samples in metadata: %d'%len(samples)
+        print ('number of samples in metadata: %d'%len(samples))
         count = 0
         with open(ifn_tree, 'r') as ifile:
             line = ifile.readline()
         line = line.replace(args['string_to_remove'], '')
-        print ifn_tree
-        tree = dendropy.Tree(stream=open(ifn_tree, 'r'), schema='newick')
+        tree = dendropy.Tree.get(stream=open(ifn_tree, 'r'), schema='newick')
         for node in tree.leaf_nodes():
-            sample = node.get_node_str().strip("'")
+            sample = node.__getattribute__("taxon").__str__().strip("'")
             sample = sample.replace(' ', '_')
             sample = sample.replace(args['string_to_remove'], '')
             prefixes = [prefix for prefix in
@@ -94,8 +99,8 @@ def main(args):
             line = line.replace(sample + ':', metadata + ':')
 
         ofn_tree = ifn_tree + '.metadata'
-        print 'Number of samples in tree: %d'%count
-        print 'Output:', ofn_tree
+        print ('Number of samples in tree: %d'%count)
+        print ('Output:', ofn_tree)
         with open(ofn_tree, 'w') as ofile:
             ofile.write(line)
 

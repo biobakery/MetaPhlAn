@@ -1,7 +1,11 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # Author: Duy Tin Truong (duytin.truong@unitn.it)
 #		at CIBIO, University of Trento, Italy
 
+__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '0.2'
+__date__    = '10 Jul 19'
 
 import sys
 import os
@@ -11,6 +15,8 @@ os.environ['PATH'] += ':%s'%MAIN_DIR
 os.environ['PATH'] += ':%s'%os.path.join(MAIN_DIR, 'strainphlan_src')
 sys.path.append(MAIN_DIR)
 sys.path.append(os.path.join(MAIN_DIR, 'strainphlan_src'))
+
+PYTHON_VERSION = float(sys.version_info[0])
 
 import argparse as ap
 import glob
@@ -24,16 +30,23 @@ import multiprocessing
 import pysam
 from collections import defaultdict
 from scipy import stats
-from urllib import urlretrieve
+if(PYTHON_VERSION < 3):
+    from urllib import urlretrieve
+else:
+    from urllib import request
 import errno
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stderr,
-                    disable_existing_loggers=False,
+                    # ToDO: fix on python3
+                    #disable_existing_loggers=False,
                     format='%(asctime)s | %(levelname)s | %(name)s | %(funcName)s | %(lineno)d | %(message)s')
 logger = logging.getLogger(__name__)
 
 if not os.path.isfile(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19')):
-    urlretrieve('https://www.dropbox.com/sh/m4na8wefp53j8ej/AACU1-Nc0q2dUNRmc9pesUi4a/bin/bcftools', os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'))
+    if(PYTHON_VERSION < 3):
+        urlretrieve('https://www.dropbox.com/sh/m4na8wefp53j8ej/AACU1-Nc0q2dUNRmc9pesUi4a/bin/bcftools', os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'))
+    else:
+        request.urlretrieve('https://www.dropbox.com/sh/m4na8wefp53j8ej/AACU1-Nc0q2dUNRmc9pesUi4a/bin/bcftools', os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'))
 try:
     os.symlink(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'), os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools'))
 except OSError as e:
@@ -432,7 +445,7 @@ def main(args):
         try:
             r.get()
         except Exception as e:
-            print e
+            print(e)
 
 
 
