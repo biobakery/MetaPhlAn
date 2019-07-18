@@ -2,10 +2,10 @@
 
 # MetaPhlAn2: Metagenomic Phylogenetic Analysis
 
-## What's new in version 2.9.13
+## What's new in version 2.9.15
 
-* Estimation of metagenome composed by unknown microbes
-* Automatic retrieval and installation of the latest MetaPhlAn2 database
+* Estimation of metagenome composed by unknown microbes with parameter `--unknown_estimation`
+* Automatic retrieval and installation of the latest MetaPhlAn2  with parameter `--index latest`
 * New MetaPhlAn2 marker genes extracted with a newer version of ChocoPhlAn based on UniRef
 * Calculation of metagenome size for improved estimation of reads mapped to a given clade
 * Inclusion of NCBI taxonomy ID in the ouput file
@@ -59,9 +59,6 @@ In addition to the information on this page, you can refer to the following addi
 MetaPhlAn2 requires *python 2.7* or newer with argparse, tempfile, [numpy](http://www.numpy.org/), and [Biopython](https://biopython.org/) libraries installed 
 (apart for numpy and Biopython, the others are usually installed together with the python distribution). 
 
-MetaPhlAn2 requires the `read_fastx.py` script to be present in the system path, if it is not found MetaPhlAn2 will try to locate it in the folder containing the `metaphlan2.py` script under `utils/read_fastx.py`.
-In case you moved the `metaphlan2.py` script, please export the `read_fastx.py` script in your PATH bash variable.
-
 **If you provide the SAM output of [BowTie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml) as input, there are no additional prerequisite.**
 
 * If you would like to use the BowTie2 integrated in MetaPhlAn2, you need to have BowTie2 version 2.0.0 or higher and perl installed (bowtie2 needs to be in the system path with execute _and_ read permission)
@@ -71,7 +68,7 @@ In case you moved the `metaphlan2.py` script, please export the `read_fastx.py` 
 * MetaPhlAn2 is integrated with advanced heatmap plotting with [hclust2](https://bitbucket.org/nsegata/hclust2) and cladogram visualization with [GraPhlAn](https://bitbucket.org/nsegata/graphlan/wiki/Home). If you use such visualization tool please refer to their prerequisites. 
 
 ## Installation
-The best way to install MetaPhlAn2 2.9 is through conda:
+The best way to install MetaPhlAn2 2.9.15 is through conda:
 
 ```
 #!bash
@@ -98,10 +95,10 @@ You can also install and run MetaPhlAn2 through Docker
 
 ```
 #!bash
-$ docker pull quay.io/biocontainers/metaphlan2:2.9.13
+$ docker pull quay.io/biocontainers/metaphlan2:2.9.15
 ```
 
-Alternatively, you can **manually download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/2.9.13.zip) or **clone the repository** using the following command ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``.
+Alternatively, you can **manually download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/2.9.15.zip) or **clone the repository** using the following command ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``.
 
 If you choose this way, **you'll need to install manually all the dependencies!**
 
@@ -194,9 +191,9 @@ For advanced options and other analysis types (such as strain tracking) please r
 ```
 usage: metaphlan2.py --input_type
                      {fastq,fasta,multifasta,multifastq,bowtie2out,sam}
-                     [--mpa_pkl MPA_PKL] [--bowtie2db METAPHLAN_BOWTIE2_DB]
-                     [-x INDEX] [--bt2_ps BowTie2 presets]
-                     [--bowtie2_exe BOWTIE2_EXE]
+                     [--mpa_pkl MPA_PKL] [--force]
+                     [--bowtie2db METAPHLAN_BOWTIE2_DB] [-x INDEX]
+                     [--bt2_ps BowTie2 presets] [--bowtie2_exe BOWTIE2_EXE]
                      [--bowtie2_build BOWTIE2_BUILD] [--bowtie2out FILE_NAME]
                      [--no_map] [--tmp_dir] [--tax_lev TAXONOMIC_LEVEL]
                      [--min_cu_len] [--min_alignment_len]
@@ -207,14 +204,15 @@ usage: metaphlan2.py --input_type
                      [--pres_th PRESENCE_THRESHOLD] [--clade] [--min_ab]
                      [-o output file] [--sample_id_key name]
                      [--sample_id value] [-s sam_output_file]
-                     [--legacy-output] [--no-unknown-estimation]
-                     [--biom biom_output] [--mdelim mdelim] [--nproc N]
-                     [--install] [--force_download]
-                     [--read_min_len READ_MIN_LEN] [-v] [-h]
+                     [--legacy-output] [--CAMI_format_output]
+                     [--unknown_estimation] [--biom biom_output]
+                     [--mdelim mdelim] [--nproc N] [--install]
+                     [--force_download] [--read_min_len READ_MIN_LEN] [-v]
+                     [-h]
                      [INPUT_FILE] [OUTPUT_FILE]
 
 DESCRIPTION
- MetaPhlAn version 2.9 (15 May 2019): 
+ MetaPhlAn version 2.9.15 (17 Jul 2019):
  METAgenomic PHyLogenetic ANalysis for metagenomic taxonomic profiling.
 
 AUTHORS: Nicola Segata (nicola.segata@unitn.it), Duy Tin Truong, Francesco Asnicar (f.asnicar@unitn.it), Francesco Beghini (francesco.beghini@unitn.it)
@@ -225,10 +223,10 @@ COMMON COMMANDS
  main MetaPhlAn folder. Also BowTie2 should be in the system path with execution and read
  permissions, and Perl should be installed)
 
-========== MetaPhlAn 2 clade-abundance estimation ================= 
+========== MetaPhlAn 2 clade-abundance estimation =================
 
-The basic usage of MetaPhlAn 2 consists in the identification of the clades (from phyla to species and 
-strains in particular cases) present in the metagenome obtained from a microbiome sample and their 
+The basic usage of MetaPhlAn 2 consists in the identification of the clades (from phyla to species and
+strains in particular cases) present in the metagenome obtained from a microbiome sample and their
 relative abundance. This correspond to the default analysis type (-t rel_ab).
 
 *  Profiling a metagenome from raw reads:
@@ -239,7 +237,7 @@ $ metaphlan2.py metagenome.fastq --input_type fastq -o profiled_metagenome.txt
 $ metaphlan2.py metagenome.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq -o profiled_metagenome.txt
 
 *  If you already mapped your metagenome against the marker DB (using a previous MetaPhlAn run), you
-   can obtain the results in few seconds by using the previously saved --bowtie2out file and 
+   can obtain the results in few seconds by using the previously saved --bowtie2out file and
    specifying the input (--input_type bowtie2out):
 $ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out -o profiled_metagenome.txt
 
@@ -248,33 +246,33 @@ $ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out -o prof
    If you want to re-run MetaPhlAn2 using these file you should provide the metagenome size via --nreads:
 $ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out --nreads 520000 -o profiled_metagenome.txt
 
-*  You can also provide an externally BowTie2-mapped SAM if you specify this format with 
+*  You can also provide an externally BowTie2-mapped SAM if you specify this format with
    --input_type. Two steps: first apply BowTie2 and then feed MetaPhlAn2 with the obtained sam:
-$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/metaphlan_databases/mpa_v29_CHOCOPhlAn_201901 -U metagenome.fastq
+$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/metaphlan_databases/mpa_v25_CHOCOPhlAn_201901 -U metagenome.fastq
 $ metaphlan2.py metagenome.sam --input_type sam -o profiled_metagenome.txt
 
-*  We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in 
+*  We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in
   multiple files (but you need to specify the --bowtie2out parameter):
 $ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq
 
-------------------------------------------------------------------- 
- 
+-------------------------------------------------------------------
 
-========== Marker level analysis ============================ 
+
+========== Marker level analysis ============================
 
 MetaPhlAn 2 introduces the capability of charachterizing organisms at the strain level using non
-aggregated marker information. Such capability comes with several slightly different flavours and 
+aggregated marker information. Such capability comes with several slightly different flavours and
 are a way to perform strain tracking and comparison across multiple samples.
 Usually, MetaPhlAn 2 is first ran with the default -t to profile the species present in
 the community, and then a strain-level profiling can be performed to zoom-in into specific species
-of interest. This operation can be performed quickly as it exploits the --bowtie2out intermediate 
+of interest. This operation can be performed quickly as it exploits the --bowtie2out intermediate
 file saved during the execution of the default analysis type.
 
-*  The following command will output the abundance of each marker with a RPK (reads per kilo-base) 
-   higher 0.0. (we are assuming that metagenome_outfmt.bz2 has been generated before as 
+*  The following command will output the abundance of each marker with a RPK (reads per kilo-base)
+   higher 0.0. (we are assuming that metagenome_outfmt.bz2 has been generated before as
    shown above).
 $ metaphlan2.py -t marker_ab_table metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt
-   The obtained RPK can be optionally normalized by the total number of reads in the metagenome 
+   The obtained RPK can be optionally normalized by the total number of reads in the metagenome
    to guarantee fair comparisons of abundances across samples. The number of reads in the metagenome
    needs to be passed with the '--nreads' argument
 
@@ -286,40 +284,41 @@ $ metaphlan2.py -t marker_pres_table metagenome_outfmt.bz2 --input_type bowtie2o
    but the markers are reported on a clade-by-clade basis.
 $ metaphlan2.py -t clade_profiles metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt
 
-*  Finally, to obtain all markers present for a specific clade and all its subclades, the 
+*  Finally, to obtain all markers present for a specific clade and all its subclades, the
    '-t clade_specific_strain_tracker' should be used. For example, the following command
    is reporting the presence/absence of the markers for the B. fragulis species and its strains
    the optional argument --min_ab specifies the minimum clade abundance for reporting the markers
 
 $ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt
 
-------------------------------------------------------------------- 
+-------------------------------------------------------------------
 
 positional arguments:
   INPUT_FILE            the input file can be:
                         * a fastq file containing metagenomic reads
                         OR
-                        * a BowTie2 produced SAM file. 
+                        * a BowTie2 produced SAM file.
                         OR
-                        * an intermediary mapping file of the metagenome generated by a previous MetaPhlAn run 
-                        If the input file is missing, the script assumes that the input is provided using the standard 
+                        * an intermediary mapping file of the metagenome generated by a previous MetaPhlAn run
+                        If the input file is missing, the script assumes that the input is provided using the standard
                         input, or named pipes.
                         IMPORTANT: the type of input needs to be specified with --input_type
-  OUTPUT_FILE           the tab-separated output file of the predicted taxon relative abundances 
+  OUTPUT_FILE           the tab-separated output file of the predicted taxon relative abundances
                         [stdout if not present]
 
 Required arguments:
   --input_type {fastq,fasta,multifasta,multifastq,bowtie2out,sam}
-                        set whether the input is the multifasta file of metagenomic reads or 
+                        set whether the input is the multifasta file of metagenomic reads or
                         the SAM file of the mapping of the reads against the MetaPhlAn db.
                         [default 'automatic', i.e. the script will try to guess the input format]
 
 Mapping arguments:
   --mpa_pkl MPA_PKL     The metadata pickled MetaPhlAn file [deprecated]
+  --force               Force profiling of the input file by removing the bowtie2out file
   --bowtie2db METAPHLAN_BOWTIE2_DB
-                        The BowTie2 database file of the MetaPhlAn database. Used if --input_type is fastq, fasta, multifasta, or multifastq [default ${mpa_dir}/metaphlan_databases]
+                        Folder containing the MetaPhlAn database. Used if --input_type is fastq, fasta, multifasta, or multifastq [default /shares/CIBIO-Storage/CM/scratch/users/francesco.beghini/hg/metaphlan2_dev/metaphlan_databases]
   -x INDEX, --index INDEX
-                        Specify the id of the database version to use. If the database
+                        Specify the id of the database version to use. If "latest", MetaPhlAn2 will get the latest version. If the database
                         files are not found on the local MetaPhlAn2 installation they
                         will be automatically downloaded [default latest]
   --bt2_ps BowTie2 presets
@@ -365,9 +364,9 @@ Post-mapping arguments:
   --perc_nonzero        Percentage of markers with a non zero relative abundance for misidentify a species
                         [default 0.33]
   --ignore_markers IGNORE_MARKERS
-                        File containing a list of markers to ignore. 
-  --avoid_disqm         Deactivate the procedure of disambiguating the quasi-markers based on the 
-                        marker abundance pattern found in the sample. It is generally recommended 
+                        File containing a list of markers to ignore.
+  --avoid_disqm         Deactivate the procedure of disambiguating the quasi-markers based on the
+                        marker abundance pattern found in the sample. It is generally recommended
                         to keep the disambiguation procedure in order to minimize false positives
   --stat                EXPERIMENTAL! Statistical approach for converting marker abundances into clade abundances
                         'avg_g'  : clade global (i.e. normalizing all markers together) average
@@ -380,7 +379,7 @@ Post-mapping arguments:
                         [default tavg_g]
 
 Additional analysis types and arguments:
-  -t ANALYSIS TYPE      Type of analysis to perform: 
+  -t ANALYSIS TYPE      Type of analysis to perform:
                          * rel_ab: profiling a metagenomes in terms of relative abundances
                          * rel_ab_w_read_stats: profiling a metagenomes in terms of relative abundances and estimate the number of reads comming from each clade.
                          * reads_map: mapping from reads to clades (only reads hitting a marker)
@@ -390,9 +389,9 @@ Additional analysis types and arguments:
                          * marker_pres_table: list of markers present in the sample (threshold at 1.0 if not differently specified with --pres_th
                         [default 'rel_ab']
   --nreads NUMBER_OF_READS
-                        The total number of reads in the original metagenome. It is used only when 
-                        -t marker_table is specified for normalizing the length-normalized counts 
-                        with the metagenome size as well. No normalization applied if --nreads is not 
+                        The total number of reads in the original metagenome. It is used only when
+                        -t marker_table is specified for normalizing the length-normalized counts
+                        with the metagenome size as well. No normalization applied if --nreads is not
                         specified
   --pres_th PRESENCE_THRESHOLD
                         Threshold for calling a marker present by the -t marker_pres_table option
@@ -407,12 +406,12 @@ Output arguments:
   -s sam_output_file, --samout sam_output_file
                         The sam output file
   --legacy-output       Old two columns output
-  --no-unknown-estimation
-                        Ignore estimation of reads mapping to unkwnown clades
+  --CAMI_format_output  Report the profiling using the CAMI output format
+  --unknown_estimation  Ignore estimation of reads mapping to unkwnown clades
   --biom biom_output, --biom_output_file biom_output
-                        If requesting biom file output: The name of the output file in biom format 
+                        If requesting biom file output: The name of the output file in biom format
   --mdelim mdelim, --metadata_delimiter_char mdelim
-                        Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria 
+                        Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria
 
 Other arguments:
   --nproc N             The number of CPUs to use for parallelizing the mapping [default 4]
@@ -566,7 +565,7 @@ In addition, the table below shows the number of snps between the sample strains
 In the next sections, we will illustrate step by step how to run MetaPhlAn\_Strainer on this toy example to reproduce the above figures.
 
 ### Pre-requisites
-StrainPhlAn requires *python 2.7* and the libraries [pysam](http://pysam.readthedocs.org/en/latest/) (tested on **version 0.8.3**), [biopython](http://biopython.org/wiki/Main_Page), [msgpack](https://pypi.python.org/pypi/msgpack-python), [pandas](https://pandas.pydata.org) (tested on **version 0.22**), [numpy](http://www.numpy.org/) (tested on **version 1.14.2**) and [scipy](https://www.scipy.org) (tested on **version 1.0.0**), [dendropy](https://pythonhosted.org/DendroPy/) (tested on version **3.12.0**). Besides, StrainPhlAn also needs the following programs in the executable path:
+StrainPhlAn requires *python 2.7* or later and the libraries [pysam](http://pysam.readthedocs.org/en/latest/), [biopython](http://biopython.org/wiki/Main_Page), [msgpack](https://pypi.python.org/pypi/msgpack-python), [pandas](https://pandas.pydata.org), [numpy](http://www.numpy.org/) and [scipy](https://www.scipy.org), [dendropy](https://pythonhosted.org/DendroPy/). Besides, StrainPhlAn also needs the following programs in the executable path:
 
 * [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml) for mapping reads against the marker database.
 * [MUSCLE](http://www.drive5.com/muscle/) for the alignment step.
