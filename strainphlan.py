@@ -541,9 +541,8 @@ def clean_alignment(
 
     length = len(sample2seq[list(sample2seq)[0]])
     logger.debug('marker length: %d', length)
-    aligned_samples = list(sample2seq)
     for sample in samples:
-        if sample not in aligned_samples:
+        if sample not in sample2seq:
             sample2seq[sample] = ['-' for i in range(length)]
             sample2freq[sample] = [(0.0, 0.0, 0.0) for i in range(length)]
 
