@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 # ==============================================================================
 # Merge script: from MetaPhlAn output on single sample to a joined "clades vs samples" table
