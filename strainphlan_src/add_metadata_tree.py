@@ -3,6 +3,7 @@
 #        at CIBIO, University of Trento, Italy
 
 import argparse as ap
+import pandas
 import dendropy
 import numpy
 
