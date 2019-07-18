@@ -1,10 +1,12 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 #Author: Duy Tin Truong (duytin.truong@unitn.it)
 #        at CIBIO, University of Trento, Italy
 
-__author__  = 'Duy Tin Truong (duytin.truong@unitn.it)'
-__version__ = '0.1'
-__date__    = '17 Sep 2015'
+__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '0.2'
+__date__    = '10 Jul 19'
+
 
 # import sys
 import os
@@ -54,7 +56,7 @@ def read_params():
 
 
 def run(cmd):
-    print cmd
+    print(cmd)
     os.system(cmd)
 
 

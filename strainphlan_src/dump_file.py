@@ -1,21 +1,20 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 #Author: Duy Tin Truong (duytin.truong@unitn.it)
 #        at CIBIO, University of Trento, Italy
 
+__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '0.2'
+__date__    = '10 Jul 19'
 
 import sys
 import argparse as ap
 import bz2
 import gzip
 import tarfile
-#import logging.config
-#sys.path.append('../pyphlan')
-#sys.path.append('pyphlan')
 import ooSubprocess
 
-#logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
-#logger = logging.getLogger(__name__)
-
+PYTHON_VERSION = float(sys.version_info[0])
 
 def read_params():
     p = ap.ArgumentParser()
@@ -33,10 +32,16 @@ def dump_file(ifn):
         ifile = tarfile.open(ifn, 'r:gz')
         file_ext = '.tar.gz'
     elif ifn.endswith('.bz2'):
-        ifile = bz2.BZ2File(ifn, 'r')
+        if(PYTHON_VERSION < 3):
+            ifile = bz2.BZ2File(ifn, 'r')
+        else:    
+            ifile = bz2.open(ifn, 'rt')
         file_ext = '.bz2'
     elif ifn.endswith('.gz'):
-        ifile = gzip.GzipFile(ifn, 'r')
+        if(PYTHON_VERSION < 3):
+            ifile = gzip.BZ2File(ifn, 'r')
+        else:    
+            ifile = gzip.open(ifn, 'rt')
         file_ext = '.gz'
     elif ifn.endswith('.fastq'):
         ifile = open(ifn, 'r')
