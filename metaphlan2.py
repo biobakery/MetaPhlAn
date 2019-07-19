@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.15'
-__date__ = '17 Jul 2019'
+__version__ = '2.9.16'
+__date__ = '19 Jul 2019'
 
 import sys
 import os
@@ -887,7 +887,7 @@ class TaxTree:
             lens = []
             for c in node.children.values():
                 lens.append( add_lens( c ) )
-            node.glen = np.median(lens)
+            node.glen = min(np.mean(lens), np.median(lens))
             return node.glen
         
         add_lens(self.root)
@@ -973,7 +973,7 @@ class TaxTree:
                             glen = self.all_clades[clade_label].glen
                             tax_id = self.all_clades[clade_label].get_full_taxids()
                             if 's__' in clade_label and abundance > 0:
-                                self.all_clades[clade_label].nreads = int(round(abundance*glen,0))
+                                self.all_clades[clade_label].nreads = int(np.floor(abundance*glen))
 
                             clade_label = self.all_clades[clade_label].get_full_name()
                     elif not clade_label.startswith(tax_lev):
