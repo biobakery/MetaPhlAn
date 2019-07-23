@@ -4,7 +4,7 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.16'
+__version__ = '2.9.17'
 __date__ = '19 Jul 2019'
 
 import sys
@@ -1309,7 +1309,7 @@ def metaphlan2():
             cl2ab, rr, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
 
-            fraction_mapped_reads = tot_nreads/float(n_metagenome_reads) if not pars['no_unknown_estimation'] else 1
+            fraction_mapped_reads = tot_nreads/float(n_metagenome_reads) if not pars['unknown_estimation'] else 1
             unmapped_reads = n_metagenome_reads - tot_nreads
 
             outpred = [(taxstr, taxid,round(relab*100.0*fraction_mapped_reads,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
