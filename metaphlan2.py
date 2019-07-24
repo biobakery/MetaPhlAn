@@ -1129,6 +1129,7 @@ def metaphlan2():
     ranks2code = { 'k' : 'superkingdom', 'p' : 'phylum', 'c':'class',
                    'o' : 'order', 'f' : 'family', 'g' : 'genus', 's' : 'species'}
     pars = read_params(sys.argv)
+    
     # check if the database is installed, if not then install
     pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'])
 
@@ -1252,10 +1253,11 @@ def metaphlan2():
     with (open(pars['output'],"w") if pars['output'] else sys.stdout) as outf:
         if not pars['legacy_output']:
             outf.write('#{}\n'.format(pars['index']))
+            outf.write('#{}\n'.format(' '.join(sys.argv)))
 
         if not pars['CAMI_format_output']:
             outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
-
+        
         if pars['t'] == 'reads_map':
             if not pars['legacy_output']:
                outf.write('#read_id\tNCBI_taxlineage_str\tNCBI_taxlineage_ids\n')
@@ -1321,7 +1323,7 @@ def metaphlan2():
                                             "relative_abundance",
                                             "coverage",
                                             "estimated_number_of_reads_from_the_clade" ]) +"\n" )
-                if not pars['no_unknown_estimation']:
+                if not pars['unknown_estimation']:
                     outf.write( "\t".join( [    "UNKNOWN",
                                                 "-1",
                                                 str(round((1-fraction_mapped_reads)*100,5)),
