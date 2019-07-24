@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.17'
-__date__ = '19 Jul 2019'
+__version__ = '2.9.18'
+__date__ = '24 Jul 2019'
 
 import sys
 import os
