@@ -90,9 +90,13 @@ def extract_markers(database, clade, output_dir):
     info('\tDone.',init_new_line=True)
     markers = set([])
     for marker in db['markers']:
-        if clade == db['markers'][marker]['taxon'].split('|')[-1]:
+        if clade in db['markers'][marker]['taxon']:
             markers.add(marker)
-    info('\tNumber of markers for the clade \"'+clade+"\": "+str(len(markers)), init_new_line=True)
+    if len(markers) == 0:
+        error("No markers were found for the clade \""+clade+"\" in the database", 
+            exit=True, init_new_line=True)
+    info('\tNumber of markers for the clade \"'+clade+"\": "+str(len(markers)), 
+        init_new_line=True)
     output_file = output_dir+clade+".fna"
     info('\tExporting markers...', init_new_line=True)
     with open(output_file, 'w') as ofile:

@@ -234,7 +234,7 @@ def execute_cmseq(input, output_dir, nprocs):
             contig  = collection.get_contig_by_label(c)
             seq = contig.reference_free_consensus(noneCharacter='N')
             breath = get_breath(seq)
-            if(breath > BREATH_THRESHOLD):
+            if(breath >= BREATH_THRESHOLD):
                 consensus.append({"marker":c, "breath":breath, "sequence":seq})
         
         markers_pkl = open(output_dir+n+'.pkl', 'wb')

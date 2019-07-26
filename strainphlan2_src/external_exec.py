@@ -26,7 +26,7 @@ def execute(cmd):
         inp_f = open(cmd['stdin'], 'r')
     if cmd['stdout']:
         out_f = open(cmd['stdout'], 'w')
-    info("\t"+str(cmd['command_line']), init_new_line=True)
+    # info("\t"+str(cmd['command_line']), init_new_line=True)
 
     sb.run(cmd['command_line'], stdin=inp_f, stdout=out_f, stderr=sb.DEVNULL)
 
