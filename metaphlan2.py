@@ -1129,7 +1129,7 @@ def metaphlan2():
     ranks2code = { 'k' : 'superkingdom', 'p' : 'phylum', 'c':'class',
                    'o' : 'order', 'f' : 'family', 'g' : 'genus', 's' : 'species'}
     pars = read_params(sys.argv)
-    
+
     # check if the database is installed, if not then install
     pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'])
 
@@ -1215,6 +1215,7 @@ def metaphlan2():
                                 min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'])
             pars['input_type'] = 'bowtie2out'
         pars['inp'] = pars['bowtie2out'] # !!!
+
     with bz2.BZ2File( pars['mpa_pkl'], 'r' ) as a:
         mpa_pkl = pickle.load( a )
 
@@ -1312,7 +1313,8 @@ def metaphlan2():
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
 
             fraction_mapped_reads = tot_nreads/float(n_metagenome_reads) if not pars['unknown_estimation'] else 1
-            unmapped_reads = n_metagenome_reads - tot_nreads
+            if fraction_mapped_reads > 1.0: fraction_mapped_reads = 1.0
+            unmapped_reads = max(n_metagenome_reads - tot_nreads, 0)
 
             outpred = [(taxstr, taxid,round(relab*100.0*fraction_mapped_reads,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
 
