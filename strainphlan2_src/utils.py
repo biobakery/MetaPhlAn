@@ -83,3 +83,13 @@ Checks if the submitted clade is in the species level
 def check_clade(clade):
     species_pattern = re.compile("s__[A-z]*_[A-z]*")
     return species_pattern.match(clade)
+
+
+"""
+Parse marker names to support PhyloPhlAn execution
+
+:param marker_name: the old marker name
+:returns: the parsed marker name
+"""
+def parse_marker_name(marker_name):
+    return re.sub('[^a-zA-Z0-9 \n\.]', '-', marker_name)

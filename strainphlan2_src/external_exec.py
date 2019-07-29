@@ -8,9 +8,11 @@ __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
 __version__ = '2.0.0'
 __date__ = '17 Jul 2019'
 
-import os, re
+import os, sys, re
 import subprocess as sb
 from utils import info, error
+
+PHYLOPHLAN_PATH = str(os.path.dirname(os.path.abspath(sys.argv[0])))+"/phylophlan/"
 
 #ToDo: We have to recover the info/errors from the std_out and std_err
 """
@@ -36,23 +38,202 @@ def execute(cmd):
         out_f.close()
 
 
+"""
+Creates the BLASTn database to align the reference genomes
+
+:param tmp_dir: the temporal output directory
+:param reference: the FASTA with the reference
+:returns: the created BLASTn database
+"""
+def create_blastn_db(blastn_dir, reference):
+    reference_name = os.path.splitext(os.path.basename(reference))[0]    
+    params = {
+        "program_name" : "makeblastdb",
+        "params" : "-parse_seqids -dbtype nucl",
+        "input" : "-in",
+        "output" : "-out",
+        "command_line" : "#program_name# #params# #input# #output#"
+    }
+    execute(compose_command(params, input_file=reference, output_file=blastn_dir+reference_name))
+    return blastn_dir+reference_name
+
+
+"""
+Executes BLASTn
+
+:param blastn_dir: the temporal output directory
+:param reference: the fasta with the markers
+:returns: the BLASTn output file
+"""
+def execute_blastn(blastn_dir, clade_markers_file, blastn_db, nprocs):
+    db_name = os.path.splitext(os.path.basename(blastn_db))[0]
+    params = {
+        "program_name" : "blastn",
+        "params" : "-outfmt \"6 qseqid sseqid qlen qstart qend sstart send\" -evalue 1e-10 -max_target_seqs 1",
+        "input" : "-query",
+        "database": "-db",
+        "output" : "-out",
+        "threads" : "-num_threads",
+        "command_line" : "#program_name# #params# #threads# #database# #input# #output#"
+    }
+    execute(compose_command(params, input_file=clade_markers_file, database=blastn_db, 
+        output_file=blastn_dir+db_name+".blastn", nproc=nprocs))
+    return blastn_dir+db_name+".blastn"
+
+
+"""
+Creates the PhyloPhlAn database
+
+:param clade_markers_dir: the temporal clade markers directory
+:param clade: the clade
+"""
+def create_phylophlan_db(tmp_dir, clade):
+    markers = tmp_dir+clade
+    params = {
+        "program_name" : PHYLOPHLAN_PATH+"phylophlan2_setup_database.py",
+        "params" : "-d "+clade+" -e fna -t n --overwrite",
+        "input" : "-i",
+        "command_line" : "#program_name# #input# #params#"
+    }
+    execute(compose_command(params, input_file=markers))
+    os.rename(tmp_dir+clade+".fna", markers+"/"+clade+".fna")
+
+
+"""
+Generates the PhyloPhlan configuration file
+
+:param tmp_dir: the temporal output directory
+:returns: the generated configuration file
+"""
+def generate_phylophlan_config_file(tmp_dir):
+    params = {
+        "program_name" : PHYLOPHLAN_PATH+"phylophlan2_write_config_file.py",
+        "params" : "-d n --db_dna makeblastdb --map_dna blastn --msa mafft --tree1 raxml",
+        "output" : "-o",
+        "command_line" : "#program_name# #output# #params#"
+    }
+    conf_file = tmp_dir+"phylophlan.cfg"
+    execute(compose_command(params, output_file=conf_file))
+    return conf_file
+
+
+"""
+Executes PhyloPhlAn2
+
+:param samples_markers_dir: the temporal samples markers directory
+:param conf_file: the PhyloPhlAn2 configuration file
+:param min_entries: the minimun number of entries to consider a good marker 
+:param tmp_dir: the temporal output directory
+:param output_dir: the output_directory
+:param clade: the clade
+:param nproc: the number of threads to run phylophlan
+"""
+def execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, output_dir, clade, nprocs):
+    params = {
+        "program_name" : PHYLOPHLAN_PATH+"phylophlan2.py",
+        "params" : "-d "+clade+" --databases_folder "+tmp_dir+" -t n -f "+conf_file+
+            " --diversity low --fast --genome_extension fna"+
+            " --force_nucleotides --min_num_entries "+str(min_entries),
+        "input" : "-i",
+        "output_path" : "--output_folder",
+        "output" : "-o",
+        "threads" : "--nproc",
+        "command_line" : "#program_name# #input# #output# #output_path# #params# #threads#"
+    }
+    execute(compose_command(params=params, input_file=samples_markers_dir, output_path=output_dir,
+        output_file=".", nproc=nprocs))
+        
+
 #ToDo: Parametrize this function: default output_dir, remove the compressed file...
 """
 Decompressed BZ2 files
 
-:param reference: the reference FASTA as BZ2 files
+:param input: the input BZ2 file to decompress
 :param tmp_dir: the temporal output directory
 :returns: the decompressed file
 """
-def decompress_bz2(reference, output_dir):
+def decompress_bz2(input, output_dir):
     params = {
         "program_name" : "bzip2",
         "input" : "-cdk",
         "command_line" : "#program_name# #input# > #output#"
     }      
-    n, _ = os.path.splitext(os.path.basename(reference))
-    execute(compose_command(params, input_file=reference, output_file=output_dir+n))
+    n, _ = os.path.splitext(os.path.basename(input))
+    execute(compose_command(params, input_file=input, output_file=output_dir+n))
     return output_dir+n
+
+
+"""
+Converts SAM files to sorted BAM files using samtools
+
+:param input: the input SAM file
+:param output_dir: the  output directory
+:returns: the sorted BAM file
+"""
+def samtools_sam_to_bam(input, output_dir):
+    params = {
+        "program_name" : "samtools",
+        "params" : "view",
+        "input" : "-Sb",
+        "command_line" : "#program_name# #params# #input# > #output#"
+    }    
+    n, _ = os.path.splitext(os.path.basename(input))      
+    execute(compose_command(params, input_file=input, output_file=output_dir+n+".bam"))
+    return output_dir+n+".bam"
+
+
+"""
+Sort BAM files using samtools
+
+:param input: the input BAM file
+:param output_dir: the output directory
+:returns: the sorted BAM file
+"""
+def samtools_sort_bam_v0(input, output_dir):
+    params = {
+        "program_name" : "samtools",
+        "params" : "sort",
+        "command_line" : "#program_name# #params# #input# #output#"
+    }
+    n, _ = os.path.splitext(os.path.basename(input))        
+    execute(compose_command(params, input_file=input, output_file=output_dir+n+".sorted"))
+    return output_dir+n+".sorted.bam"
+
+
+"""
+Sort BAM files using samtools
+
+:param input: the input BAM file
+:param output_dir: the output directory
+:returns: the sorted BAM file
+"""
+def samtools_sort_bam_v1(input, output_dir):
+    params = {
+        "program_name" : "samtools",
+        "params" : "sort",
+        "output" : "-o",
+        "command_line" : "#program_name# #params# #input# #output#"
+    }
+    n, _ = os.path.splitext(os.path.basename(input))        
+    execute(compose_command(params, input_file=input, output_file=output_dir+n+".sorted.bam"))
+    return output_dir+n+".sorted.bam"
+
+
+"""
+Generates a FASTA file with the markers form a MetaPhlAn database
+
+:param database: the MetaPhlan markers database
+:param output_dir: the output directory
+"""
+def generate_markers_fasta(database, output_dir):
+    db_markers_faa = output_dir+"db_markers.fna"
+    bowtie_database, _ = os.path.splitext(database)
+    params = {
+        "program_name" : "bowtie2-inspect",
+        "command_line" : "#program_name# #input# > #output#"
+    }
+    execute(compose_command(params, input_file=bowtie_database, output_file=db_markers_faa))
+    return db_markers_faa
 
 
 """

@@ -9,7 +9,7 @@ __version__ = '2.0.0'
 __date__ = '17 Jul 2019'
 
 import os, sys, bz2, pickle, gc, time, msgpack, shutil, re
-from utils import info, error, optimized_dump, create_folder, check_clade
+from utils import info, error, optimized_dump, create_folder, check_clade, parse_marker_name
 
 if sys.version_info[0] < 3:
     error("StrainPhlAn2 requires Python 3, your current Python version is {}.{}.{}"
@@ -23,9 +23,10 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
-from external_exec import execute, compose_command, decompress_bz2
+from external_exec import decompress_bz2, create_blastn_db, execute_blastn
+from external_exec import generate_phylophlan_config_file, create_phylophlan_db, execute_phylophlan
 from extract_markers import extract_markers
-from samples_to_markers import get_breath
+from samples_to_markers import get_breath, BREATH_THRESHOLD
 from parallelisation import execute_pool
 
 # Regular expression to remove comments: \n\"\"\"[^"]+\n\"\"\"
@@ -35,10 +36,7 @@ Global variables
 """
 MARKER_IN_SAMPLES_THRESHOLD = 80
 MARKERS_IN_SAMPLE_THRESHOLD = 20
-BREATH_THRESHOLD = 90
 TRIM_SEQUENCES = 50
-# ToDo: Get PhyloPhlAn path in other way
-PHYLOPHLAN_PATH = "/mnt/d/ScientificWork/CIBIO_repos/phylophlan/"
 
 
 """
@@ -126,6 +124,7 @@ Gets a binary matrix representing the presence/ausence of the clade
 markers in the uploaded samples
 
 :param database: the MetaPhlan2 markers database
+:param clade_markers_file: a FASTA containing the markers of a specific clade
 :param samples: the folder containing the markers generated with script samples_to_markers.py
 :param clade: the clade to investigate
 :param tmp_dir: the temporal output directory
@@ -153,7 +152,7 @@ def get_markers_matrix(database, clade_markers_file, samples, clade, tmp_dir, np
 """
 Gets a matrix with the presence / ausence of the clade markers in 
 a sample
-:param sample_path: the path to the sample
+:param s the path to the sample
 :param clade_markers: a list with the names of the clade markers
 :returns: the markers matrix for the sample
 """
@@ -176,7 +175,7 @@ Then, checks if the percentage of samples that contain a marker reaches
 a threhold, if not, removes the marker.
 
 :param markers_matrix: the markers matrix
-:returns: the improved markers matrix
+:returns: the filtered markers matrix
 """
 def clean_markers_matrix(markers_matrix):    
     # Checks if the percentage of markers of a sample sample reachs a threshold, 
@@ -259,9 +258,9 @@ def sample_markers_to_fasta(s, filtered_samples, tmp_dir, filtered_clade_markers
             sample = pickle.load(open(s, "rb"))
             for r in sample:
                 if r['marker'] in filtered_clade_markers:
-                    marker_name = re.sub('[^a-zA-Z0-9 \n\.]', '-', r['marker'])
-                    seq = SeqRecord(Seq(r['sequence'][TRIM_SEQUENCES:-TRIM_SEQUENCES], generic_dna), id=marker_name, 
-                        description=marker_name)
+                    marker_name = parse_marker_name(r['marker'])
+                    seq = SeqRecord(Seq(r['sequence'][TRIM_SEQUENCES:-TRIM_SEQUENCES].replace("*","N"), generic_dna), 
+                        id=marker_name, description=marker_name)
                     SeqIO.write(seq, marker_fna, 'fasta')
 
 
@@ -281,53 +280,10 @@ def cleaned_clade_markers_to_fasta(markers, tmp_dir, clade, clade_markers_file):
         clade_markers.update({rec.id: rec.seq})
 
     for m in list(markers[0])[1:]:
-        marker_name = re.sub('[^a-zA-Z0-9 \n\.]', '-', m)
+        marker_name = parse_marker_name(m)
         with open(tmp_dir+marker_name+'.fna', 'w') as marker_fna:
             seq = SeqRecord(clade_markers.get(m), id=marker_name, description=marker_name)
             SeqIO.write(seq, marker_fna, 'fasta')
-
-
-"""
-Creates the BLASTn database to align the reference genomes
-
-:param tmp_dir: the temporal output directory
-:param reference: the FASTA with the reference
-:returns: the created BLASTn database
-"""
-def create_blastn_db(blastn_dir, reference):
-    reference_name = os.path.splitext(os.path.basename(reference))[0]    
-    params = {
-        "program_name" : "makeblastdb",
-        "params" : "-parse_seqids -dbtype nucl",
-        "input" : "-in",
-        "output" : "-out",
-        "command_line" : "#program_name# #params# #input# #output#"
-    }
-    execute(compose_command(params, input_file=reference, output_file=blastn_dir+reference_name))
-    return blastn_dir+reference_name
-
-
-"""
-Executes BLASTn
-
-:param blastn_dir: the temporal output directory
-:param reference: the fasta with the markers
-:returns: the BLASTn output file
-"""
-def execute_blastn(blastn_dir, clade_markers_file, blastn_db, nprocs):
-    db_name = os.path.splitext(os.path.basename(blastn_db))[0]
-    params = {
-        "program_name" : "blastn",
-        "params" : "-outfmt \"6 qseqid sseqid qlen qstart qend sstart send\" -evalue 1e-10 -max_target_seqs 1",
-        "input" : "-query",
-        "database": "-db",
-        "output" : "-out",
-        "threads" : "-num_threads",
-        "command_line" : "#program_name# #params# #threads# #database# #input# #output#"
-    }
-    execute(compose_command(params, input_file=clade_markers_file, database=blastn_db, 
-        output_file=blastn_dir+db_name+".blastn", nproc=nprocs))
-    return blastn_dir+db_name+".blastn"
 
 
 """
@@ -511,55 +467,17 @@ def reconstruct_sequence(sequence_constructor):
     return {"marker": sequence_constructor[0]["marker"], "breath": get_breath(seq), "sequence":seq}
 
 
-#ToDo: get phylophlan_setup_database.py Script from conf
 """
-Creates the PhyloPhlAn database
-
-:param clade_markers_dir: the temporal clade markers directory
-:param clade: the clade
-"""
-def create_phylophlan_db(tmp_dir, clade):
-    markers = tmp_dir+clade
-    params = {
-        "program_name" : PHYLOPHLAN_PATH+"phylophlan_setup_database.py",
-        "params" : "-d "+clade+" -e fna -t n --overwrite",
-        "input" : "-i",
-        "command_line" : "#program_name# #input# #params#"
-    }
-    execute(compose_command(params, input_file=markers))
-    os.rename(tmp_dir+clade+".fna", markers+"/"+clade+".fna")
-
-
-#ToDo: Params of this script as args of the script?, get this script from conf
-"""
-Generates the PhyloPhlan configuration file
-
-:param tmp_dir: the temporal output directory
-:returns: the generated configuration file
-"""
-def generate_phylophlan_config_file(tmp_dir):
-    params = {
-        "program_name" : PHYLOPHLAN_PATH+"phylophlan_write_config_file.py",
-        "params" : "-d n --db_dna makeblastdb --map_dna blastn --msa mafft --tree1 raxml",
-        "output" : "-o",
-        "command_line" : "#program_name# #output# #params#"
-    }
-    conf_file = tmp_dir+"phylophlan.cfg"
-    execute(compose_command(params, output_file=conf_file))
-    return conf_file
-
-
-#ToDo: get pyhlophlan2.py Script from conf?
-"""
-Executes PhyloPhlAn2
+Executes PhyloPhlAn2 to compute phylogeny
 
 :param samples_markers_dir: the temporal samples markers directory
-:param clade_markers_dir: the temporal clade markers directory
+:param num_samples: the number of filtered samples
+:param tmp_dir: the temporal output directory
 :param output_dir: the output_directory
 :param clade: the clade
 :param nproc: the number of threads to run phylophlan
 """
-def execute_phylophlan(samples_markers_dir, num_samples, tmp_dir, output_dir, clade, nprocs):    
+def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, clade, nprocs):    
     info("\tCreating PhyloPhlAn2 database...", init_new_line=True)
     create_phylophlan_db(tmp_dir, clade)
     info("\tDone.", init_new_line=True)
@@ -568,19 +486,8 @@ def execute_phylophlan(samples_markers_dir, num_samples, tmp_dir, output_dir, cl
     info("\tDone.", init_new_line=True)
     info("\tProcessing samples...", init_new_line=True)
     min_entries = int(MARKERS_IN_SAMPLE_THRESHOLD*num_samples/100)
-    params = {
-        "program_name" : PHYLOPHLAN_PATH+"phylophlan2.py",
-        "params" : "-d "+clade+" --databases_folder "+tmp_dir+" -t n -f "+conf_file+
-            " --diversity low --fast --genome_extension fna"+
-            " --force_nucleotides --min_num_entries "+str(min_entries),
-        "input" : "-i",
-        "output_path" : "--output_folder",
-        "output" : "-o",
-        "threads" : "--nproc",
-        "command_line" : "#program_name# #input# #output# #output_path# #params# #threads#"
-    }
-    execute(compose_command(params=params, input_file=samples_markers_dir, output_path=output_dir,
-        output_file=".", nproc=nprocs))
+    execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, 
+        output_dir, clade, nprocs)
     info("\tDone.", init_new_line=True)
 
 
@@ -619,7 +526,7 @@ def strainphlan2(database, clade_markers, samples, references, clade, output_dir
     cleaned_clade_markers_to_fasta(cleaned_markers_matrix, tmp_dir, clade, clade_markers_file)
     info("Done.", init_new_line=True)
     info("Executing PhyloPhlAn2...", init_new_line=True)
-    execute_phylophlan(samples_as_markers_dir, len(cleaned_markers_matrix), tmp_dir, 
+    compute_phylogeny(samples_as_markers_dir, len(cleaned_markers_matrix), tmp_dir, 
         output_dir, clade, nprocs)
     info("Done.", init_new_line=True)    
     info("Removing temporal files...", init_new_line=True)

@@ -12,7 +12,7 @@ import pickle, bz2, os, time
 import subprocess as sb
 import argparse as ap
 from Bio import SeqIO, Seq, SeqRecord
-from external_exec import execute, compose_command
+from external_exec import generate_markers_fasta
 from utils import error, info
 
 
@@ -107,23 +107,6 @@ def extract_markers(database, clade, output_dir):
     
     os.remove(fasta_markers)
     return output_file
-
-
-"""
-Generates a FASTA file with the markers form a MetaPhlAn database
-
-:param database: the MetaPhlan markers database
-:param output_dir: the output directory
-"""
-def generate_markers_fasta(database, output_dir):
-    db_markers_faa = output_dir+"db_markers.fna"
-    bowtie_database, _ = os.path.splitext(database)
-    params = {
-        "program_name" : "bowtie2-inspect",
-        "command_line" : "#program_name# #input# > #output#"
-    }
-    execute(compose_command(params, input_file=bowtie_database, output_file=db_markers_faa))
-    return db_markers_faa
 
 
 """

@@ -11,14 +11,11 @@ __date__ = '17 Jul 2019'
 import os, time, shutil, pickle
 import subprocess as sb
 import argparse as ap
-from external_exec import execute, compose_command
+from external_exec import samtools_sam_to_bam, samtools_sort_bam_v1, decompress_bz2
 from utils import error, info, optimized_dump
 from cmseq import cmseq
+from parallelisation import execute_pool
 
-
-"""
-Global variables
-"""
 BREATH_THRESHOLD = 90
 
 
@@ -105,73 +102,20 @@ def check_dependencies():
 
 
 """
-Converts SAM files to sorted BAM files using samtools
-
-:param input: the list of samples as SAM files
-:param tmp_dir: the temporal output directory
-:returns: the list of sorted BAM files
-"""
-def sam_to_bam(input, tmp_dir, nprocs):
-    bam = []
-    params = {
-        "program_name" : "samtools",
-        "params" : "view",
-        "input" : "-Sb",
-        "command_line" : "#program_name# #params# #input# > #output#"
-    }    
-    #ToDo: parallelize
-    for i in input:  
-        n, _ = os.path.splitext(os.path.basename(i))      
-        execute(compose_command(params, input_file=i, output_file=tmp_dir+n+".bam"))
-        bam.append(tmp_dir+n+".bam")
-    return sort_bam(bam, tmp_dir, nprocs)
-
-
-"""
-Sort BAM files using samtools
-
-:param input: the list of samples as BAM files
-:param tmp_dir: the temporal output directory
-:returns: the list of sorted BAM files
-"""
-def sort_bam(input, tmp_dir, nprocs):
-    sorted = []
-    params = {
-        "program_name" : "samtools",
-        "params" : "sort",
-        "command_line" : "#program_name# #params# #input# #output#"
-    }
-    #ToDo: parallelize
-    for i in input:        
-        n, _ = os.path.splitext(os.path.basename(i))        
-        execute(compose_command(params, input_file=i, output_file=tmp_dir+n+".sorted"))
-        sorted.append(tmp_dir+n+".sorted.bam")
-    return sorted
-
-    
-"""
-Decompressed BZ2 files
+Decompressed SAM.BZ2 files
 
 :param input: the list of samples as BZ2 files
 :param tmp_dir: the temporal output directory
 :returns: the list of decompressed files
 """
-def decompress_bz2(input, tmp_dir, nprocs):
+def decompress_from_bz2(input, tmp_dir, nprocs):
     decompressed = []
     decompressed_format = []
-    params = {
-        "program_name" : "bzip2",
-        "input" : "-cdk",
-        "command_line" : "#program_name# #input# > #output#"
-    }
-    #ToDo: parallelize
-    for i in input:        
-        f, _ = os.path.splitext(i)
-        n, _ = os.path.splitext(os.path.basename(i))
-        execute(compose_command(params, input_file=i, output_file=tmp_dir+n))
-        _, e = os.path.splitext(f)
-        decompressed.append(tmp_dir+n)
-        decompressed_format.append(e)
+    results = execute_pool(((decompress_bz2_file, i, tmp_dir) for i in input), 
+        nprocs)
+    for r in results:
+        decompressed.append(r[0])
+        decompressed_format.append(r[1])   
 
     if decompressed_format[1:] == decompressed_format[:-1]:
         if decompressed_format[0][1:].lower() == "sam":
@@ -187,6 +131,21 @@ def decompress_bz2(input, tmp_dir, nprocs):
 
 
 """
+Decompress a BZ2 file and returns the decompressed file and the 
+decompressed file format
+
+:param input: the input BZ2 file
+:param output_dir: the output directory
+:returns: the decompressed file and the decompressed file format
+"""
+def decompress_bz2_file(input, output_dir):
+    f, _ = os.path.splitext(input)
+    decompressed_file = decompress_bz2(input, output_dir)
+    _, e = os.path.splitext(f)
+    return decompressed_file, e
+
+
+"""
 Convert input sample files to sorted BAMs
 
 :param input: the samples as SAM or BAM files
@@ -199,22 +158,28 @@ Convert input sample files to sorted BAMs
 def convert_inputs(input, sorted, input_format, tmp_dir, nprocs):
     if input_format.lower() == "bz2":
         info("Decompressing samples...\n", init_new_line=True)
-        input, input_format = decompress_bz2(input, tmp_dir, nprocs)
+        input, input_format = decompress_from_bz2(input, tmp_dir, nprocs)
         info("Done.")
-
     if input_format.lower() == "sam":
         info("Converting samples to BAM format...\n", init_new_line=True)
-        input = sam_to_bam(input, tmp_dir, nprocs)
+        input = execute_pool(((samtools_sam_to_bam, i, tmp_dir) for i in input), 
+            nprocs)
+        info("Done.")
+        info("Sorting BAM samples...\n", init_new_line=True)
+        input = execute_pool(((samtools_sort_bam_v1, i, tmp_dir) for i in input), 
+            nprocs)
         info("Done.")
     elif sorted == False:        
         info("Sorting BAM samples...\n", init_new_line=True)
-        input = sort_bam(input, tmp_dir, nprocs)
+        input = execute_pool(((samtools_sort_bam_v1, i, tmp_dir) for i in input), 
+            nprocs)
         info("Done.")
     
     return input
 
 
 #ToDo: BREATH_THRESHOLD as command line parameter
+#ToDo: minimumReadsAlignning as command line parameter
 """
 Gets the markers for each sample and writes the Pickle files
 
@@ -223,22 +188,20 @@ Gets the markers for each sample and writes the Pickle files
 :param nprocs: number of threads to use in the execution
 """
 def execute_cmseq(input, output_dir, nprocs):
-    # Parallelize??    
     info("Getting consensus markers from samples...", init_new_line=True)
     for i in input:
-        info("Processing sample: "+i, init_new_line=True)
+        info("\tProcessing sample: "+i, init_new_line=True)
         n, _ = os.path.splitext(os.path.basename(i))
         consensus = []
-        collection = cmseq.BamFile(i, index=True, minlen=0)
-        for c in collection.get_contigs():
-            contig  = collection.get_contig_by_label(c)
-            seq = contig.reference_free_consensus(noneCharacter='N')
+        collection = cmseq.BamFile(i, index=True, minimumReadsAligning=8)
+        results = collection.parallel_reference_free_consensus(ncores=nprocs, consensus_rule=cmseq.BamContig.majority_rule_polymorphicLoci)
+        for c, seq in results:
             breath = get_breath(seq)
-            if(breath >= BREATH_THRESHOLD):
+            if breath > BREATH_THRESHOLD:
                 consensus.append({"marker":c, "breath":breath, "sequence":seq})
-        
         markers_pkl = open(output_dir+n+'.pkl', 'wb')
         optimized_dump(markers_pkl, consensus)
+        info("\tDone.", init_new_line=True)
     info("Done.", init_new_line=True)
 
 
