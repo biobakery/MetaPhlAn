@@ -11,6 +11,7 @@ __date__ = '29 Jul 2019'
 import msgpack, os, time
 import argparse as ap
 from utils import info, error, optimized_dump, get_breath
+from parallelisation import execute_pool
 from samples_to_markers import BREATH_THRESHOLD
 
 
@@ -26,6 +27,8 @@ def read_params():
                    help="The the markers for each sample")
     p.add_argument('-o', '--output_dir', type=str, default=None,
                    help="The output directory")
+    p.add_argument('-n', '--nprocs', type=int, default=None,
+                   help="The number of threads to execute the script")
     
     return p.parse_args()
 
@@ -45,42 +48,54 @@ def check_params(args):
             init_new_line=True)
     if not args.output_dir.endswith('/'):
         args.output_dir += '/'
+    if not args.nprocs:
+        args.nprocs = 1
     return args 
 
 
 """
-Converts Strainphlan consensus markers to Strainphlan2 markers Pickle files
+Converts a set of Strainphlan consensus markers to Strainphlan2 markers Pickle files
+
+:param markers: the Strainphlan consensus marker files
+:param output_dir: the output directory
+:param nprocs: number of threads to use
+"""
+def strainphlan_markers_to_strainphlan2_pkls(markers, output_dir, nprocs):
+    execute_pool(((marker_to_pkl, m, output_dir) for m in markers), nprocs)        
+        
+        
+"""
+Converts a Strainphlan consensus marker to Strainphlan2 markers Pickle file
 
 :param markers: the Strainphlan consensus marker files
 :param output_dir: the output directory
 """
-def strainphlan_markers_to_strainphlan2_pkls(markers, output_dir):
-    for s in markers:        
-        n, _ = os.path.splitext(os.path.basename(s))
-        with open(s, 'rb') as ifile:
-            consensus = []
-            marker2seq = msgpack.unpack(ifile, use_list=False, encoding='utf-8')
-            for marker in marker2seq:                
-                seq = marker2seq[marker]['seq']
-                breath = get_breath(seq)
-                if(breath > BREATH_THRESHOLD):
-                    consensus.append({"marker":marker, "breath":breath, "sequence":seq})
-        markers_pkl = open(output_dir+n+'.pkl', 'wb')
-        optimized_dump(markers_pkl, consensus)  
-
+def marker_to_pkl(s, output_dir):
+    n, _ = os.path.splitext(os.path.basename(s))
+    with open(s, 'rb') as ifile:
+        consensus = []
+        marker2seq = msgpack.unpack(ifile, use_list=False, encoding='utf-8')
+        for marker in marker2seq:                
+            seq = marker2seq[marker]['seq']
+            breath = get_breath(seq)
+            if(breath > BREATH_THRESHOLD):
+                consensus.append({"marker":marker, "breath":breath, "sequence":seq})
+    markers_pkl = open(output_dir+n+'.pkl', 'wb')
+    optimized_dump(markers_pkl, consensus)  
 
 """
 Main function
 
 :param samples: the Strainphlan consensus marker files
 :param output_dir: the output directory
+:param nprocs: number of threads to use
 """
 if __name__ == "__main__":
     info("Start StrainPhlAn markers to StrainPhlAn2 Pickle markers execution")
     t0 = time.time()
     args = read_params()
     args = check_params(args)
-    strainphlan_markers_to_strainphlan2_pkls(args.samples, args.output_dir)
+    strainphlan_markers_to_strainphlan2_pkls(args.samples, args.output_dir, args.nprocs)
     exec_time = time.time() - t0
     info("Finish StrainPhlAn markers to StrainPhlAn2 Pickle markers execution ("+str(round(exec_time, 2))+
         " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
