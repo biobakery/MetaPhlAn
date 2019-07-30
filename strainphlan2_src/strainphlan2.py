@@ -232,13 +232,16 @@ def matrix_markers_to_fasta(cleaned_markers_matrix, samples, references, tmp_dir
     tmp_dir=tmp_dir+"samples_as_markers/"    
     create_folder(tmp_dir)
 
-    for r in references:
-        r_name = os.path.splitext(os.path.basename(r))[0]
-        copyfile(r, tmp_dir+r_name+".fna")
-
     filtered_samples = []
+    filtered_names = []
     for s in cleaned_markers_matrix:
-        filtered_samples.append(s['sample'])   
+        filtered_names.append(os.path.splitext(os.path.basename(s['sample']))[0])
+        filtered_samples.append(s['sample'])
+
+    for r in references:
+        r_name = os.path.splitext(os.path.basename(r))[0]            
+        if r_name in filtered_names:
+            copyfile(r, tmp_dir+r_name+".fna")
 
     execute_pool(((sample_markers_to_fasta, s, filtered_samples, tmp_dir, 
         list(cleaned_markers_matrix[0])) for s in samples), 
