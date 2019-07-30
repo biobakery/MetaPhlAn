@@ -56,23 +56,23 @@ def check_params(args):
 """
 Converts a set of Strainphlan consensus markers to Strainphlan2 markers Pickle files
 
-:param markers: the Strainphlan consensus marker files
+:param markers: the list of Strainphlan consensus marker files
 :param output_dir: the output directory
 :param nprocs: number of threads to use
 """
 def strainphlan_markers_to_strainphlan2_pkls(markers, output_dir, nprocs):
     execute_pool(((marker_to_pkl, m, output_dir) for m in markers), nprocs)        
         
-        
+
 """
 Converts a Strainphlan consensus marker to Strainphlan2 markers Pickle file
 
-:param markers: the Strainphlan consensus marker files
+:param marker_file: the Strainphlan consensus marker file
 :param output_dir: the output directory
 """
-def marker_to_pkl(s, output_dir):
-    n, _ = os.path.splitext(os.path.basename(s))
-    with open(s, 'rb') as ifile:
+def marker_to_pkl(marker_file, output_dir):
+    n, _ = os.path.splitext(os.path.basename(marker_file))
+    with open(marker_file, 'rb') as ifile:
         consensus = []
         marker2seq = msgpack.unpack(ifile, use_list=False, encoding='utf-8')
         for marker in marker2seq:                
@@ -86,7 +86,7 @@ def marker_to_pkl(s, output_dir):
 """
 Main function
 
-:param samples: the Strainphlan consensus marker files
+:param markers: the Strainphlan consensus marker files
 :param output_dir: the output directory
 :param nprocs: number of threads to use
 """
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     t0 = time.time()
     args = read_params()
     args = check_params(args)
-    strainphlan_markers_to_strainphlan2_pkls(args.samples, args.output_dir, args.nprocs)
+    strainphlan_markers_to_strainphlan2_pkls(args.markers, args.output_dir, args.nprocs)
     exec_time = time.time() - t0
     info("Finish StrainPhlAn markers to StrainPhlAn2 Pickle markers execution ("+str(round(exec_time, 2))+
         " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
