@@ -6,7 +6,7 @@ __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it), '
               'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
 __version__ = '2.0.0'
-__date__ = '17 Jul 2019'
+__date__ = '29 Jul 2019'
 
 
 import os, sys, re, pickletools, pickle, time
@@ -14,16 +14,16 @@ import os, sys, re, pickletools, pickle, time
 """
 Prints a message as normal info
 
-:param s: the message
+:param message: the message
 :param init_new_line: inserts a new line before the message
 :param exit: exists after print the message
 :param exit_value: the exit value if exit=True
 """
-def info(s, init_new_line=False, exit=False, exit_value=0):
+def info(message, init_new_line=False, exit=False, exit_value=0):
     if init_new_line:
         sys.stdout.write('\n')
     sys.stdout.write('{}: '.format(time.ctime(int(time.time()))))
-    sys.stdout.write('{}'.format(s))
+    sys.stdout.write('{}'.format(message))
     sys.stdout.flush()
 
     if exit:
@@ -33,16 +33,15 @@ def info(s, init_new_line=False, exit=False, exit_value=0):
 """
 Prints a message as an error
 
-:param s: the message
+:param message: the message
 :param init_new_line: inserts a new line before the message
 :param exit: exists after print the message
 :param exit_value: the exit value if exit=True
 """
-def error(s, init_new_line=False, exit=False, exit_value=1):
+def error(message, init_new_line=False, exit=False, exit_value=1):
     if init_new_line:
-        sys.stderr.write('\n')
-    
-    sys.stderr.write('[e] {}\n'.format(s))
+        sys.stderr.write('\n')    
+    sys.stderr.write('[e] {}\n'.format(message))
     sys.stderr.flush()
 
     if exit:
@@ -54,7 +53,7 @@ def error(s, init_new_line=False, exit=False, exit_value=1):
 Optimized method for write Pickle files
 
 :param fout: the file to write
-:param element: the element to write on file
+:param elem: the element to write on file
 """
 def optimized_dump(fout, elem):
     fout.write(pickletools.optimize(pickle.dumps(elem, pickle.HIGHEST_PROTOCOL)))
@@ -93,3 +92,14 @@ Parse marker names to support PhyloPhlAn execution
 """
 def parse_marker_name(marker_name):
     return re.sub('[^a-zA-Z0-9 \n\.]', '-', marker_name)
+        
+
+"""
+Gets the Breath of Coverage measure for a consensus sequence
+
+:param sequence: the consensus sequence
+:returns: the breath of coverage
+"""
+def get_breath(sequence):
+    seq_len = len(sequence)
+    return ((seq_len - sequence.count('N')) * 100) / seq_len 

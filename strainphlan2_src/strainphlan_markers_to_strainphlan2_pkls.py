@@ -6,17 +6,12 @@ __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it), '
               'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
 __version__ = '2.0.0'
-__date__ = '17 Jul 2019'
+__date__ = '29 Jul 2019'
 
-import msgpack, os
+import msgpack, os, time
 import argparse as ap
-from utils import info, error, optimized_dump
-
-
-"""
-Global variables
-"""
-BREATH_THRESHOLD = 90
+from utils import info, error, optimized_dump, get_breath
+from samples_to_markers import BREATH_THRESHOLD
 
 
 """
@@ -38,6 +33,7 @@ def read_params():
 """
 Checks the mandatory command line arguments of the script.
 
+:param args: the arguments of the script
 :returns: the checked args
 """
 def check_params(args):
@@ -49,18 +45,7 @@ def check_params(args):
             init_new_line=True)
     if not args.output_dir.endswith('/'):
         args.output_dir += '/'
-    return args
-    
-
-"""
-Gets the Breath of Coverage measure for a consensus sequence
-
-:param sequence: the consensus sequence
-:returns: the breath of coverage
-"""
-def get_breath(sequence):
-    seq_len = len(sequence)
-    return ((seq_len - sequence.count('N')) * 100) / seq_len  
+    return args 
 
 
 """
@@ -87,10 +72,16 @@ def strainphlan_markers_to_strainphlan2_pkls(markers, output_dir):
 """
 Main function
 
-:param markers: the Strainphlan consensus marker files
+:param samples: the Strainphlan consensus marker files
 :param output_dir: the output directory
 """
 if __name__ == "__main__":
+    info("Start StrainPhlAn markers to StrainPhlAn2 Pickle markers execution")
+    t0 = time.time()
     args = read_params()
     args = check_params(args)
     strainphlan_markers_to_strainphlan2_pkls(args.samples, args.output_dir)
+    exec_time = time.time() - t0
+    info("Finish StrainPhlAn markers to StrainPhlAn2 Pickle markers execution ("+str(round(exec_time, 2))+
+        " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
+         init_new_line=True)

@@ -6,13 +6,13 @@ __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it), '
               'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
 __version__ = '2.0.0'
-__date__ = '17 Jul 2019'
+__date__ = '29 Jul 2019'
 
 import os, time, shutil, pickle
 import subprocess as sb
 import argparse as ap
 from external_exec import samtools_sam_to_bam, samtools_sort_bam_v1, decompress_bz2
-from utils import error, info, optimized_dump
+from utils import error, info, optimized_dump, get_breath
 from cmseq import cmseq
 from parallelisation import execute_pool
 
@@ -44,6 +44,7 @@ def read_params():
 """
 Checks the mandatory command line arguments of the script.
 
+:param args: the arguments of the script
 :returns: the checked args
 """
 def check_params(args):
@@ -72,7 +73,8 @@ def check_params(args):
 """
 Checks the input sample files
 
-:param input: The input files
+:param input: the input files
+:param input_format: the format of the input files
 """
 def check_input_files(input, input_format):
     for s in input:
@@ -87,7 +89,7 @@ def check_input_files(input, input_format):
     return True
 
 
-#ToDo: Check CMSeq
+#ToDo: Check CMSeq and samtools
 """
 Checks the mandatory programs to execute of the script.
 
@@ -106,6 +108,7 @@ Decompressed SAM.BZ2 files
 
 :param input: the list of samples as BZ2 files
 :param tmp_dir: the temporal output directory
+:param nprocs: the number of threads to use
 :returns: the list of decompressed files
 """
 def decompress_from_bz2(input, tmp_dir, nprocs):
@@ -206,17 +209,6 @@ def execute_cmseq(input, output_dir, nprocs):
 
 
 """
-Gets the Breath of Coverage measure for a consensus sequence
-
-:param sequence: the consensus sequence
-:returns: the breath of coverage
-"""
-def get_breath(sequence):
-    seq_len = len(sequence)
-    return ((seq_len - sequence.count('N')) * 100) / seq_len    
-
-
-"""
 Gets the clade-specific markers from a list of aligned samples in 
 SAM or BAM format and writes the results in Pickles files in the
 user-selected output directory
@@ -241,7 +233,6 @@ def samples_to_markers(input, sorted, input_format, output_dir, nprocs):
     shutil.rmtree(tmp_dir, ignore_errors=False, onerror=None)
 
 
-#Check samtools exit status 1
 """
 Main function
 
@@ -252,9 +243,13 @@ Main function
 :param nprocs: number of threads to use in the execution
 """
 if __name__ == "__main__":
-    info("Start execution: "+format(time.ctime(int(time.time()))))
+    info("Start samples to markers execution")
+    t0 = time.time()
     args = read_params()
     check_dependencies()
     args = check_params(args)
     samples_to_markers(args.input, args.sorted, args.input_format, args.output_dir, args.nprocs)
-    info("Finish execution: "+format(time.ctime(int(time.time())))+"\n", init_new_line=True)
+    exec_time = time.time() - t0
+    info("Finish samples to markers execution ("+str(round(exec_time, 2))+
+        " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
+         init_new_line=True)

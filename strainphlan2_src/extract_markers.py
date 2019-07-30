@@ -6,7 +6,7 @@ __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it), '
               'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
 __version__ = '2.0.0'
-__date__ = '17 Jul 2019'
+__date__ = '29 Jul 2019'
 
 import pickle, bz2, os, time
 import subprocess as sb
@@ -117,9 +117,13 @@ Main function
 :param output_dir: the output directory
 """
 if __name__ == "__main__":
-    info("Start execution: "+format(time.ctime(int(time.time()))))
+    info("Start extract markers execution")
+    t0 = time.time()
     args = read_params()
     check_dependencies()
     args = check_params(args)
     extract_markers(args.database, args.clade, args.output_dir)
-    info("Finish execution: "+format(time.ctime(int(time.time())))+"\n", init_new_line=True)
+    exec_time = time.time() - t0
+    info("Finish extract markers execution ("+str(round(exec_time, 2))+
+        " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
+         init_new_line=True)

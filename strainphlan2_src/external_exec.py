@@ -6,7 +6,7 @@ __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it), '
               'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
 __version__ = '2.0.0'
-__date__ = '17 Jul 2019'
+__date__ = '29 Jul 2019'
 
 import os, sys, re
 import subprocess as sb
@@ -28,7 +28,6 @@ def execute(cmd):
         inp_f = open(cmd['stdin'], 'r')
     if cmd['stdout']:
         out_f = open(cmd['stdout'], 'w')
-    # info("\t"+str(cmd['command_line']), init_new_line=True)
 
     sb.run(cmd['command_line'], stdin=inp_f, stdout=out_f, stderr=sb.DEVNULL)
 
@@ -41,11 +40,11 @@ def execute(cmd):
 """
 Creates the BLASTn database to align the reference genomes
 
-:param tmp_dir: the temporal output directory
+:param output_dir: the output directory
 :param reference: the FASTA with the reference
 :returns: the created BLASTn database
 """
-def create_blastn_db(blastn_dir, reference):
+def create_blastn_db(output_dir, reference):
     reference_name = os.path.splitext(os.path.basename(reference))[0]    
     params = {
         "program_name" : "makeblastdb",
@@ -54,18 +53,20 @@ def create_blastn_db(blastn_dir, reference):
         "output" : "-out",
         "command_line" : "#program_name# #params# #input# #output#"
     }
-    execute(compose_command(params, input_file=reference, output_file=blastn_dir+reference_name))
-    return blastn_dir+reference_name
+    execute(compose_command(params, input_file=reference, output_file=output_dir+reference_name))
+    return output_dir+reference_name
 
 
 """
 Executes BLASTn
 
-:param blastn_dir: the temporal output directory
-:param reference: the fasta with the markers
+:param output_dir: the output directory
+:param clade_markers: the FASTA with the markers
+:param blastn_db: the BLASTn database
+:param nprocs: the number of thread to use
 :returns: the BLASTn output file
 """
-def execute_blastn(blastn_dir, clade_markers_file, blastn_db, nprocs):
+def execute_blastn(output_dir, clade_markers, blastn_db, nprocs=1):
     db_name = os.path.splitext(os.path.basename(blastn_db))[0]
     params = {
         "program_name" : "blastn",
@@ -76,19 +77,19 @@ def execute_blastn(blastn_dir, clade_markers_file, blastn_db, nprocs):
         "threads" : "-num_threads",
         "command_line" : "#program_name# #params# #threads# #database# #input# #output#"
     }
-    execute(compose_command(params, input_file=clade_markers_file, database=blastn_db, 
-        output_file=blastn_dir+db_name+".blastn", nproc=nprocs))
-    return blastn_dir+db_name+".blastn"
+    execute(compose_command(params, input_file=clade_markers, database=blastn_db, 
+        output_file=output_dir+db_name+".blastn", nproc=nprocs))
+    return output_dir+db_name+".blastn"
 
 
 """
 Creates the PhyloPhlAn database
 
-:param clade_markers_dir: the temporal clade markers directory
+:param output_dir: the output directory
 :param clade: the clade
 """
-def create_phylophlan_db(tmp_dir, clade):
-    markers = tmp_dir+clade
+def create_phylophlan_db(output_dir, clade):
+    markers = output_dir+clade
     params = {
         "program_name" : PHYLOPHLAN_PATH+"phylophlan2_setup_database.py",
         "params" : "-d "+clade+" -e fna -t n --overwrite",
@@ -96,23 +97,23 @@ def create_phylophlan_db(tmp_dir, clade):
         "command_line" : "#program_name# #input# #params#"
     }
     execute(compose_command(params, input_file=markers))
-    os.rename(tmp_dir+clade+".fna", markers+"/"+clade+".fna")
+    os.rename(output_dir+clade+".fna", markers+"/"+clade+".fna")
 
 
 """
 Generates the PhyloPhlan configuration file
 
-:param tmp_dir: the temporal output directory
+:param output_dir: the output directory
 :returns: the generated configuration file
 """
-def generate_phylophlan_config_file(tmp_dir):
+def generate_phylophlan_config_file(output_dir):
+    conf_file = output_dir+"phylophlan.cfg"
     params = {
         "program_name" : PHYLOPHLAN_PATH+"phylophlan2_write_config_file.py",
         "params" : "-d n --db_dna makeblastdb --map_dna blastn --msa mafft --tree1 raxml",
         "output" : "-o",
         "command_line" : "#program_name# #output# #params#"
     }
-    conf_file = tmp_dir+"phylophlan.cfg"
     execute(compose_command(params, output_file=conf_file))
     return conf_file
 
@@ -149,16 +150,16 @@ def execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, out
 Decompressed BZ2 files
 
 :param input: the input BZ2 file to decompress
-:param tmp_dir: the temporal output directory
+:param output_dir: the output directory
 :returns: the decompressed file
 """
 def decompress_bz2(input, output_dir):
+    n, _ = os.path.splitext(os.path.basename(input))
     params = {
         "program_name" : "bzip2",
         "input" : "-cdk",
         "command_line" : "#program_name# #input# > #output#"
     }      
-    n, _ = os.path.splitext(os.path.basename(input))
     execute(compose_command(params, input_file=input, output_file=output_dir+n))
     return output_dir+n
 
@@ -167,17 +168,17 @@ def decompress_bz2(input, output_dir):
 Converts SAM files to sorted BAM files using samtools
 
 :param input: the input SAM file
-:param output_dir: the  output directory
+:param output_dir: the output directory
 :returns: the sorted BAM file
 """
 def samtools_sam_to_bam(input, output_dir):
+    n, _ = os.path.splitext(os.path.basename(input))   
     params = {
         "program_name" : "samtools",
         "params" : "view",
         "input" : "-Sb",
         "command_line" : "#program_name# #params# #input# > #output#"
-    }    
-    n, _ = os.path.splitext(os.path.basename(input))      
+    }       
     execute(compose_command(params, input_file=input, output_file=output_dir+n+".bam"))
     return output_dir+n+".bam"
 
@@ -190,12 +191,12 @@ Sort BAM files using samtools
 :returns: the sorted BAM file
 """
 def samtools_sort_bam_v0(input, output_dir):
+    n, _ = os.path.splitext(os.path.basename(input))
     params = {
         "program_name" : "samtools",
         "params" : "sort",
         "command_line" : "#program_name# #params# #input# #output#"
-    }
-    n, _ = os.path.splitext(os.path.basename(input))        
+    }        
     execute(compose_command(params, input_file=input, output_file=output_dir+n+".sorted"))
     return output_dir+n+".sorted.bam"
 
@@ -208,13 +209,13 @@ Sort BAM files using samtools
 :returns: the sorted BAM file
 """
 def samtools_sort_bam_v1(input, output_dir):
+    n, _ = os.path.splitext(os.path.basename(input))  
     params = {
         "program_name" : "samtools",
         "params" : "sort",
         "output" : "-o",
         "command_line" : "#program_name# #params# #input# #output#"
-    }
-    n, _ = os.path.splitext(os.path.basename(input))        
+    }      
     execute(compose_command(params, input_file=input, output_file=output_dir+n+".sorted.bam"))
     return output_dir+n+".sorted.bam"
 
@@ -241,7 +242,6 @@ Compose a command for further executions
 
 :param params: the params of the command
 :param check: [default=False] check if program is available
-:param sub_mod: [optional] the model
 :param input_file: [optional] the input file
 :param database: [optional] the database
 :param output_path: [optional] the output path

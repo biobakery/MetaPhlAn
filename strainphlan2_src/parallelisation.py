@@ -6,7 +6,7 @@ __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it), '
               'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
 __version__ = '2.0.0'
-__date__ = '17 Jul 2019'
+__date__ = '29 Jul 2019'
 
 from utils import error
 from multiprocessing import Event, Pool
@@ -17,6 +17,8 @@ CHUNKSIZE = 1
 Places terminating in the global namespace of the worker subprocesses.
 This allows the worker function to access `terminating` even though it is
 not passed as an argument to the function.
+
+:param terminating_: the local terminating variable
 """
 def init_terminating(terminating_):    
     global terminating

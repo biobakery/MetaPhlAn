@@ -6,10 +6,10 @@ __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it), '
               'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
 __version__ = '2.0.0'
-__date__ = '17 Jul 2019'
+__date__ = '29 Jul 2019'
 
-import os, sys, bz2, pickle, gc, time, msgpack, shutil, re
-from utils import info, error, optimized_dump, create_folder, check_clade, parse_marker_name
+import os, sys, pickle, time, shutil
+from utils import info, error
 
 if sys.version_info[0] < 3:
     error("StrainPhlAn2 requires Python 3, your current Python version is {}.{}.{}"
@@ -17,7 +17,6 @@ if sys.version_info[0] < 3:
                         sys.version_info[2]), exit=True)
 
 import argparse as ap
-from multiprocessing import Pool, Event
 from shutil import copyfile, rmtree
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
@@ -26,8 +25,8 @@ from Bio.Alphabet import generic_dna
 from external_exec import decompress_bz2, create_blastn_db, execute_blastn
 from external_exec import generate_phylophlan_config_file, create_phylophlan_db, execute_phylophlan
 from extract_markers import extract_markers
-from samples_to_markers import get_breath, BREATH_THRESHOLD
 from parallelisation import execute_pool
+from utils import optimized_dump, create_folder, check_clade, parse_marker_name, get_breath
 
 # Regular expression to remove comments: \n\"\"\"[^"]+\n\"\"\"
 
@@ -69,6 +68,7 @@ def read_params():
 """
 Checks the mandatory command line arguments of the script.
 
+:param args: the arguments of the script
 :returns: the checked args
 """
 def check_params(args):
@@ -184,7 +184,6 @@ def clean_markers_matrix(markers_matrix):
     to_remove = []
 
     for m in markers_matrix:
-        # if (sum(list(m.values())[1:])*100) / (len(m)-1) < MARKERS_IN_SAMPLE_THRESHOLD:  
         if sum(list(m.values())[1:]) < MARKERS_IN_SAMPLE_THRESHOLD:
             to_remove.append(m)
         else:
@@ -212,7 +211,6 @@ def clean_markers_matrix(markers_matrix):
                 counter += 1
 
     # Checks how many markers were deleted
-    # if (sum(list(cleaned_markers_matrix[0].values())[1:])*100) / (len(markers_matrix[0])-1) < MARKERS_IN_SAMPLE_THRESHOLD:
     if sum(list(cleaned_markers_matrix[0].values())[1:]) < MARKERS_IN_SAMPLE_THRESHOLD:
         error("Phylogeny can not be inferred. Too many markers were discarded", 
             exit=True, init_new_line=True) 
@@ -225,13 +223,18 @@ For each sample, writes the FASTA files with the sequences of the filtered marke
 
 :input cleaned_markers_matrix: a list with the filtered markers
 :param samples: the folder containing the markers generated with script samples_to_markers.py
+:param references: the FASTA reference files
 :param tmp_dir: the output temporal directory
 :param nprocs: the threads used for execution
 :returns: the folder of the FASTA files
 """
-def matrix_markers_to_fasta(cleaned_markers_matrix, samples, tmp_dir, nprocs):     
+def matrix_markers_to_fasta(cleaned_markers_matrix, samples, references, tmp_dir, nprocs):     
     tmp_dir=tmp_dir+"samples_as_markers/"    
     create_folder(tmp_dir)
+
+    for r in references:
+        r_name = os.path.splitext(os.path.basename(r))[0]
+        copyfile(r, tmp_dir+r_name+".fna")
 
     filtered_samples = []
     for s in cleaned_markers_matrix:
@@ -267,9 +270,10 @@ def sample_markers_to_fasta(s, filtered_samples, tmp_dir, filtered_clade_markers
 """
 Writes a FASTA file with the sequences of the filtered clade markers
 
-:input markers: a list with the names of filtered markers
+:param markers: a list with the names of filtered markers
 :param tmp_dir: the output temporal directory
 :param clade: the threads used for execution
+:param clade_markers_file: the FASTA with the clade markers
 """
 def cleaned_clade_markers_to_fasta(markers, tmp_dir, clade, clade_markers_file):
     tmp_dir=tmp_dir+clade+"/"
@@ -288,68 +292,59 @@ def cleaned_clade_markers_to_fasta(markers, tmp_dir, clade, clade_markers_file):
 
 """
 Gets markers from reference files and returns the marker matrix with the
-reference markers and the Pickle files with the sequences
+reference markers
 
 :param tmp_dir: the temporal output directory
 :param clade_markers_file: the clade markers FASTA file
 :param markers_matrix: the markers matrix
 :param references: the list of the reference files
 :param nprocs: the threads using in the BLASTn executions
-:returns: the marker matrix with references and the Pickle files of the reference's markers
+:returns: the marker matrix with references
 """
 def get_markers_from_references(tmp_dir, clade_markers_file, markers_matrix, references, nprocs): 
     blastn_dir = tmp_dir+"blastn/"
     create_folder(blastn_dir)
-
-    ref_markers_files = []
     clade_markers = list(markers_matrix[0])[1:]
 
     results = execute_pool(((process_reference, s, blastn_dir, 
         clade_markers_file, clade_markers) for s in references), 
         nprocs)
     for r in results:
-        markers_matrix.append(r[0])
-        ref_markers_files.append(r[1])
+        markers_matrix.append(r)
         
-    return markers_matrix, ref_markers_files      
+    return markers_matrix 
 
 
 """
-Processes each reference file and get the markers as pkl file and
-as a markers dictionary to add to the markers matrix
+Processes each reference file and get a markers dictionary to add 
+to the markers matrix
 
 :param r: the path to the reference file
 :param blastn_dir: the temporal blastn output directory
 :param clade_markers_file: the clade markers FASTA file
 :param markers_matrix: the markers matrix
-:returns: the markers of the reference file as pkl file and as a 
-markers dictionary
+:returns: the markers of the reference file as a dictionary
 """
 def process_reference(r, blastn_dir, clade_markers_file, clade_markers):
-    # info("\tProcessing reference: "+r+"...", init_new_line=True)
     n, _ = os.path.splitext(os.path.basename(r))               
     _, f = os.path.splitext(r)
     if f == ".bz2":
         r = decompress_bz2(r, blastn_dir)
     blastn_db = create_blastn_db(blastn_dir, r)
-    blastn_file = execute_blastn(blastn_dir, clade_markers_file, blastn_db, 1)
-    markers, marker_sequences = parse_blastn_results(blastn_dir+n+'.pkl', 
+    blastn_file = execute_blastn(blastn_dir, clade_markers_file, blastn_db)
+    return parse_blastn_results(blastn_dir+n+'.pkl', 
         clade_markers, blastn_file, r)
-    markers_pkl = open(blastn_dir+n+'.pkl', 'wb')
-    optimized_dump(markers_pkl, marker_sequences)  
-    return markers, blastn_dir+n+'.pkl'
 
 
 """
 Parses BLASTn results and gets the presence of the clade markers in
-the reference file and the related markers sequences
+the reference file
 
 :param sample: the name of the reference file
 :param clade_markers: a list of the clade_markers_name
 :param blastn_file: the BLASTn output file
 :param reference: the reference FASTA file
-:returns: A dictionary with the presence of the clade markers and another with
-the sequences for Pickle generation
+:returns: A dictionary with the presence of the clade markers
 """
 def parse_blastn_results(sample, clade_markers, blastn_file, reference):
     markers = {"sample": sample}
@@ -360,111 +355,17 @@ def parse_blastn_results(sample, clade_markers, blastn_file, reference):
     for rec in SeqIO.parse(open(reference, 'r'), 'fasta'):
         reference_sequences.update({rec.id : rec.seq})
 
-    blastn_result = open(blastn_file, "r")
-    marker_sequences = []
-    sequence_constructor = []
-    previous = ""    
-
+    blastn_result = open(blastn_file, "r")    
+    processed_markers = []
     for line in blastn_result:
         if line == '':
             break
-        line = line.split("\t")
-        query = line[0]
-        target = line[1]
-        if target.startswith('ref|'):
-            target = line[1].split('|')[1]
-        sstart = int(line[5])-1
-        send = int(line[6])-1
-
-        if not previous == query:
-            marker_sequences, markers = save_marker_from_blastn(marker_sequences, markers, 
-                sequence_constructor, previous)
-            previous = query
-            sequence_constructor = []
-
-        if sstart < send:
-            seq = str(reference_sequences.get(target)[sstart:send+1])
-        else:
-            seq = str(reference_sequences.get(target)[send:sstart+1].reverse_complement())
-        sequence_constructor.append
-        sequence_constructor.append({"marker": query, "seq": seq, "start": int(line[3])-1,
-            "end": int(line[4])-1, "len": int(line[2])})
-    marker_sequences, markers = save_marker_from_blastn(marker_sequences, markers,
-        sequence_constructor, previous)
-   
-    return markers, marker_sequences
-
-
-"""
-Reconstruct a markers from BLASTn results, and decides whether save it. 
-
-:param marker_sequences: a list with the sequences of the reconstructed markers
-:param markers: a dictionary with the presence/ausence of the markers
-:param sequence_constructor: a list with the matches from BLASTn execution of a marker
-:param marker: the marker
-:returns: the updated markers and marker_secuences objects
-"""
-def save_marker_from_blastn(marker_sequences, markers, sequence_constructor, marker):
-    if len(sequence_constructor) > 0:
-        recontructed_marker = reconstruct_sequence(sequence_constructor)
-        if(recontructed_marker['breath'] >= BREATH_THRESHOLD):
-            marker_sequences.append(recontructed_marker)
-            markers.update({marker : 1})
-    return marker_sequences, markers
-
-
-"""
-Reconstructs a consensus sequence from a list of BLASTn matches of a 
-reference genome against a marker
-
-:param sequence_constructor: a list with dictionaries of the matched 
-sequences for a marker
-:returns: the consensus sequence as dictionary
-"""
-def reconstruct_sequence(sequence_constructor):
-    seq = sequence_constructor[0]["seq"]
-    start = sequence_constructor[0]["start"]
-    end = sequence_constructor[0]["end"]
-    # If more than one sequence
-    for s in sequence_constructor[1:]:
-        # 1 first
-        if start < s['start'] and end < s['end']:
-            # Case 1: separated or joined
-            if s['start'] >= end:
-                gap = 'N' * (s['start'] - end)
-                seq = seq + gap + s['seq']
-            # Case 2: intersected
-            elif start < s['end'] and s['start'] < end:            
-                inter_len = end - s['start'] + 1
-                consensus_inter = ""
-                for i in range(0, inter_len):
-                    if seq[-inter_len:][i] == s['seq'][:inter_len][i]:
-                        consensus_inter += seq[-inter_len:][i]
-                    else:
-                        consensus_inter += 'N'
-                seq = seq[:-inter_len] + consensus_inter + s['seq'][inter_len:]
-            end = s['end']
-        # 2 first
-        elif start > s['start'] and end > s['end']:
-            # Case 3: separated or joined
-            if s['start'] < start and s['end'] <= start:
-                gap = 'N' * (start - s['end'])
-                seq = s['seq'] + gap + seq       
-            # Case 4: intersected
-            elif s['start'] < start and s['end'] > start:            
-                inter_len = s['end'] - start + 1  
-                consensus_inter = ""
-                for i in range(0, inter_len):
-                    if seq[:inter_len][i] == s['seq'][-inter_len:][i]:
-                        consensus_inter += seq[:inter_len][i]
-                    else:
-                        consensus_inter += 'N'
-                seq = s['seq'][:-inter_len] + consensus_inter + seq[inter_len:]
-            start = s['start']
-    s_gap = "N" * (start-1)
-    e_gap = "N" * (sequence_constructor[0]["len"]-end-1)
-    seq = s_gap + seq + e_gap
-    return {"marker": sequence_constructor[0]["marker"], "breath": get_breath(seq), "sequence":seq}
+        query = line.split("\t")[0]
+        if not query in processed_markers:
+            processed_markers.append(query)
+            markers.update({query : 1})   
+    blastn_result.close()
+    return markers
 
 
 """
@@ -485,7 +386,7 @@ def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, cla
     conf_file = generate_phylophlan_config_file(tmp_dir)
     info("\tDone.", init_new_line=True)
     info("\tProcessing samples...", init_new_line=True)
-    min_entries = int(MARKERS_IN_SAMPLE_THRESHOLD*num_samples/100)
+    min_entries = int(MARKER_IN_SAMPLES_THRESHOLD*num_samples/100)
     execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, 
         output_dir, clade, nprocs)
     info("\tDone.", init_new_line=True)
@@ -512,7 +413,7 @@ def strainphlan2(database, clade_markers, samples, references, clade, output_dir
         samples, clade, tmp_dir, nprocs)
     info("Done.", init_new_line=True)    
     info("Getting markers from reference files...", init_new_line=True)
-    markers_matrix, ref_markers_files = get_markers_from_references(tmp_dir, clade_markers_file, 
+    markers_matrix = get_markers_from_references(tmp_dir, clade_markers_file, 
         markers_matrix, references, nprocs)
     info("Done.", init_new_line=True)    
     info("Removing bad markers / samples...", init_new_line=True)
@@ -520,7 +421,7 @@ def strainphlan2(database, clade_markers, samples, references, clade, output_dir
     info("Done.", init_new_line=True)    
     info("Writting samples as markers' FASTA files...", init_new_line=True)
     samples_as_markers_dir = matrix_markers_to_fasta(cleaned_markers_matrix, 
-        samples+ref_markers_files, tmp_dir, nprocs)
+        samples, references, tmp_dir, nprocs)
     info("Done.", init_new_line=True)
     info("Writting filtered clade markers as FASTA file...", init_new_line=True)
     cleaned_clade_markers_to_fasta(cleaned_markers_matrix, tmp_dir, clade, clade_markers_file)
