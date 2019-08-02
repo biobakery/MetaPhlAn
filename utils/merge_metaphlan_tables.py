@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import os
@@ -25,7 +25,13 @@ def merge( aaastrIn, ostm ):
     for f in aaastrIn:
         with open(f) as fin:
             headers = [x.strip() for x in takewhile(lambda x: x.startswith('#'), fin)]
-     
+        if len(headers) == 1:
+            names = ['clade_name', 'relative_abundance']
+            index_col = 0
+        if len(headers) == 4:
+            names = headers[-1].split('#')[1].strip().split('\t')
+            index_col = [0,1]
+
         mpaVersion = list(filter(re.compile('#mpa_v[0-9]{2,}_CHOCOPhlAn_[0-9]{0,}').match, headers))
         if len(mpaVersion):
             listmpaVersion.add(mpaVersion[0])
@@ -37,22 +43,21 @@ def merge( aaastrIn, ostm ):
         iIn = pd.read_csv(f, 
                           sep='\t',
                           skiprows=len(headers),
-                          names = headers[-1].split('#')[1].strip().split('\t'),
-                          index_col=0
+                          names = names,
+                          index_col=index_col
                         )
-
-        merged_tables = pd.merge(merged_tables,
-                                 iIn.iloc[:,0].rename(os.path.splitext(os.path.basename(f))[0]), 
-                                 how='outer', 
-                                 left_index=True, 
-                                 right_index=True
-                                )
-        merged_tables.index.names = ['ID']
-
+        if merged_tables.empty:
+            merged_tables = iIn.iloc[:,0].rename(os.path.splitext(os.path.basename(f))[0]).to_frame()
+        else:
+            merged_tables = pd.merge(iIn.iloc[:,0].rename(os.path.splitext(os.path.basename(f))[0]).to_frame(),
+                                    merged_tables,
+                                    how='outer', 
+                                    left_index=True, 
+                                    right_index=True
+                                    )
     if listmpaVersion:
-        ostm.write(list(listmpaVersion)[0])
-
-    ostm.write(merged_tables.fillna('0').reset_index().to_string(index=False))
+        ostm.write(list(listmpaVersion)[0]+'\n')
+    merged_tables.fillna('0').reset_index().to_csv(ostm, index=False, sep = '\t')
 
 argp = argparse.ArgumentParser( prog = "merge_metaphlan_tables.py",
     description = """Performs a table join on one or more metaphlan output files.""")
