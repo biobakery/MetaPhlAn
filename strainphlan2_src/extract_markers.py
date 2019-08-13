@@ -79,7 +79,7 @@ Extract the markers of a specific clade in a MetaPhlAn database
 """
 def extract_markers(database, clade, output_dir):
     if not os.path.exists(output_dir):
-        os.mkdir(output_dir, 755)
+        os.mkdir(output_dir)
 
     info('\tGenerating DB markers FASTA...', init_new_line=True)
     fasta_markers = generate_markers_fasta(database, output_dir)
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     info("Start extract markers execution")
     t0 = time.time()
     args = read_params()
-    check_dependencies()
+    # check_dependencies()
     args = check_params(args)
     extract_markers(args.database, args.clade, args.output_dir)
     exec_time = time.time() - t0

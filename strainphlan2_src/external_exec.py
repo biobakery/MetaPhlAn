@@ -106,11 +106,13 @@ Generates the PhyloPhlan configuration file
 :param output_dir: the output directory
 :returns: the generated configuration file
 """
-def generate_phylophlan_config_file(output_dir):
+def generate_phylophlan_config_file(output_dir, configuration):
     conf_file = output_dir+"phylophlan.cfg"
     params = {
         "program_name" : PHYLOPHLAN_PATH+"phylophlan2_write_config_file.py",
-        "params" : "-d n --db_dna makeblastdb --map_dna blastn --msa mafft --tree1 raxml",
+        "params" : "-d n --db_dna makeblastdb --map_dna "+configuration['map']+
+            " --msa "+configuration['aligner']+" --tree1 "+configuration['tree1']+
+            configuration['tree2'],
         "output" : "-o",
         "command_line" : "#program_name# #output# #params#"
     }
@@ -127,13 +129,18 @@ Executes PhyloPhlAn2
 :param tmp_dir: the temporal output directory
 :param output_dir: the output_directory
 :param clade: the clade
+:param phylogeny_conf: the precision of the phylogenetic analysis
 :param nproc: the number of threads to run phylophlan
 """
-def execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, output_dir, clade, nprocs):
+def execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, output_dir, 
+    clade, phylogeny_conf, nprocs):
+    accuracy=""
+    if phylogeny_conf == 'accurate' or phylogeny_conf == 'fast':
+        accuracy = " --"+phylogeny_conf
     params = {
         "program_name" : PHYLOPHLAN_PATH+"phylophlan2.py",
         "params" : "-d "+clade+" --databases_folder "+tmp_dir+" -t n -f "+conf_file+
-            " --diversity low --fast --genome_extension fna"+
+            " --diversity low"+accuracy+" --genome_extension fna"+
             " --force_nucleotides --min_num_entries "+str(min_entries),
         "input" : "-i",
         "output_path" : "--output_folder",
