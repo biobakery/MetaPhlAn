@@ -67,7 +67,7 @@ if not, returns an error
 """
 def create_folder(path):
     try:
-        os.mkdir(path, 755)
+        os.mkdir(path)
     except Exception as e:
         error('Folder \"'+path+'\" already exists!\n'+str(e), exit=True,
             init_new_line=True)  
