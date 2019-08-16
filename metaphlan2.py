@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.19'
-__date__ = '24 Jul 2019'
+__version__ = '2.9.20'
+__date__ = '14 Aug 2019'
 
 import sys
 import os
@@ -247,6 +247,8 @@ def read_params(args):
              "that 'bowtie2-build is present in the system path")
     arg('--bowtie2out', metavar="FILE_NAME", type=str, default=None,
         help="The file for saving the output of BowTie2")
+    arg('--min_mapq_val', type=str, default=5,
+        help="Minimum mapping quality value (MAPQ)")
     arg('--no_map', action='store_true',
         help="Avoid storing the --bowtie2out map file")
     arg('--tmp_dir', metavar="", default=None, type=str,
@@ -584,7 +586,7 @@ def set_mapping_arguments(index, bowtie2_db):
     return (mpa_pkl, bowtie2db)
 
 
-def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="multifasta",
+def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, file_format="multifasta",
                 exe=None, samout=None, min_alignment_len=None, read_min_len=0):
     # checking read_fastx.py
     read_fastx = "read_fastx.py"
@@ -644,10 +646,11 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, file_format="mul
 
             if not o[0].startswith('@'):
                 if not o[2].endswith('*'):
-                    if ((min_alignment_len is None) or
-                            (max([int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x]) >= min_alignment_len)):
-                        outf.write(lmybytes("\t".join([o[0], o[2]]) + "\n"))
-
+                    if (hex(int(o[1]) & 0x100) == '0x0'): #no secondary
+                        if (int(o[4]) > min_mapq_val ):  # filter low mapq reads
+                            if ((min_alignment_len is None) or
+                                    (max([int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x]) >= min_alignment_len)):
+                                outf.write(lmybytes("\t".join([o[0], o[2]]) + "\n"))
 
         if samout:
             sam_file.close()
@@ -1002,7 +1005,7 @@ class TaxTree:
         return ret_d, ret_r, tot_reads
 
 
-def map2bbh(mapping_f, input_type='bowtie2out', min_alignment_len=None):
+def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=None):
     if not mapping_f:
         ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, sys.stdin
     else:
@@ -1024,10 +1027,12 @@ def map2bbh(mapping_f, input_type='bowtie2out', min_alignment_len=None):
         for line in inpf:
             o = ras_line(line)
 
-            if ((o[0][0] != '@') and
-                (o[2][-1] != '*') and
-                ((min_alignment_len is None) or
-                 (max([int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x]) >= min_alignment_len))):
+            if ((o[0][0] != '@') and #no header
+                (o[2][-1] != '*') and # no unmapped reads
+                (hex(int(o[1]) & 0x100) == '0x0') and #no secondary
+                (int(o[4]) > min_mapq_val ) and # filter low mapq reads
+                ( (min_alignment_len is None) or ( max(int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x) >= min_alignment_len ) )
+            ):
                     reads2markers[o[0]] = o[2]
 
     inpf.close()
@@ -1212,7 +1217,7 @@ def metaphlan2():
             run_bowtie2(pars['inp'], pars['bowtie2out'], pars['bowtie2db'],
                                 pars['bt2_ps'], pars['nproc'], file_format=pars['input_type'],
                                 exe=pars['bowtie2_exe'], samout=pars['samout'],
-                                min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'])
+                                min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'], min_mapq_val=pars['min_mapq_val'])
             pars['input_type'] = 'bowtie2out'
         pars['inp'] = pars['bowtie2out'] # !!!
 
@@ -1223,8 +1228,7 @@ def metaphlan2():
     tree.set_min_cu_len( pars['min_cu_len'] )
     tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], pars['avoid_disqm'])
 
-    markers2reads, n_metagenome_reads = map2bbh(pars['inp'], pars['input_type'],
-                            pars['min_alignment_len'])
+    markers2reads, n_metagenome_reads = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'])
     if no_map:
         os.remove( pars['inp'] )
 
@@ -1282,10 +1286,11 @@ def metaphlan2():
                 if pars['CAMI_format_output']:
                     for clade, taxid, relab in sorted(  outpred, reverse=True,
                                         key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
-                        rank = ranks2code[clade.split('|')[-1][0]]
-                        leaf_taxid = taxid.split('|')[-1]
-                        taxpathsh = '|'.join([remove_prefix(name) for name in clade.split('|')])
-                        outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(relab*fraction_mapped_reads) ] ) + '\n' )
+                        if taxid:
+                            rank = ranks2code[clade.split('|')[-1][0]]
+                            leaf_taxid = taxid.split('|')[-1]
+                            taxpathsh = '|'.join([remove_prefix(name) for name in clade.split('|')])
+                            outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(relab*fraction_mapped_reads) ] ) + '\n' )
                 else:
                     if pars['unknown_estimation']:
                         outf.write( "\t".join( [    "UNKNOWN",
