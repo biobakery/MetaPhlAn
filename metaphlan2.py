@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.20'
-__date__ = '14 Aug 2019'
+__version__ = '2.9.21'
+__date__ = '21 Aug 2019'
 
 import sys
 import os
@@ -1159,7 +1159,6 @@ def metaphlan2():
     # check for the mpa_pkl file
     if not os.path.isfile(pars['mpa_pkl']):
         sys.stderr.write("Error: Unable to find the mpa_pkl file at: " + pars['mpa_pkl'] +
-                         "\nExpecting location ${mpa_dir}/db_v20/map_v20_m200.pkl "
                          "Exiting...\n\n")
         sys.exit(1)
 
@@ -1270,7 +1269,11 @@ def metaphlan2():
 
         elif pars['t'] == 'rel_ab':
             if pars['CAMI_format_output']:
-                outf.write('@SampleID:{}\n@Version:0.9.1\n@__program__:MetaPhlAn{}\n@Ranks:superkingdom|phylum|class|order|family|genus|species\n@@TAXID\tRANK\tTAXPATH\tTAXPATHSN\tPERCENTAGE\n'.format(pars["sample_id"],__version__))
+                outf.write("@SampleID:{}\n"
+                           "@Version:0.10.0\n"
+                           "_program_:MetaPhlAn{}\n"
+                           "@Ranks:superkingdom|phylum|class|order|family|genus|species|strain\n"
+                           "@@TAXID\tRANK\tTAXPATH\tTAXPATHSN\tPERCENTAGE\n".format(pars["sample_id"],__version__))
             elif not pars['legacy_output']:
                 outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
 
@@ -1289,7 +1292,7 @@ def metaphlan2():
                         if taxid:
                             rank = ranks2code[clade.split('|')[-1][0]]
                             leaf_taxid = taxid.split('|')[-1]
-                            taxpathsh = '|'.join([remove_prefix(name) for name in clade.split('|')])
+                            taxpathsh = '|'.join([remove_prefix(name) if '_unclassified' not in name else '' for name in clade.split('|')])
                             outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(relab*fraction_mapped_reads) ] ) + '\n' )
                 else:
                     if pars['unknown_estimation']:

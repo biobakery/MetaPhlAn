@@ -69,7 +69,7 @@ MetaPhlAn2 requires *python 2.7* or newer with argparse, tempfile, [numpy](http:
 * MetaPhlAn2 is integrated with advanced heatmap plotting with [hclust2](https://bitbucket.org/nsegata/hclust2) and cladogram visualization with [GraPhlAn](https://bitbucket.org/nsegata/graphlan/wiki/Home). If you use such visualization tool please refer to their prerequisites. 
 
 ## Installation
-The best way to install MetaPhlAn2 2.9.15 is through conda:
+The best way to install MetaPhlAn2 2.9.20 is through conda:
 
 ```
 #!bash
@@ -96,10 +96,10 @@ You can also install and run MetaPhlAn2 through Docker
 
 ```
 #!bash
-$ docker pull quay.io/biocontainers/metaphlan2:2.9.15
+$ docker pull quay.io/biocontainers/metaphlan2:2.9.20
 ```
 
-Alternatively, you can **manually download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/2.9.15.zip) or **clone the repository** using the following command ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``.
+Alternatively, you can **manually download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/2.9.20.zip) or **clone the repository** using the following command ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``.
 
 If you choose this way, **you'll need to install manually all the dependencies!**
 
@@ -115,7 +115,7 @@ By default, the latest MetaPhlAn2 database is downloaded and built. You can down
 
 ```
 #!bash
-$ metaphlan2.py --install --index v29_CHOCOPhlAn_201901
+$ metaphlan2.py --install --index mpa_v29_CHOCOPhlAn_201901
 ```
 
 --------------------------
@@ -612,7 +612,7 @@ for f in $(ls fastqs/*.bz2)
 do
     echo "Running metaphlan2 on ${f}"
     bn=$(basename ${f} | cut -d '.' -f 1)
-     ../metaphlan2.py --index v29_CHOCOPhlAn_201901 --input_type multifastq --nproc 10s -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o ssams/${bn}.profile ${f}
+     ../metaphlan2.py --index mpa_v29_CHOCOPhlAn_201901 --input_type multifastq --nproc 10s -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o ssams/${bn}.profile ${f}
 done
 ```
 
