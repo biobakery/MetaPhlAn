@@ -27,7 +27,7 @@ def read_params():
                    help="The the markers for each sample")
     p.add_argument('-o', '--output_dir', type=str, default=None,
                    help="The output directory")
-    p.add_argument('-n', '--nprocs', type=int, default=None,
+    p.add_argument('-n', '--nprocs', type=int, default=1,
                    help="The number of threads to execute the script")
     
     return p.parse_args()
@@ -48,20 +48,7 @@ def check_params(args):
             init_new_line=True)
     if not args.output_dir.endswith('/'):
         args.output_dir += '/'
-    if not args.nprocs:
-        args.nprocs = 1
-    return args 
-
-
-"""
-Converts a set of Strainphlan consensus markers to Strainphlan2 markers Pickle files
-
-:param markers: the list of Strainphlan consensus marker files
-:param output_dir: the output directory
-:param nprocs: number of threads to use
-"""
-def strainphlan_markers_to_strainphlan2_pkls(markers, output_dir, nprocs):
-    execute_pool(((marker_to_pkl, m, output_dir) for m in markers), nprocs)        
+    return args        
         
 
 """
@@ -81,7 +68,19 @@ def marker_to_pkl(marker_file, output_dir):
             if(breath > BREATH_THRESHOLD):
                 consensus.append({"marker":marker, "breath":breath, "sequence":seq})
     markers_pkl = open(output_dir+n+'.pkl', 'wb')
-    optimized_dump(markers_pkl, consensus)  
+    optimized_dump(markers_pkl, consensus) 
+
+
+"""
+Converts a set of Strainphlan consensus markers to Strainphlan2 markers Pickle files
+
+:param markers: the list of Strainphlan consensus marker files
+:param output_dir: the output directory
+:param nprocs: number of threads to use
+"""
+def strainphlan_markers_to_strainphlan2_pkls(markers, output_dir, nprocs):
+    execute_pool(((marker_to_pkl, m, output_dir) for m in markers), nprocs)  
+
 
 """
 Main function

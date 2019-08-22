@@ -35,7 +35,7 @@ def read_params():
                    help="The input samples format [BAM, SAM, SAM/BAM.BZ2]")
     p.add_argument('-o', '--output_dir', type=str, default=None,
                    help="The output directory")
-    p.add_argument('-n', '--nprocs', type=int, default=None,
+    p.add_argument('-n', '--nprocs', type=int, default=1,
                    help="The number of threads to execute the script")
     
     return p.parse_args()
@@ -63,10 +63,7 @@ def check_params(args):
     else:
         check_input_files(args.input, args.input_format)
     if not args.output_dir.endswith('/'):
-        args.output_dir += '/'
-    if not args.nprocs:
-        args.nprocs = 1
-    
+        args.output_dir += '/'    
     return args
 
 
@@ -222,7 +219,7 @@ user-selected output directory
 def samples_to_markers(input, sorted, input_format, output_dir, nprocs):
     tmp_dir = output_dir+'tmp/'
     try:
-        os.mkdir(tmp_dir, 755)
+        os.mkdir(tmp_dir)
     except Exception as e:
         error('Folder \"'+tmp_dir+'\" already exists!\n'+str(e), exit=True,
             init_new_line=True)
