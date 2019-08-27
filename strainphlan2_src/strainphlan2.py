@@ -378,8 +378,8 @@ def sample_markers_to_fasta(sample_path, filtered_samples, tmp_dir, filtered_cla
             for r in sample:
                 if r['marker'] in filtered_clade_markers:
                     marker_name = parse_marker_name(r['marker'])
-                    seq = SeqRecord(Seq(r['sequence'][trim_sequences:-trim_sequences].replace("*","N"), generic_dna), 
-                        id=marker_name, description=marker_name)
+                    seq = SeqRecord(Seq(r['sequence'][trim_sequences:-trim_sequences].replace("*","N").replace("-","N"), 
+                        generic_dna), id=marker_name, description=marker_name)
                     SeqIO.write(seq, marker_fna, 'fasta')
 
 

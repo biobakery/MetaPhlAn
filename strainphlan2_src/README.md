@@ -1,0 +1,229 @@
+[TOC]
+
+#StrainPhlAn v2.0
+
+## Metagenomic strain-level population genomics
+
+StrainPhlAn is a computational tool for tracking individual strains across large set of samples. **The input** of StrainPhlAn is a set of metagenomic samples and for each species, **the output** is a multiple sequence alignment (MSA) file of all species strains reconstructed directly from the samples. From this MSA, StrainPhlAn calls PhyloPhlAn2 (http://segatalab.cibio.unitn.it/tools/phylophlan/index.html) to build the phylogenetic tree showing the strain evolution of the sample strains. 
+For each sample, StrainPhlAn extracts the strain of a specific species by merging and concatenating all reads mapped against that species markers in the MetaPhlAn2 database.
+
+In detail, let us start from a toy example with 6 HMP gut metagenomic samples (SRS055982-subjectID\_638754422, SRS022137-subjectID\_638754422, SRS019161-subjectID\_763496533, SRS013951-subjectID\_763496533, SRS014613-subjectID\_763840445, SRS064276-subjectID\_763840445) from 3 three subjects (each was sampled at two time points) and one *Bacteroides caccae* genome G000273725. 
+**We would like to**:
+
+* extract the *Bacteroides caccae* strains from these samples and compare them with the reference genome in a phylogenetic tree.
+* know how many snps between those strains and the reference genome.
+
+Running StrainPhlAn on these samples, we will obtain the *Bacteroides caccae* phylogentic tree and its multiple sequence alignment in the following figure (produced with [ete2](http://etetoolkit.org/) and [Jalview](http://www.jalview.org/)):
+
+![tree_alignment.png](https://bitbucket.org/repo/rM969K/images/476974413-tree_alignment.png)
+
+We can see that the strains from the same subject are grouped together. The tree also highlights that the strains from subject "763840445" (red color) do not change between two sampling time points whereas the strains from the other subjects have slightly evolved. From the tree, we also know that the strains of subject "763496533" is closer to the reference genome than those of the others. 
+In addition, the table below shows the number of snps between the sample strains and the reference genome based on the strain alignment returned by MetaPhlAn\_Strainer.
+
+![snp_distance.png](https://bitbucket.org/repo/rM969K/images/1771497600-snp_distance.png)
+
+In the next sections, we will illustrate step by step how to run MetaPhlAn\_Strainer on this toy example to reproduce the above figures.
+
+### Pre-requisites
+StrainPhlAn requires *python 3* and the libraries [biopython](http://biopython.org/wiki/Main_Page), [msgpack](https://pypi.python.org/pypi/msgpack-python), [numpy](http://www.numpy.org/). Besides, StrainPhlAn also needs the following programs in the executable path:
+
+* [CMSeq](https://bitbucket.org/CibioCM/cmseq/src) for mapping reads against the marker database. 
+* [samtools](http://samtools.sourceforge.net/) which can be downloaded from [here](https://github.com/samtools) for processing the consensus markers. 
+* [blast+](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) for adding reference genomes to the phylogenetic tree (blastn and makeblastdb commands)
+* [PhylopPhlAn2](https://bitbucket.org/nsegata/phylophlan/src/default/) for building the phylogenetic trees.
+
+If MetaPhlAn2 was installed through conda and you have the `mpa` activated, all the pre-requisites are satisfied.
+
+Otherwise, all dependence binaries on Linux 64 bit can be downloaded in the folder "bin" from [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
+
+The script files in folder "strainphlan_src2" should be changed to executable mode by:
+
+```
+#!python
+chmod +x strainphlan_src/*.py
+```
+
+and add to the executable path:
+
+```
+#!python
+export PATH=$PATH:$(pwd -P)/strainphlan_src2
+```
+
+### Usage
+
+Let's reproduce the toy example result in the introduction section. Note that all the commands to run the below steps are in the "strainphlan_tutorial/step?*.sh" files (? corresponding to the step number). All the below steps are excuted under the "strainphlan_tutorial" folder.
+The steps are as follows:
+
+Step 1. Download 6 HMP gut metagenomic samples, the metadata.txt file and one reference genome from the folder "fastqs" and "reference_genomes" in [this link](XXXXXXXXXXXX) and put these folders under the "strainer_tutorial" folder.
+
+Step 2. Obtain the sam files from these samples by mapping them against MetaPhlAn2 database:
+
+This step will run MetaPhlAn2 to map all metagenomic samples against the MetaPhlAn2 marker database and produce the sam files (\*.sam.bz2).
+Each sam file (in SAM format) corresponding to each sample contains the reads mapped against the marker database of MetaPhlAn2.
+The commands to run are:
+
+```
+#!python
+mkdir -p sams
+for f in $(ls fastqs/*.bz2)
+do
+    echo "Running metaphlan2 on ${f}"
+    bn=$(basename ${f} | cut -d '.' -f 1)
+     ../metaphlan2.py --index mpa_v292_CHOCOPhlAn_201901 --input_type multifastq --nproc 10s -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o ssams/${bn}.profile ${f}
+done
+```
+
+After this step, you will have a folder "sams" containing the sam files (\*.sam.bz2) and other MetaPhlAn2 output files. 
+This step will take around XXXXXXXX minutes. If you want to skip this step, you can download the sam files from the folder "sams" in [this link](XXXXXXXXXXX).
+
+Step 3. Produce the consensus-marker files which are the input for StrainPhlAn:
+
+For each sample, this step will reconstruct all species strains found in it and store them in a pickle file (\*.pkl). Those strains are referred as *sample-reconstructed strains*. 
+The commands to run are:
+
+
+```
+#!python
+mkdir -p consensus_markers
+cwd=$(pwd -P)
+export PATH=${cwd}/../strainphlan_src:${PATH}
+python ../strainphlan2_src/sample2markers.py -i sams/*.sam.bz2 -f bz2 -o consensus_markers -n 30 &> consensus_markers/log.txt
+```
+
+The result is the same if you want run several sample2markers.py scripts in parallel with each run for a sample (this maybe useful for some cluster-system settings).
+After this step, you will have a folder "consensus_markers" containing all sample-marker files (\*.pkl).
+This steps will take around XXXXX minutes.  If you want to skip this step, you can download the consensus marker files from the folder "consensus_markers" in [this link](XXXXXXXXXX).
+
+Step 4. Extract the markers of *Bacteroides\_caccae* from MetaPhlAn2 database (to add its reference genome later):
+
+This step will extract the markers of *Bacteroides_caccae* in the database and then StrainPhlAn will identify the sequences in the reference genomes that are closet to them (in the next step by using blast). Those will be concatenated and referred as *reference-genome-reconstructed strains*. 
+The commands to run are:
+
+```
+#!python
+mkdir -p db_markers
+python ../strainphlan2_src/extract_markers.py -d ../metaphlan_databases/mpa_v292_CHOCOPhlAn_201901.pkl -c s__Bacteroides_caccae -o db_markers/s__Bacteroides_caccae.markers.fasta
+```
+
+After this step, you should have one file in folder "db\_markers": "s\_\_Bacteroides\_caccae.markers.fna" containing the markers of *Bacteroides caccae*.
+This step will take around X minute. Those markers can be found in the folder "db\_markers" in [this link](XXX).
+
+
+Step 5. Build the multiple sequence alignment and phylogenetic tree:
+
+This step will align and clean the *sample-reconstructed strains* (stored in the marker files produced in step 3) and *reference-genome-reconstructed strains* (extracted based on the database markers in step 4) to produce a multiple sequence alignment (MSA) and store it in the file "clade_name.fasta". From this MSA file, StrainPhlAn will call RAxML to build the phylogenetic tree.
+Note that: all marker files (\*.pkl) **must be used together** as the input for the strainphlan.py script because StrainPhlAn needs to align all of the strains at once.
+
+The commands to run are:
+
+```
+#!python
+mkdir -p output
+python ../strainphlan2.py -s consensus_markers/*.markers -m db_markers/s__Bacteroides_caccae.markers.fna -r reference_genomes/G000273725.fna.bz2 -o output -n 10 -c s__Bacteroides_caccae &> output/strainphlan2.log
+```
+
+This step will take around X minutes. After this step, you will find the tree "output/RAxML\_bestTree.s\_\_Bacteroides\_caccae.tree". All the output files can be found in the folder "output" in [this link](XXXXXXXXXXX).
+You can view it by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) or any other viewers.
+
+
+In order to add the metadata, we also provide a script called "add\_metadata\_tree.py" which can be used as follows:
+
+```
+#!python
+python ../strainphlan_src/add_metadata_tree.py --ifn_trees output/RAxML_bestTree.s__Bacteroides_caccae.tree --ifn_metadatas fastqs/metadata.txt --metadatas subjectID
+```
+
+The script "add\_metadata\_tree.py" can accept multiple metadata files (space separated, wild card can also be used) and multiple trees. A metadata file is a tab separated file where the first row is the meta-headers, and the following rows contain the metadata for each sample. Multiple metadata files are used in the case where your samples come from more than one dataset and you do not want to merge the metadata files.
+For more details of using "add\_metadata\_tree.py", please see its help (with option "-h").
+An example of a metadata file is the "fastqs/metadata.txt" file with the below content:
+
+```
+#!python
+sampleID        subjectID
+SRS055982       638754422
+SRS022137       638754422
+SRS019161       763496533
+SRS013951       763496533
+SRS014613       763840445
+SRS064276       763840445
+G000273725  ReferenceGenomes
+```
+
+Note that "sampleID" is a compulsory field. 
+
+After adding the metadata, you will obtain the tree files "*.tree.metadata" with metadata and view them by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) as in the previous step.
+
+If you have installed [graphlan](https://bitbucket.org/nsegata/graphlan/wiki/Home), you can plot the tree with the command:
+
+
+```
+#!python
+python ../strainphlan_src/plot_tree_graphlan.py --ifn_tree output/RAxML_bestTree.s__Bacteroides_caccae.tree.metadata --colorized_metadata subjectID
+```
+
+and obtain the following figure (output/RAxML\_bestTree.s\_\_Bacteroides\_caccae.tree.metadata.png):
+
+![RAxML_bestTree.s__Bacteroides_caccae.tree.metadata.png](XXXXXXXXXXXXXX)
+
+## Full command-line options
+
+
+```
+usage: strainphlan2.py [-h] [-d DATABASE] [-m CLADE_MARKERS]
+                       [-s SAMPLES [SAMPLES ...]]
+                       [-r REFERENCES [REFERENCES ...]] [-c CLADE]
+                       [-o OUTPUT_DIR] [-n NPROCS]
+                       [--secondary_samples SECONDARY_SAMPLES [SECONDARY_SAMPLES ...]]
+                       [--secondary_references SECONDARY_REFERENCES [SECONDARY_REFERENCES ...]]
+                       [--trim_sequences TRIM_SEQUENCES]
+                       [--marker_in_n_samples MARKER_IN_N_SAMPLES]
+                       [--sample_with_n_markers SAMPLE_WITH_N_MARKERS]
+                       [--secondary_sample_with_n_markers SECONDARY_SAMPLE_WITH_N_MARKERS]
+                       [--phylophlan_mode PHYLOPHLAN_MODE]
+                       [--phylophlan_configuration PHYLOPHLAN_CONFIGURATION]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -d DATABASE, --database DATABASE
+                        The input MetaPhlAn dtabase
+  -m CLADE_MARKERS, --clade_markers CLADE_MARKERS
+                        The clade markers as FASTA file
+  -s SAMPLES [SAMPLES ...], --samples SAMPLES [SAMPLES ...]
+                        The the markers for each sample
+  -r REFERENCES [REFERENCES ...], --references REFERENCES [REFERENCES ...]
+                        The reference genomes
+  -c CLADE, --clade CLADE
+                        The clade to investigate
+  -o OUTPUT_DIR, --output_dir OUTPUT_DIR
+                        The output directory
+  -n NPROCS, --nprocs NPROCS
+                        The number of threads to use
+  --secondary_samples SECONDARY_SAMPLES [SECONDARY_SAMPLES ...]
+                        The the markers for each sample
+  --secondary_references SECONDARY_REFERENCES [SECONDARY_REFERENCES ...]
+                        The reference genomes
+  --trim_sequences TRIM_SEQUENCES
+                        The number of bases to remove when trimming markers
+  --marker_in_n_samples MARKER_IN_N_SAMPLES
+                        Theshold defining the minimum percentage of samples to
+                        keep a marker
+  --sample_with_n_markers SAMPLE_WITH_N_MARKERS
+                        Threshold defining the minimun number of markers to
+                        keep a sample
+  --secondary_sample_with_n_markers SECONDARY_SAMPLE_WITH_N_MARKERS
+                        Threshold defining the minimun number of markers to
+                        keep a secondary sample
+  --phylophlan_mode PHYLOPHLAN_MODE
+                        The precision of the phylogenetic analysis {fast,
+                        normal [default], accurate}
+  --phylophlan_configuration PHYLOPHLAN_CONFIGURATION
+                        The PhyloPhlAn configuration file
+```
+
+### Some other useful output files
+In the output folder, you can find the following files:
+
+1. clade_name.info: this file shows the general information like the total length of the concatenated markers (full sequence length), number of used markers, etc.
+2. clade_name.polymorphic: this file shows the statistics on the polymorphic site, where "sample" is the sample name, "percentage\_of\_polymorphic_sites" is the percentage of sites that are suspected to be polymorphic, "avg\_freq" is the average frequency of the dominant alleles on all polymorphic sites, "avg\_coverage" is the average coverage at all polymorphic sites.
+3. clade_name.aln: the alignment file of all metagenomic strains.

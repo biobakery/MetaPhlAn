@@ -102,4 +102,4 @@ Gets the Breath of Coverage measure for a consensus sequence
 """
 def get_breath(sequence):
     seq_len = len(sequence)
-    return ((seq_len - sequence.count('N')) * 100) / seq_len 
+    return ((seq_len - sequence.count('N') - sequence.count('*') - sequence.count('-')) * 100) / seq_len 
