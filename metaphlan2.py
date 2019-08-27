@@ -526,6 +526,9 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
             sys.stderr.write("Fatal error running '{}'\nError message: '{}'\n\n".format(' '.join(bt2_cmd), e))
             sys.exit(1)
 
+    for bt2 in glob(os.path.join(folder, download_file_name + "*.bt2")):
+        os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
+
     sys.stderr.write('Removing uncompress database {}\n'.format(fna_file))
     os.remove(fna_file)
 
