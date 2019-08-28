@@ -130,13 +130,16 @@ Executes PhyloPhlAn2
 :param output_dir: the output_directory
 :param clade: the clade
 :param phylogeny_conf: the precision of the phylogenetic analysis
+:param mutation_rates: whether get  the mutation rates for the markers
 :param nproc: the number of threads to run phylophlan
 """
 def execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, output_dir, 
-    clade, phylogeny_conf, nprocs):
+    clade, phylogeny_conf, mutation_rates, nprocs):
     accuracy=""
     if phylogeny_conf == 'accurate' or phylogeny_conf == 'fast':
         accuracy = " --"+phylogeny_conf
+    if mutation_rates:
+        accuracy = accuracy + " --mutation_rates"
     params = {
         "program_name" : PHYLOPHLAN_PATH+"phylophlan2.py",
         "params" : "-d "+clade+" --databases_folder "+tmp_dir+" -t n -f "+conf_file+
