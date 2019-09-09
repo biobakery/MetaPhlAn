@@ -247,7 +247,7 @@ def read_params(args):
              "that 'bowtie2-build is present in the system path")
     arg('--bowtie2out', metavar="FILE_NAME", type=str, default=None,
         help="The file for saving the output of BowTie2")
-    arg('--min_mapq_val', type=str, default=5,
+    arg('--min_mapq_val', type=int, default="5",
         help="Minimum mapping quality value (MAPQ)")
     arg('--no_map', action='store_true',
         help="Avoid storing the --bowtie2out map file")
