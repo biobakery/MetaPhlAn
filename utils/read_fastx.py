@@ -101,6 +101,12 @@ def read_and_write_raw_int(fd, min_len=None):
     else:
         for idx, l in enumerate(fd,1):
             _ = sys.stdout.write(ignore_spaces(l))
+            
+        #Read again the first line of the file to determine if is a fasta or a fastq
+        fd.seek(0)
+        l = fd.readline()
+        readn = 4 if fastx(l) == 'fastq' else 2
+        idx = idx // readn
 
     nreads = idx - discarded
     return nreads
