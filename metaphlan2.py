@@ -924,11 +924,11 @@ class TaxTree:
         if ignore_eukaryotes or ignore_bacteria or ignore_archaea:
             cn = cl.get_full_name()
             if ignore_eukaryotes and cn.startswith("k__Eukaryota"):
-                return ""
+                return (None, None)
             if ignore_archaea and cn.startswith("k__Archaea"):
-                return ""
+                return (None, None)
             if ignore_bacteria and cn.startswith("k__Bacteria"):
-                return ""
+                return (None, None)
         # while len(cl.children) == 1:
             # cl = list(cl.children.values())[0]
         cl.markers2nreads[marker] = n
