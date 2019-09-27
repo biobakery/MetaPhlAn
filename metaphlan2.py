@@ -1107,7 +1107,7 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
             ######## clade_ids,     #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
             clade_names,            #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
             sample_metadata      = None,
-            observation_metadata = map(to_biomformat, clade_names),
+            observation_metadata = list(map(to_biomformat, clade_names)),
             table_id             = table_id,
             constructor          = biom.table.DenseOTUTable
         )
@@ -1121,7 +1121,7 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
             clade_names,          #Modified by George Weingart 5/22/2017 - We will use instead the clade_names
             sample_ids,
             sample_metadata      = None,
-            observation_metadata = map(to_biomformat, clade_names),
+            observation_metadata = list(map(to_biomformat, clade_names)),
             table_id             = table_id,
             input_is_dense       = True
         )
