@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.21'
-__date__ = '21 Aug 2019'
+__version__ = '2.9.22'
+__date__ = '14 Oct 2019'
 
 import sys
 import os
@@ -1274,7 +1274,6 @@ def metaphlan2():
             if pars['CAMI_format_output']:
                 outf.write("@SampleID:{}\n"
                            "@Version:0.10.0\n"
-                           "_program_:MetaPhlAn{}\n"
                            "@Ranks:superkingdom|phylum|class|order|family|genus|species|strain\n"
                            "@@TAXID\tRANK\tTAXPATH\tTAXPATHSN\tPERCENTAGE\n".format(pars["sample_id"],__version__))
             elif not pars['legacy_output']:
