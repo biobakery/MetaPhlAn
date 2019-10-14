@@ -39,7 +39,7 @@ def merge( aaastrIn, ostm ):
         if len(listmpaVersion) > 1:
             print('merge_metaphlan_tables found tables made with different versions of the MetaPhlAn2 database.\nPlease re-run MetaPhlAn2 with the same database.\n')
             return
-
+        
         iIn = pd.read_csv(f, 
                           sep='\t',
                           skiprows=len(headers),
