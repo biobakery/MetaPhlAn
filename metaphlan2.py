@@ -4,7 +4,7 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.22'
+__version__ = '2.9.23'
 __date__ = '14 Oct 2019'
 
 import sys
@@ -316,7 +316,7 @@ def read_params(args):
          default='rel_ab', help =
          "Type of analysis to perform: \n"
          " * rel_ab: profiling a metagenomes in terms of relative abundances\n"
-         " * rel_ab_w_read_stats: profiling a metagenomes in terms of relative abundances and estimate the number of reads comming from each clade.\n"
+         " * rel_ab_w_read_stats: profiling a metagenomes in terms of relative abundances and estimate the number of reads coming from each clade.\n"
          " * reads_map: mapping from reads to clades (only reads hitting a marker)\n"
          " * clade_profiles: normalized marker counts for clades with at least a non-null marker\n"
          " * marker_ab_table: normalized marker counts (only when > 0.0 and normalized by metagenome size if --nreads is specified)\n"
@@ -964,31 +964,31 @@ class TaxTree:
 
         for tax_label, clade in clade2abundance_n.items():
             for clade_label, tax_id, abundance in sorted(clade.get_all_abundances(), key=lambda pars:pars[0]):
-                if clade_label[:3] != 't__':
-                    if not tax_lev:
-                        if clade_label not in self.all_clades:
-                            to = tax_units.index(clade_label[0])
-                            t = tax_units[to-1]
-                            clade_label = t + clade_label.split("_unclassified")[0][1:]
-                            tax_id = self.all_clades[clade_label].get_full_taxids()
-                            clade_label = self.all_clades[clade_label].get_full_name()
-                            spl = clade_label.split("|")
-                            clade_label = "|".join(spl+[tax_units[to]+spl[-1][1:]+"_unclassified"])
-                            glen = self.all_clades[spl[-1]].glen
-                        else:
-                            glen = self.all_clades[clade_label].glen
-                            tax_id = self.all_clades[clade_label].get_full_taxids()
-                            if 's__' in clade_label and abundance > 0:
-                                self.all_clades[clade_label].nreads = int(np.floor(abundance*glen))
+                #if clade_label[:3] != 't__':
+                if not tax_lev:
+                    if clade_label not in self.all_clades:
+                        to = tax_units.index(clade_label[0])
+                        t = tax_units[to-1]
+                        clade_label = t + clade_label.split("_unclassified")[0][1:]
+                        tax_id = self.all_clades[clade_label].get_full_taxids()
+                        clade_label = self.all_clades[clade_label].get_full_name()
+                        spl = clade_label.split("|")
+                        clade_label = "|".join(spl+[tax_units[to]+spl[-1][1:]+"_unclassified"])
+                        glen = self.all_clades[spl[-1]].glen
+                    else:
+                        glen = self.all_clades[clade_label].glen
+                        tax_id = self.all_clades[clade_label].get_full_taxids()
+                        if 's__' in clade_label and abundance > 0:
+                            self.all_clades[clade_label].nreads = int(np.floor(abundance*glen))
 
-                            clade_label = self.all_clades[clade_label].get_full_name()
-                    elif not clade_label.startswith(tax_lev):
-                        if clade_label in self.all_clades:
-                            glen = self.all_clades[clade_label].glen
-                        else:
-                            glen = 1.0
-                        continue
-                    clade2abundance[(clade_label, tax_id)] = abundance
+                        clade_label = self.all_clades[clade_label].get_full_name()
+                elif not clade_label.startswith(tax_lev):
+                    if clade_label in self.all_clades:
+                        glen = self.all_clades[clade_label].glen
+                    else:
+                        glen = 1.0
+                    continue
+                clade2abundance[(clade_label, tax_id)] = abundance
         
         for tax_label, clade in clade2abundance_n.items():
             tot_reads += clade.compute_mapped_reads()
@@ -1352,7 +1352,13 @@ def metaphlan2():
                                                 ] ) + "\n" )
             else:
                 if not pars['legacy_output']:
-                    outf.write( "unclassified\t-1\t100.0\n" )
+                    outf.write( "#estimated_reads_mapped_to_known_clades:0\n")
+                    outf.write( "\t".join( [    "#clade_name",
+                                                "clade_taxid",
+                                                "relative_abundance",
+                                                "coverage",
+                                                "estimated_number_of_reads_from_the_clade" ]) +"\n" )
+                    outf.write( "unclassified\t-1\t100.0\t0\t0\n" )
                 else:
                     outf.write( "unclassified\t100.0\n" )
             maybe_generate_biom_file(tree, pars, outpred)
