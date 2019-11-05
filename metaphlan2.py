@@ -278,6 +278,8 @@ def read_params(args):
          "The sam records for aligned reads with the longest subalignment\n"
          "length smaller than this threshold will be discarded.\n"
          "[default None]\n"   )
+    arg( '--add_viruses', action='store_true', help=
+         "Allow the profiling of viral organisms" )
     arg( '--ignore_eukaryotes', action='store_true', help=
          "Do not profile eukaryotic organisms" )
     arg( '--ignore_bacteria', action='store_true', help=
@@ -653,7 +655,7 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
                         if (int(o[4]) > min_mapq_val ):  # filter low mapq reads
                             if ((min_alignment_len is None) or
                                     (max([int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x]) >= min_alignment_len)):
-                                outf.write(lmybytes("\t".join([o[0], o[2]]) + "\n"))
+                                outf.write(lmybytes("\t".join([ o[0], o[2].split('/')[0] ]) + "\n"))
 
         if samout:
             sam_file.close()
@@ -917,12 +919,15 @@ class TaxTree:
         TaxClade.avoid_disqm = avoid_disqm
 
     def add_reads(  self, marker, n,
+                    add_viruses = False,
                     ignore_eukaryotes = False,
                     ignore_bacteria = False, ignore_archaea = False  ):
         clade = self.markers2clades[marker]
         cl = self.all_clades[clade]
         if ignore_eukaryotes or ignore_bacteria or ignore_archaea:
             cn = cl.get_full_name()
+            if not add_viruses and cn.startswith("k__Vir"):
+                return (None, None)
             if ignore_eukaryotes and cn.startswith("k__Eukaryota"):
                 return (None, None)
             if ignore_archaea and cn.startswith("k__Archaea"):
@@ -964,31 +969,31 @@ class TaxTree:
 
         for tax_label, clade in clade2abundance_n.items():
             for clade_label, tax_id, abundance in sorted(clade.get_all_abundances(), key=lambda pars:pars[0]):
-                #if clade_label[:3] != 't__':
-                if not tax_lev:
-                    if clade_label not in self.all_clades:
-                        to = tax_units.index(clade_label[0])
-                        t = tax_units[to-1]
-                        clade_label = t + clade_label.split("_unclassified")[0][1:]
-                        tax_id = self.all_clades[clade_label].get_full_taxids()
-                        clade_label = self.all_clades[clade_label].get_full_name()
-                        spl = clade_label.split("|")
-                        clade_label = "|".join(spl+[tax_units[to]+spl[-1][1:]+"_unclassified"])
-                        glen = self.all_clades[spl[-1]].glen
-                    else:
-                        glen = self.all_clades[clade_label].glen
-                        tax_id = self.all_clades[clade_label].get_full_taxids()
-                        if 's__' in clade_label and abundance > 0:
-                            self.all_clades[clade_label].nreads = int(np.floor(abundance*glen))
+                if clade_label[:3] != 't__':
+                    if not tax_lev:
+                        if clade_label not in self.all_clades:
+                            to = tax_units.index(clade_label[0])
+                            t = tax_units[to-1]
+                            clade_label = t + clade_label.split("_unclassified")[0][1:]
+                            tax_id = self.all_clades[clade_label].get_full_taxids()
+                            clade_label = self.all_clades[clade_label].get_full_name()
+                            spl = clade_label.split("|")
+                            clade_label = "|".join(spl+[tax_units[to]+spl[-1][1:]+"_unclassified"])
+                            glen = self.all_clades[spl[-1]].glen
+                        else:
+                            glen = self.all_clades[clade_label].glen
+                            tax_id = self.all_clades[clade_label].get_full_taxids()
+                            if 's__' in clade_label and abundance > 0:
+                                self.all_clades[clade_label].nreads = int(np.floor(abundance*glen))
 
-                        clade_label = self.all_clades[clade_label].get_full_name()
-                elif not clade_label.startswith(tax_lev):
-                    if clade_label in self.all_clades:
-                        glen = self.all_clades[clade_label].glen
-                    else:
-                        glen = 1.0
-                    continue
-                clade2abundance[(clade_label, tax_id)] = abundance
+                            clade_label = self.all_clades[clade_label].get_full_name()
+                    elif not clade_label.startswith(tax_lev):
+                        if clade_label in self.all_clades:
+                            glen = self.all_clades[clade_label].glen
+                        else:
+                            glen = 1.0
+                        continue
+                    clade2abundance[(clade_label, tax_id)] = abundance
         
         for tax_label, clade in clade2abundance_n.items():
             tot_reads += clade.compute_mapped_reads()
@@ -1029,14 +1034,13 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
     elif input_type == 'sam':
         for line in inpf:
             o = ras_line(line)
-
             if ((o[0][0] != '@') and #no header
                 (o[2][-1] != '*') and # no unmapped reads
                 (hex(int(o[1]) & 0x100) == '0x0') and #no secondary
                 (int(o[4]) > min_mapq_val ) and # filter low mapq reads
                 ( (min_alignment_len is None) or ( max(int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x) >= min_alignment_len ) )
             ):
-                    reads2markers[o[0]] = o[2]
+                    reads2markers[o[0]] = o[2].split('/')[0]
 
     inpf.close()
     markers2reads = defdict(set)
