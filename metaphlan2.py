@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.23'
-__date__ = '14 Oct 2019'
+__version__ = '2.9.5.1'
+__date__ = '13 Nov 2019'
 
 import sys
 import os
@@ -652,7 +652,7 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
             if not o[0].startswith('@'):
                 if not o[2].endswith('*'):
                     if (hex(int(o[1]) & 0x100) == '0x0'): #no secondary
-                        if (int(o[4]) > min_mapq_val ):  # filter low mapq reads
+                        if (int(o[4]) > min_mapq_val if '/' not in o[2] or 'GeneID:' in o[2] else True):  # filter low mapq reads
                             if ((min_alignment_len is None) or
                                     (max([int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x]) >= min_alignment_len)):
                                 outf.write(lmybytes("\t".join([ o[0], o[2].split('/')[0] ]) + "\n"))
@@ -924,7 +924,7 @@ class TaxTree:
                     ignore_bacteria = False, ignore_archaea = False  ):
         clade = self.markers2clades[marker]
         cl = self.all_clades[clade]
-        if ignore_eukaryotes or ignore_bacteria or ignore_archaea:
+        if ignore_eukaryotes or ignore_bacteria or ignore_archaea or not add_viruses:
             cn = cl.get_full_name()
             if not add_viruses and cn.startswith("k__Vir"):
                 return (None, None)
@@ -1037,7 +1037,7 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
             if ((o[0][0] != '@') and #no header
                 (o[2][-1] != '*') and # no unmapped reads
                 (hex(int(o[1]) & 0x100) == '0x0') and #no secondary
-                (int(o[4]) > min_mapq_val ) and # filter low mapq reads
+                (int(o[4]) > min_mapq_val if '/' not in o[2] or 'GeneID:' in o[2] else True) and # filter low mapq reads
                 ( (min_alignment_len is None) or ( max(int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x) >= min_alignment_len ) )
             ):
                     reads2markers[o[0]] = o[2].split('/')[0]
@@ -1226,7 +1226,6 @@ def metaphlan2():
                                 min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'], min_mapq_val=pars['min_mapq_val'])
             pars['input_type'] = 'bowtie2out'
         pars['inp'] = pars['bowtie2out'] # !!!
-
     with bz2.BZ2File( pars['mpa_pkl'], 'r' ) as a:
         mpa_pkl = pickle.load( a )
 
@@ -1251,6 +1250,7 @@ def metaphlan2():
         if marker not in tree.markers2lens:
             continue
         tax_seq, ids_seq = tree.add_reads( marker, len(reads),
+                                  add_viruses = pars['add_viruses'],
                                   ignore_eukaryotes = pars['ignore_eukaryotes'],
                                   ignore_bacteria = pars['ignore_bacteria'],
                                   ignore_archaea = pars['ignore_archaea'],
