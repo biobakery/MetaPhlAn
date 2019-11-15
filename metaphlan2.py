@@ -247,7 +247,7 @@ def read_params(args):
              "that 'bowtie2-build is present in the system path")
     arg('--bowtie2out', metavar="FILE_NAME", type=str, default=None,
         help="The file for saving the output of BowTie2")
-    arg('--min_mapq_val', type=int, default="5",
+    arg('--min_mapq_val', type=int, default=5,
         help="Minimum mapping quality value (MAPQ)")
     arg('--no_map', action='store_true',
         help="Avoid storing the --bowtie2out map file")
@@ -648,16 +648,18 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
                 sam_file.write(line)
 
             o = read_and_split_line(line)
-
+            AS, XS = None, None
+            if len(o) > 11:
+                AS, XS = int(o[11][5:]) if o[11].startswith('AS:') else None, int(o[12][5:]) if o[12].startswith('XS:') else None
             if not o[0].startswith('@'):
                 if not o[2].endswith('*'):
                     if (hex(int(o[1]) & 0x100) == '0x0'): #no secondary
-                        if (int(o[4]) > min_mapq_val if '/' not in o[2] or 'GeneID:' in o[2] else True):  # filter low mapq reads
+                        if mapq_filter(o[2], int(o[4]), AS, XS, min_mapq_val) :  # filter low mapq reads
                             if ((min_alignment_len is None) or
                                     (max([int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x]) >= min_alignment_len)):
                                 outf.write(lmybytes("\t".join([ o[0], o[2].split('/')[0] ]) + "\n"))
 
-        if samout:
+        if samout:  
             sam_file.close()
 
         p.communicate()
@@ -1012,6 +1014,22 @@ class TaxTree:
             ret_d[("UNKNOWN", '-1')] = 1.0 - sum(ret_d.values())  
         return ret_d, ret_r, tot_reads
 
+def mapq_filter(marker_name, mapq_value, AS, XS, min_mapq_val):
+    is_multiread = ((AS and XS) and (AS == XS))
+    if 'GeneID:' in marker_name:
+        return True
+    if is_multiread:
+        if mapq_value > min_mapq_val:
+            return True
+        if mapq_value == 0:
+            if XS > -30:
+                return True
+        if mapq_value == 1:
+            return True
+    else:
+        if mapq_value > min_mapq_val:
+            return True
+    return False
 
 def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=None):
     if not mapping_f:
@@ -1034,17 +1052,18 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
     elif input_type == 'sam':
         for line in inpf:
             o = ras_line(line)
+            AS, XS = None, None
+            if len(o) > 11:
+                AS, XS = int(o[11][5:]) if o[11].startswith('AS:') else None, int(o[12][5:]) if o[12].startswith('XS:') else None
             if ((o[0][0] != '@') and #no header
                 (o[2][-1] != '*') and # no unmapped reads
                 (hex(int(o[1]) & 0x100) == '0x0') and #no secondary
-                (int(o[4]) > min_mapq_val if '/' not in o[2] or 'GeneID:' in o[2] else True) and # filter low mapq reads
+                mapq_filter(o[2], int(o[4]), AS, XS, min_mapq_val) and # filter low mapq reads
                 ( (min_alignment_len is None) or ( max(int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x) >= min_alignment_len ) )
             ):
                     reads2markers[o[0]] = o[2].split('/')[0]
-
     inpf.close()
     markers2reads = defdict(set)
-
     for r, m in reads2markers.items():
         markers2reads[m].add(r)
 
