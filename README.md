@@ -2,8 +2,8 @@
 
 # MetaPhlAn2: Metagenomic Phylogenetic Analysis
 
-## What's new in version 2.9.20
-
+## What's new in version 2.9.5
+* Virus profiling with `--add_viruses`
 * Estimation of metagenome composed by unknown microbes with parameter `--unknown_estimation`
 * Automatic retrieval and installation of the latest MetaPhlAn2  with parameter `--index latest`
 * New MetaPhlAn2 marker genes extracted with a newer version of ChocoPhlAn based on UniRef
@@ -16,7 +16,7 @@
 ## Description
 MetaPhlAn2 is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea and Eukaryotes) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.
 
-MetaPhlAn2 relies on ~1.5M unique clade-specific marker genes (the latest marker information file `mpa_v29_CHOCOPhlAn_201901_marker_info.txt.bz2` can be found in the Download page [here](https://bitbucket.org/biobakery/metaphlan2/downloads/mpa_v29_CHOCOPhlAn_201901_marker_info.txt.bz2)) identified from ~100,000 reference genomes (~99,500 bacterial and archaeal and ~500 eukaryotic), allowing:
+MetaPhlAn2 relies on ~1.5M unique clade-specific marker genes (the latest marker information file `mpa_v295_CHOCOPhlAn_201901_marker_info.txt.bz2` can be found in the Download page [here](https://bitbucket.org/biobakery/metaphlan2/downloads/mpa_v295_CHOCOPhlAn_201901_marker_info.txt.bz2)) identified from ~100,000 reference genomes (~99,500 bacterial and archaeal and ~500 eukaryotic), allowing:
 
 * unambiguous taxonomic assignments;
 * accurate estimation of organismal relative abundance;
@@ -99,7 +99,7 @@ You can also install and run MetaPhlAn2 through Docker
 $ docker pull quay.io/biocontainers/metaphlan2:2.9.20
 ```
 
-Alternatively, you can **manually download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/2.9.20.zip) or **clone the repository** using the following command ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``.
+Alternatively, you can **manually download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/2.9.5.zip) or **clone the repository** using the following command ``$ hg clone https://bitbucket.org/biobakery/metaphlan2``.
 
 If you choose this way, **you'll need to install manually all the dependencies!**
 
@@ -115,7 +115,7 @@ By default, the latest MetaPhlAn2 database is downloaded and built. You can down
 
 ```
 #!bash
-$ metaphlan2.py --install --index mpa_v29_CHOCOPhlAn_201901
+$ metaphlan2.py --install --index mpa_v295_CHOCOPhlAn_201901
 ```
 
 --------------------------
@@ -170,7 +170,7 @@ You can also provide an externally BowTie2-mapped SAM if you specify this format
 
 ```
 #!bash
-$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x metaphlan_databases/mpa_v29_CHOCOPhlAn_201901 -U metagenome.fastq
+$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x metaphlan_databases/mpa_v295_CHOCOPhlAn_201901 -U metagenome.fastq
 $ metaphlan2.py metagenome.sam --input_type sam -o profiled_metagenome.txt
 ```
 
@@ -490,21 +490,21 @@ In order to add a marker to the database, the user needs the following steps:
 
 ```
 #!bash
-bowtie2-inspect metaphlan_databases/mpa_v29_CHOCOPhlAn_201901 > metaphlan_databases/mpa_v29_CHOCOPhlAn_201901_markers.fasta
+bowtie2-inspect metaphlan_databases/mpa_v295_CHOCOPhlAn_201901 > metaphlan_databases/mpa_v295_CHOCOPhlAn_201901_markers.fasta
 ```
 
 * Add the marker sequence stored in a file new_marker.fasta to the marker set:
 
 ```
 #!bash
-cat new_marker.fasta >> metaphlan_databases/mpa_v29_CHOCOPhlAn_201901_markers.fasta
+cat new_marker.fasta >> metaphlan_databases/mpa_v295_CHOCOPhlAn_201901_markers.fasta
 ```
 
 * Rebuild the bowtie2 database:
 
 ```
 #!bash
-bowtie2-build metaphlan_databases/mpa_v29_CHOCOPhlAn_201901_markers.fasta metaphlan_databases/mpa_v25_CHOCOPhlAn_NEW
+bowtie2-build metaphlan_databases/mpa_v295_CHOCOPhlAn_201901_markers.fasta metaphlan_databases/mpa_v25_CHOCOPhlAn_NEW
 ```
 
 * Assume that the new marker was extracted from genome1, genome2. Update the taxonomy file from the Python console as follows:
@@ -515,7 +515,7 @@ bowtie2-build metaphlan_databases/mpa_v29_CHOCOPhlAn_201901_markers.fasta metaph
 import pickle
 import bz2
 
-db = pickle.load(bz2.open('metaphlan_databases/mpa_v29_CHOCOPhlAn_201901.pkl', 'r'))
+db = pickle.load(bz2.open('metaphlan_databases/mpa_v295_CHOCOPhlAn_201901.pkl', 'r'))
 
 # Add the taxonomy of the new genomes
 db['taxonomy']['taxonomy of genome1'] = ('NCBI taxonomy id of genome1', length of genome1)
@@ -612,7 +612,7 @@ for f in $(ls fastqs/*.bz2)
 do
     echo "Running metaphlan2 on ${f}"
     bn=$(basename ${f} | cut -d '.' -f 1)
-     ../metaphlan2.py --index mpa_v29_CHOCOPhlAn_201901 --input_type multifastq --nproc 10s -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o ssams/${bn}.profile ${f}
+     ../metaphlan2.py --index mpa_v295_CHOCOPhlAn_201901 --input_type multifastq --nproc 10s -s sams/${bn}.sam.bz2 --bowtie2out sams/${bn}.bowtie2_out.bz2 -o ssams/${bn}.profile ${f}
 done
 ```
 
@@ -645,8 +645,8 @@ The commands to run are:
 ```
 #!python
 mkdir -p db_markers
-bowtie2-inspect ../metaphlan_databases/mpa_v29_CHOCOPhlAn_201901 > db_markers/all_markers.fasta
-python ../strainphlan_src/extract_markers.py --mpa_pkl ../metaphlan_databases/mpa_v29_CHOCOPhlAn_201901.pkl --ifn_markers db_markers/all_markers.fasta --clade s__Bacteroides_caccae --ofn_markers db_markers/s__Bacteroides_caccae.markers.fasta
+bowtie2-inspect ../metaphlan_databases/mpa_v295_CHOCOPhlAn_201901 > db_markers/all_markers.fasta
+python ../strainphlan_src/extract_markers.py --mpa_pkl ../metaphlan_databases/mpa_v295_CHOCOPhlAn_201901.pkl --ifn_markers db_markers/all_markers.fasta --clade s__Bacteroides_caccae --ofn_markers db_markers/s__Bacteroides_caccae.markers.fasta
 ```
 
 Note that the "all\_markers.fasta" file consists can be reused for extracting other reference genomes. 
@@ -657,7 +657,7 @@ Before building the trees, we should get the list of all clades detected from th
 
 ```
 #!python
-python ../strainphlan.py --mpa_pkl ../metaphlan_databases/mpa_v29_CHOCOPhlAn_201901.pkl --ifn_samples consensus_markers/*.markers --output_dir output --nprocs_main 10 --print_clades_only > output/clades.txt
+python ../strainphlan.py --mpa_pkl ../metaphlan_databases/mpa_v295_CHOCOPhlAn_201901.pkl --ifn_samples consensus_markers/*.markers --output_dir output --nprocs_main 10 --print_clades_only > output/clades.txt
 ```
 
 The clade names in the output file "clades.txt" will be used for the next step.
@@ -672,7 +672,7 @@ The commands to run are:
 ```
 #!python
 mkdir -p output
-python ../strainphlan.py --mpa_pkl ../metaphlan_databases/mpa_v29_CHOCOPhlAn_201901.pkl --ifn_samples consensus_markers/*.markers --ifn_markers db_markers/s__Bacteroides_caccae.markers.fasta --ifn_ref_genomes reference_genomes/G000273725.fna.bz2 --output_dir output --nprocs_main 10 --clades s__Bacteroides_caccae | tee output/log_full.txt
+python ../strainphlan.py --mpa_pkl ../metaphlan_databases/mpa_v295_CHOCOPhlAn_201901.pkl --ifn_samples consensus_markers/*.markers --ifn_markers db_markers/s__Bacteroides_caccae.markers.fasta --ifn_ref_genomes reference_genomes/G000273725.fna.bz2 --output_dir output --nprocs_main 10 --clades s__Bacteroides_caccae | tee output/log_full.txt
 ```
 
 This step will take around 2 minutes. After this step, you will find the tree "output/RAxML\_bestTree.s\_\_Bacteroides\_caccae.tree". All the output files can be found in the folder "output" in [this link](https://www.dropbox.com/sh/m4na8wefp53j8ej/AABA3yVsG26TbB0t1cnBS9-Ra?dl=0).
