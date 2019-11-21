@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.5.2'
-__date__ = '15 Nov 2019'
+__version__ = '2.9.5.3'
+__date__ = '21 Nov 2019'
 
 import sys
 import os
@@ -1014,18 +1014,9 @@ class TaxTree:
             ret_d[("UNKNOWN", '-1')] = 1.0 - sum(ret_d.values())  
         return ret_d, ret_r, tot_reads
 
-def mapq_filter(marker_name, mapq_value, AS, XS, min_mapq_val):
-    is_multiread = ((AS and XS) and (AS == XS))
+def mapq_filter(marker_name, mapq_value, min_mapq_val):
     if 'GeneID:' in marker_name:
         return True
-    if is_multiread:
-        if mapq_value > min_mapq_val:
-            return True
-        if mapq_value == 0:
-            if XS > -30:
-                return True
-        if mapq_value == 1:
-            return True
     else:
         if mapq_value > min_mapq_val:
             return True
