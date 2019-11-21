@@ -9,6 +9,7 @@ __date__    = '10 Jul 19'
 
 import sys
 import os
+import io
 ABS_PATH = os.path.abspath(sys.argv[0])
 MAIN_DIR = os.path.dirname(ABS_PATH)
 os.environ['PATH'] += ':%s'%MAIN_DIR
@@ -349,6 +350,9 @@ def sam2markers(
                       stderr=error_pipe,
                       stop=True)
 
+    if PYTHON_VERSION >= 3:
+        p7 = io.TextIOWrapper(p7, encoding='utf-8')
+
     try:
         for rec in SeqIO.parse(p7, 'fastq'):
             marker2seq[rec.name]['seq'] = str(rec.seq).upper()
@@ -356,9 +360,12 @@ def sam2markers(
     except Exception as e:
         logger.error("sam2markers failed on file " + sam_file)
         raise
-
-    if type(p1) == file:
-        p1.close()
+    if PYTHON_VERSION < 3:
+        if type(p1) == file:
+            p1.close()
+    else:
+        if hasattr(p1, 'close'):
+            p1.close()
 
     if marker2file:
         with open(marker2file, 'wb') as ofile:
