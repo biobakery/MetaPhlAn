@@ -45,9 +45,9 @@ logger = logging.getLogger(__name__)
 
 if not os.path.isfile(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19')):
     if(PYTHON_VERSION < 3):
-        urlretrieve('https://www.dropbox.com/sh/m4na8wefp53j8ej/AACU1-Nc0q2dUNRmc9pesUi4a/bin/bcftools', os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'))
+        urlretrieve('https://bitbucket.org/biobakery/metaphlan2/downloads/bcftools', os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'))
     else:
-        request.urlretrieve('https://www.dropbox.com/sh/m4na8wefp53j8ej/AACU1-Nc0q2dUNRmc9pesUi4a/bin/bcftools', os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'))
+        request.urlretrieve('https://bitbucket.org/biobakery/metaphlan2/downloads/bcftools', os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'))
 try:
     os.symlink(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'), os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools'))
 except OSError as e:
