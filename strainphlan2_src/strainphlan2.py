@@ -575,11 +575,12 @@ def calculate_polimorfic_rates(samples, clade_markers_file, clade, output_dir):
                     p_count += m['sequence'].count('*')
                     m_len += len(m['sequence'])
                     p_stats.append(m['sequence'].count('*')*100/len(m['sequence']))
-            polimorfic_file.write("\n"+os.path.splitext(os.path.basename(sample_path))[0] +
-                "\t"+str(p_count*100/m_len)+"\t"+str(numpy.average(p_stats)) +
-                "\t"+str(numpy.percentile(p_stats,50)) + "\t"+str(numpy.std(p_stats)) +
-                "\t"+str(numpy.min(p_stats)) + "\t"+str(numpy.max(p_stats)) +
-                "\t"+str(numpy.percentile(p_stats,25)) + "\t"+str(numpy.percentile(p_stats,75)))
+            if not m_len == 0:
+                polimorfic_file.write("\n"+os.path.splitext(os.path.basename(sample_path))[0] +
+                    "\t"+str(p_count*100/m_len)+"\t"+str(numpy.average(p_stats)) +
+                    "\t"+str(numpy.percentile(p_stats,50)) + "\t"+str(numpy.std(p_stats)) +
+                    "\t"+str(numpy.min(p_stats)) + "\t"+str(numpy.max(p_stats)) +
+                    "\t"+str(numpy.percentile(p_stats,25)) + "\t"+str(numpy.percentile(p_stats,75)))
     return len(clade_markers)
 
 

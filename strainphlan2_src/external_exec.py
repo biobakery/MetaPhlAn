@@ -8,7 +8,7 @@ __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
 __version__ = '2.0.0'
 __date__ = '29 Jul 2019'
 
-import os, sys, re
+import os, sys, re, shutil
 import subprocess as sb
 from utils import info, error
 
@@ -227,7 +227,8 @@ def samtools_sort_bam_v1(input, output_dir):
         "command_line" : "#program_name# #params# #input# #output#"
     }      
     execute(compose_command(params, input_file=input, output_file=output_dir+n+".sorted.bam"))
-    return output_dir+n+".sorted.bam"
+    shutil.move(output_dir+n+".sorted.bam", output_dir+n+".bam")
+    return output_dir+n+".bam"
 
 
 """
