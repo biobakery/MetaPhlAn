@@ -16,8 +16,6 @@ from utils import error, info, optimized_dump, get_breath
 from cmseq import cmseq
 from parallelisation import execute_pool
 
-BREATH_THRESHOLD = 90
-
 
 """
 Reads and parses the command line arguments of the script.
@@ -30,11 +28,13 @@ def read_params():
                    nargs='+', default=[],
                    help="The input samples as SAM or BAM files")
     p.add_argument('--sorted', action='store_true', default=False,
-                   help="Whether the BAM input files are sorted [default=True]")
-    p.add_argument('-f', '--input_format', type=str, default=None,
-                   help="The input samples format [BAM, SAM, SAM/BAM.BZ2]")
+                   help="Whether the BAM input files are sorted. Default false")
+    p.add_argument('-f', '--input_format', type=str, default="bz2",
+                   help="The input samples format {bam, sam, bz2}. Default bz2")
     p.add_argument('-o', '--output_dir', type=str, default=None,
                    help="The output directory")
+    p.add_argument('-b', '--breath_threshold', type=int, default=80,
+                   help="The breath threshold for the consensus markers. Default 80")
     p.add_argument('-n', '--nprocs', type=int, default=1,
                    help="The number of threads to execute the script")
     
@@ -178,16 +178,16 @@ def convert_inputs(input, sorted, input_format, tmp_dir, nprocs):
     return input
 
 
-#ToDo: BREATH_THRESHOLD as command line parameter
 #ToDo: minimumReadsAlignning as command line parameter
 """
 Gets the markers for each sample and writes the Pickle files
 
 :param input: the samples as sorted BAM files
 :param output_dir: the output directory
+:param breath_threshold: the breath threshold for the consensus markers
 :param nprocs: number of threads to use in the execution
 """
-def execute_cmseq(input, output_dir, nprocs):
+def execute_cmseq(input, output_dir, breath_threshold, nprocs):
     info("Getting consensus markers from samples...", init_new_line=True)
     for i in input:
         info("\tProcessing sample: "+i, init_new_line=True)
@@ -197,7 +197,7 @@ def execute_cmseq(input, output_dir, nprocs):
         results = collection.parallel_reference_free_consensus(ncores=nprocs, consensus_rule=cmseq.BamContig.majority_rule_polymorphicLoci)
         for c, seq in results:
             breath = get_breath(seq)
-            if breath > BREATH_THRESHOLD:
+            if breath > breath_threshold:
                 consensus.append({"marker":c, "breath":breath, "sequence":seq})
         markers_pkl = open(output_dir+n+'.pkl', 'wb')
         optimized_dump(markers_pkl, consensus)
@@ -214,9 +214,10 @@ user-selected output directory
 :param sorted: whether the BAM files are sorted
 :param input_format: format of the sample files [bam or sam]
 :param output_dir: the output directory
+:param breath_threshold: the breath threshold for the consensus markers
 :param nprocs: number of threads to use in the execution
 """
-def samples_to_markers(input, sorted, input_format, output_dir, nprocs):
+def samples_to_markers(input, sorted, input_format, output_dir, breath_threshold, nprocs):
     tmp_dir = output_dir+'tmp/'
     try:
         os.mkdir(tmp_dir)
@@ -225,7 +226,7 @@ def samples_to_markers(input, sorted, input_format, output_dir, nprocs):
             init_new_line=True)
     
     input = convert_inputs(input, sorted, input_format, tmp_dir, nprocs)
-    execute_cmseq(input, output_dir, nprocs)        
+    execute_cmseq(input, output_dir, breath_threshold, nprocs)        
     
     shutil.rmtree(tmp_dir, ignore_errors=False, onerror=None)
 
@@ -237,6 +238,7 @@ Main function
 :param sorted: whether the BAM files are sorted
 :param input_format: format of the sample files [bam or sam]
 :param output_dir: the output directory
+:param breath_threshold: the breath threshold for the consensus markers
 :param nprocs: number of threads to use in the execution
 """
 if __name__ == "__main__":
@@ -245,7 +247,8 @@ if __name__ == "__main__":
     args = read_params()
     check_dependencies()
     args = check_params(args)
-    samples_to_markers(args.input, args.sorted, args.input_format, args.output_dir, args.nprocs)
+    samples_to_markers(args.input, args.sorted, args.input_format, args.output_dir, 
+        args.breath_threshold, args.nprocs)
     exec_time = time.time() - t0
     info("Finish samples to markers execution ("+str(round(exec_time, 2))+
         " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",

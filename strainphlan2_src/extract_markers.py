@@ -92,7 +92,6 @@ def extract_markers(database, clade, output_dir):
     for marker in db['markers']:
         species = [t for t in db['markers'][marker]['taxon'].split('|') if t.startswith("s__")]
         if clade in species:
-            info(db['markers'][marker]['taxon'], init_new_line=True)
             markers.add(marker)
     if len(markers) == 0:
         error("No markers were found for the clade \""+clade+"\" in the database", 

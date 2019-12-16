@@ -157,11 +157,11 @@ def main(args):
                 ofile.write('%s\tclade_marker_edge_width\t%f\n'%(nodestr, args.leaf_marker_edge_width))
 
     ofn_xml = args.ofn_prefix + '.xml'
-    cmd = '/mnt/d/ScientificWork/CIBIO_repos/graphlan/graphlan_annotate.py --annot %s %s %s'%(ofn_annot, ofn_tree, ofn_xml)
+    cmd = 'graphlan/graphlan_annotate.py --annot %s %s %s'%(ofn_annot, ofn_tree, ofn_xml)
     run(cmd)
 
     ofn_fig = args.ofn_prefix + args.figure_extension
-    cmd = '/mnt/d/ScientificWork/CIBIO_repos/graphlan/graphlan.py %s %s --dpi %d --size %f'%(ofn_xml, ofn_fig, args.dpi, args.fig_size)
+    cmd = 'graphlan/graphlan.py %s %s --dpi %d --size %f'%(ofn_xml, ofn_fig, args.dpi, args.fig_size)
     run(cmd)
 
     print ('Output file: %s'%ofn_fig)

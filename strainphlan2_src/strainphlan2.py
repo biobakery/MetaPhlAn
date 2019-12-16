@@ -44,10 +44,10 @@ def read_params():
                    help="The clade markers as FASTA file")
     p.add_argument('-s', '--samples', type=str, 
                    nargs='+', default=[],
-                   help="The the markers for each main sample")
+                   help="The reconstructed markers for each sample")
     p.add_argument('-r', '--references', type=str, 
                    nargs='+', default=[],
-                   help="The main reference genomes")
+                   help="The reference genomes")
     p.add_argument('-c', '--clade', type=str, default=None,
                    help="The clade to investigate")
     p.add_argument('-o', '--output_dir', type=str, default=None,
@@ -56,12 +56,12 @@ def read_params():
                    help="The number of threads to use")
     p.add_argument('--secondary_samples', type=str, 
                     nargs='+', default=[],
-                    help="The the markers for each secondary sample")
+                    help="The reconstructed markers for each secondary sample")
     p.add_argument('--secondary_references', type=str, 
                     nargs='+', default=[],
                     help="The secondary reference genomes")
     p.add_argument('--trim_sequences', type=int, default=50,
-                    help="The number of bases to remove when trimming markers. Default 50")
+                    help="The number of bases to remove from both ends when trimming markers. Default 50")
     p.add_argument('--marker_in_n_samples', type=int, default=80,
                     help="Theshold defining the minimum percentage of samples to keep a marker. Default 80")
     p.add_argument('--sample_with_n_markers', type=int, default=20,
