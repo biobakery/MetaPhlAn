@@ -1,2 +1,4 @@
 utils/export2graphlan = https://bitbucket.org/cibiocm/export2graphlan
 utils/hclust2 = https://bitbucket.org/nsegata/hclust2
+strainphlan2_src/cmseq = https://bitbucket.org/CibioCM/cmseq
+strainphlan2_src/phylophlan = https://bitbucket.org/nsegata/phylophlan/src/dev/
