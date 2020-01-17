@@ -633,6 +633,7 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir,
     logger.debug('load genome contigs')
     p1 = NamedTemporaryFile(dir=tmp_dir)
     contigs = defaultdict(dict)
+    all_reference_sequences = list()
     for ifn_genome in ifn_ref_genomes:
         genome = ooSubprocess.splitext(ifn_genome)[0]
         if ifn_genome[-4:] == '.bz2':
@@ -665,7 +666,8 @@ def add_ref_genomes(genome2marker, marker_records, ifn_ref_genomes, tmp_dir,
             contigs[rec.name]['seq'] = str(rec.seq)
             contigs[rec.name]['genome'] = genome
         ifile_genome.close()
-        SeqIO.write(reference_sequences, p1.name, 'fasta')
+        all_reference_sequences = all_reference_sequences + reference_sequences
+    SeqIO.write(all_reference_sequences, p1.name, 'fasta')
     p1.seek(0)
 
     # build blastdb
