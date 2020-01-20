@@ -36,6 +36,8 @@ if(PYTHON_VERSION < 3):
 else:
     from urllib import request
 import errno
+import stat
+
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stderr,
                     # ToDO: fix on python3
@@ -44,16 +46,23 @@ logging.basicConfig(level=logging.DEBUG, stream=sys.stderr,
 logger = logging.getLogger(__name__)
 
 if not os.path.isfile(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19')):
+
     if(PYTHON_VERSION < 3):
         urlretrieve('https://bitbucket.org/biobakery/metaphlan2/downloads/bcftools', os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'))
     else:
         request.urlretrieve('https://bitbucket.org/biobakery/metaphlan2/downloads/bcftools', os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'))
-try:
-    os.symlink(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'), os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools'))
-except OSError as e:
-    if e.errno == errno.EEXIST:
-        os.remove(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools'))
-        os.symlink(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'),os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools'))
+
+    #make the file executable, or it won't run 
+    os.chmod(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'), os.stat(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19')).st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+    #indenting this block, as it is only needed if we need to re-download bcftools.
+
+    try:
+        os.symlink(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'), os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools'))  
+    except OSError as e:
+        if e.errno == errno.EEXIST:        
+            os.remove(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools'))
+            os.symlink(os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools_0.1.19'),os.path.join(os.path.dirname(os.path.realpath(__file__)),'bcftools'))
 
 def read_params():
     p = ap.ArgumentParser()
