@@ -117,7 +117,7 @@ The commands to run are:
 ```
 #!python
 mkdir -p output
-python strainphlan2.py -s consensus_markers/*.pkl -m db_markers/s__Bacteroides_caccae.fna -r reference_genomes/G000273725.fna.bz2 -o output -n 8 -c s__Bacteroides_caccae --phylophlan_mode accurate --mutation_rates
+python strainphlan2.py -s consensus_markers/*.pkl -m db_markers/s__Bacteroides_caccae.fna -r reference_genomes/G000273725.fna.bz2 -o output -n 8 -c s__Bacteroides_caccae --mutation_rates
 ```
 
 After this step, you will find the tree "output/RAxML_bestTree.s\_\_Bacteroides\_caccae.StrainPhlAn2.tre". All the output files can be found in the folder "output" in [this link](https://www.dropbox.com/sh/rq3xqm12h2amn6q/AAD81ckPfT_metLDJcl5YJGNa?dl=0).
@@ -178,7 +178,6 @@ usage: strainphlan2.py [-h] [-d DATABASE] [-m CLADE_MARKERS]
                        [--marker_in_n_samples MARKER_IN_N_SAMPLES]
                        [--sample_with_n_markers SAMPLE_WITH_N_MARKERS]
                        [--secondary_sample_with_n_markers SECONDARY_SAMPLE_WITH_N_MARKERS]
-                       [--phylophlan_mode PHYLOPHLAN_MODE]
                        [--phylophlan_configuration PHYLOPHLAN_CONFIGURATION]
                        [--mutation_rates]
 
@@ -214,9 +213,6 @@ optional arguments:
   --secondary_sample_with_n_markers SECONDARY_SAMPLE_WITH_N_MARKERS
                         Threshold defining the minimun number of markers to
                         keep a secondary sample. Default 20
-  --phylophlan_mode PHYLOPHLAN_MODE
-                        The precision of the phylogenetic analysis {fast,
-                        normal [default], accurate}
   --phylophlan_configuration PHYLOPHLAN_CONFIGURATION
                         The PhyloPhlAn configuration file
   --mutation_rates      If specified will produced a mutation rates table for

@@ -10,6 +10,7 @@ __date__ = '29 Jul 2019'
 
 
 import os, sys, re, pickletools, pickle, time
+from hashlib import sha256
 
 """
 Prints a message as normal info
@@ -91,7 +92,7 @@ Parse marker names to support PhyloPhlAn execution
 :returns: the parsed marker name
 """
 def parse_marker_name(marker_name):
-    return re.sub('[^a-zA-Z0-9 \n\.]', '-', marker_name)
+    return str(int(sha256(marker_name.encode('utf-8')).hexdigest(), 16) % 10**12)
         
 
 """

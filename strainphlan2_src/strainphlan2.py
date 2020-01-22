@@ -67,9 +67,7 @@ def read_params():
     p.add_argument('--sample_with_n_markers', type=int, default=20,
                     help="Threshold defining the minimun number of markers to keep a sample. Default 20")
     p.add_argument('--secondary_sample_with_n_markers', type=int, default=20,
-                    help="Threshold defining the minimun number of markers to keep a secondary sample. Default 20")
-    p.add_argument('--phylophlan_mode', type=str, default='normal',
-                    help="The precision of the phylogenetic analysis {fast, normal [default], accurate}")                    
+                    help="Threshold defining the minimun number of markers to keep a secondary sample. Default 20")                 
     p.add_argument('--phylophlan_configuration', type=str, default=None,
                     help="The PhyloPhlAn configuration file")
     p.add_argument('--mutation_rates', action='store_true', default=False,
@@ -110,10 +108,7 @@ def check_params(args):
             init_new_line=True)
     elif args.clade_markers and not os.path.exists(args.clade_markers):
         error('The clade markers file does not exist', exit=True, 
-            init_new_line=True)     
-    elif args.phylophlan_mode not in ["fast", "normal", "accurate"]:
-        error('The phylogeny precision must be {fast, normal or accurate}', exit=True, 
-            init_new_line=True)            
+            init_new_line=True)               
     elif args.phylophlan_configuration and not os.path.exists(args.phylophlan_configuration):
         error('The phylophlan configuration file does not exist', exit=True, 
             init_new_line=True)
@@ -491,25 +486,17 @@ def parse_blastn_results(sample, clade_markers, blastn_file, reference):
 """
 Gets PhyloPhlAn configuration
 
-:param phylophlan_mode: the precision of the phylogenetic analysis
 :returns: the configuration to create a PhyloPhlAn configuration file
 """
-def get_phylophlan_configuration(phylophlan_mode):
+def get_phylophlan_configuration():
     configuration = dict()
     # blastn, tblastn, diamond
     configuration.update({'map':'blastn'})
     # muscle, mafft, opal, upp
     configuration.update({'aligner':'mafft'})
     # fasttree, raxml, iqtree, astral, astrid
-    if phylophlan_mode == "fast":
-        configuration.update({'tree1':'fasttree'})
-        configuration.update({'tree2':''})    
-    elif phylophlan_mode == "normal":
-        configuration.update({'tree1':'fasttree'})
-        configuration.update({'tree2':' --tree2 raxml'})
-    else:
-        configuration.update({'tree1':'raxml'})
-        configuration.update({'tree2':' --tree2 raxml'})
+    configuration.update({'tree1':'raxml'})
+    configuration.update({'tree2':''})    
     
     return configuration
 
@@ -523,25 +510,24 @@ Executes PhyloPhlAn2 to compute phylogeny
 :param output_dir: the output_directory
 :param clade: the clade
 :param marker_in_n_samples: threshold defining the minimum percentage of samples to keep a marker
-:param phylophlan_mode: the precision of the phylogenetic analysis
 :param phylophlan_configuration: the PhyloPhlAn configuration file
 :param mutation_rates: whether get  the mutation rates for the markers
 :param nproc: the number of threads to run phylophlan
 """
 def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, clade, 
-    marker_in_n_samples, phylophlan_mode, phylophlan_configuration, mutation_rates, nprocs):    
+    marker_in_n_samples, phylophlan_configuration, mutation_rates, nprocs):    
     info("\tCreating PhyloPhlAn2 database...", init_new_line=True)
     create_phylophlan_db(tmp_dir, clade)
     info("\tDone.", init_new_line=True)
     if not phylophlan_configuration:     
         info("\tGenerating PhyloPhlAn2 configuration file...", init_new_line=True)
-        conf = get_phylophlan_configuration(phylophlan_mode)
+        conf = get_phylophlan_configuration()
         phylophlan_configuration = generate_phylophlan_config_file(tmp_dir, conf)
         info("\tDone.", init_new_line=True)   
     info("\tProcessing samples...", init_new_line=True)
     min_entries = int(marker_in_n_samples*num_samples/100)
     execute_phylophlan(samples_markers_dir, phylophlan_configuration, min_entries,
-        tmp_dir, output_dir, clade, phylophlan_mode, mutation_rates, nprocs)
+        tmp_dir, output_dir, clade, mutation_rates, nprocs)
     if mutation_rates:
         move(output_dir+"mutation_rates.tsv",output_dir+clade+".mutation")
         move(output_dir+"mutation_rates",output_dir+clade+"_mutation_rates")
@@ -602,12 +588,11 @@ Writes the information file for the execution
     to keep a marker
 :param secondary_samples_with_n_markers: threshold defining the minimun number of markers 
     to keep a secondary sample
-:param phylophlan_mode: the precision of the phylogenetic analysis
 :param nprocs: the threads used for execution
 """
 def write_info(cleaned_markers_matrix, num_markers_for_clade, clade, output_dir, p_samples, 
     s_samples, p_references, s_references, trim_sequences, samples_with_n_markers, 
-    marker_in_n_samples, secondary_samples_with_n_markers, phylophlan_mode, nprocs):
+    marker_in_n_samples, secondary_samples_with_n_markers, nprocs):
     f_p_samples, f_s_samples, f_p_references, f_s_references = 0, 0, 0, 0
     for c in cleaned_markers_matrix:
         if c['sample'] in p_samples:
@@ -640,7 +625,6 @@ def write_info(cleaned_markers_matrix, num_markers_for_clade, clade, output_dir,
             "\nNumber of secondary samples after filtering:: " + str(f_s_samples) +
             "\nNumber of main references after filtering:: " + str(f_p_references) +            
             "\nNumber of secondary references after filtering:: " + str(f_s_references) +
-            "\nPhyloPhlan phylogenetic precision mode: "+ phylophlan_mode +
             "\nNumber of processes used: "+ str(nprocs)) 
 
 
@@ -664,14 +648,13 @@ Executes StrainPhlAn2
     to keep a marker
 :param secondary_samples_with_n_markers: threshold defining the minimun number of markers 
     to keep a secondary sample
-:param phylophlan_mode: the precision of the phylogenetic analysis
 :param phylophlan_configuration: the PhyloPhlAn configuration file
 :param mutation_rates: whether get  the mutation rates for the markers
 :param nprocs: the threads used for execution
 """
 def strainphlan2(database, clade_markers, samples, references, secondary_samples, 
     secondary_references, clade, output_dir, trim_sequences, samples_with_n_markers, 
-    marker_in_n_samples, secondary_samples_with_n_markers, phylophlan_mode, 
+    marker_in_n_samples, secondary_samples_with_n_markers,  
     phylophlan_configuration, mutation_rates, nprocs):
     info("Creating temporal directory...", init_new_line=True)
     tmp_dir = output_dir+'tmp/'
@@ -706,14 +689,14 @@ def strainphlan2(database, clade_markers, samples, references, secondary_samples
     info("Done.", init_new_line=True)   
     info("Executing PhyloPhlAn2...", init_new_line=True)
     compute_phylogeny(samples_as_markers_dir, len(cleaned_markers_matrix), tmp_dir, 
-        output_dir, clade, marker_in_n_samples, phylophlan_mode, phylophlan_configuration,
+        output_dir, clade, marker_in_n_samples, phylophlan_configuration,
         mutation_rates, nprocs)
     info("Done.", init_new_line=True)     
     info("Writting information file...", init_new_line=True)
     write_info(cleaned_markers_matrix, num_markers_for_clade, clade, output_dir,
         samples, secondary_samples, references, secondary_references, trim_sequences, 
         samples_with_n_markers, marker_in_n_samples, secondary_samples_with_n_markers, 
-        phylophlan_mode, nprocs)
+        nprocs)
     info("Done.", init_new_line=True)
     info("Removing temporal files...", init_new_line=True)
     rmtree(tmp_dir, ignore_errors=False, onerror=None)
@@ -738,7 +721,6 @@ Main function
 :param marker_in_n_samples: threshold defining the minimum percentage of samples to keep a marker
 :param secondary_samples_with_n_markers: threshold defining the minimun number of markers to keep 
     a secondary sample
-:param phylophlan_mode: the precision of the phylogenetic analysis
 :param phylophlan_configuration: the PhyloPhlAn configuration file
 :param mutation_rates: whether get  the mutation rates for the markers
 :param nprocs: the threads used for execution
@@ -751,7 +733,7 @@ if __name__ == "__main__":
     strainphlan2(args.database, args.clade_markers, args.samples, args.references, 
         args.secondary_samples, args.secondary_references,  args.clade, args.output_dir, 
         args.trim_sequences, args.sample_with_n_markers, args.marker_in_n_samples,
-        args.secondary_sample_with_n_markers, args.phylophlan_mode, args.phylophlan_configuration, 
+        args.secondary_sample_with_n_markers, args.phylophlan_configuration, 
         args.mutation_rates, args.nprocs)
     exec_time = time.time() - t0
     info("Finish StrainPhlAn2 execution ("+str(round(exec_time, 2))+
