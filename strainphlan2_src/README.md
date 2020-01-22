@@ -25,12 +25,11 @@ In addition, the table below shows the number of snps between the sample strains
 In the next sections, we will illustrate step by step how to run StrainPhlAn2 on this toy example to reproduce the above figures.
 
 ### Pre-requisites
-StrainPhlAn2 requires *python 3* and the libraries [biopython](http://biopython.org/wiki/Main_Page) (tested on **version 1.73**), [msgpack](https://pypi.python.org/pypi/msgpack-python) (tested on **version 0.15.2**), [numpy](http://www.numpy.org/) (tested on **version 1.16.2**). Besides, StrainPhlAn2 also needs the following programs in the executable path:
+StrainPhlAn2 requires *python 3* and the libraries [biopython](http://biopython.org/wiki/Main_Page) (tested on **version 1.73**), [msgpack](https://pypi.python.org/pypi/msgpack-python) (tested on **version 0.15.2**), [numpy](http://www.numpy.org/) (tested on **version 1.16.2**), [dendropy](https://pythonhosted.org/DendroPy/) (tested on **version 4.4.0**), [pandas](https://pandas.pydata.org/) (tested on **version 0.24.2**) and [pysam](https://pypi.org/project/pysam/) (tested on **version 0.15.2**). Besides, StrainPhlAn2 also needs the following programs in the executable path:
 
-* [CMSeq](https://bitbucket.org/CibioCM/cmseq/src) for mapping reads against the marker database. 
-* [samtools](http://samtools.sourceforge.net/) which can be downloaded from [here](https://github.com/samtools) for processing the consensus markers. 
-* [blast+](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) for adding reference genomes to the phylogenetic tree (blastn and makeblastdb commands)
-* [PhylopPhlAn2](https://bitbucket.org/nsegata/phylophlan/src/default/) for building the phylogenetic trees.
+* [samtools](http://samtools.sourceforge.net/) (tested on **version 1.9**) which can be downloaded from [here](https://github.com/samtools) for processing the consensus markers. 
+* [blast+](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) (tested on **version 2.9**) for adding reference genomes to the phylogenetic tree (blastn and makeblastdb commands)
+* [RAxML](https://cme.h-its.org/exelixis/web/software/raxml/) (tested on **version 8.2.4**) for building the phylogenetic trees.
 
 If MetaPhlAn2 was installed through conda and you have the `mpa` activated, all the pre-requisites are satisfied.
 
