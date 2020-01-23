@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.9.5.3'
-__date__ = '21 Nov 2019'
+__version__ = '2.96'
+__date__ = '23 Jan 2020'
 
 import sys
 import os
@@ -286,9 +286,9 @@ def read_params(args):
          "Do not profile bacterial organisms" )
     arg( '--ignore_archaea', action='store_true', help=
          "Do not profile archeal organisms" )
-    arg( '--stat_q', metavar="", type = float, default=0.1, help =
+    arg( '--stat_q', metavar="", type = float, default=0.2, help =
          "Quantile value for the robust average\n"
-         "[default 0.1]"   )
+         "[default 0.2]"   )
     arg( '--perc_nonzero', metavar="", type = float, default=0.33, help =
          "Percentage of markers with a non zero relative abundance for misidentify a species\n"
          "[default 0.33]"   )
@@ -344,6 +344,7 @@ def read_params(args):
     arg('--sample_id_key',  metavar="name", type=str, default="#SampleID",
         help =("Specify the sample ID key for this analysis."
                " Defaults to '#SampleID'."))
+    arg('--use_group_representative', action='store_true',  help =("Use a species as representative for species groups."))
     arg('--sample_id',  metavar="value", type=str,
         default="Metaphlan2_Analysis",
         help =("Specify the sample ID for this analysis."
@@ -1232,7 +1233,7 @@ def metaphlan2():
         pars['inp'] = pars['bowtie2out'] # !!!
     with bz2.BZ2File( pars['mpa_pkl'], 'r' ) as a:
         mpa_pkl = pickle.load( a )
-
+    REPORT_MERGED = mpa_pkl.get('merged_taxon',False)
     tree = TaxTree( mpa_pkl, ignore_markers )
     tree.set_min_cu_len( pars['min_cu_len'] )
     tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], pars['avoid_disqm'])
@@ -1294,7 +1295,7 @@ def metaphlan2():
             if fraction_mapped_reads > 1.0: fraction_mapped_reads = 1.0
             
             outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid), relab in cl2ab.items() if relab > 0.0]
-
+            has_repr = False
             if outpred:
                 if pars['CAMI_format_output']:
                     for clade, taxid, relab in sorted(  outpred, reverse=True,
@@ -1312,13 +1313,24 @@ def metaphlan2():
                                                     
                     for clade, taxid, relab in sorted(  outpred, reverse=True,
                                         key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
+                        add_repr = ''
+                        if REPORT_MERGED and (clade, taxid) in mpa_pkl['merged_taxon']:
+                            if pars['use_group_representative']:
+                                pass
+                            else:
+                                add_repr = '#Additional species represented by this clade: {}'.format(','.join( [ n for n, yt, _ in mpa_pkl['merged_taxon'][(clade, taxid)]] ))
+                            has_repr = True
                         if not pars['legacy_output']:
                             outf.write( "\t".join( [clade, 
                                                     taxid, 
-                                                    str(relab*fraction_mapped_reads)] ) + "\n" )
+                                                    str(relab*fraction_mapped_reads), add_repr] ) + "\n" )
                         else:
                             outf.write( "\t".join( [clade, 
                                                     str(relab*fraction_mapped_reads)] ) + "\n" )
+                if REPORT_MERGED and has_repr:
+                    sys.stderr.write("WARNING: The metagenome profile contains clades that represent multiple species merged into a single representant.\n"
+                                     "An additional column listing the merged species is added to the MetaPhlAn2 output.\n"
+                                    )
             else:
                 if not pars['legacy_output']:
                     outf.write( "UNKNOWN\t-1\t100.0\n" )
