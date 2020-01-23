@@ -502,6 +502,7 @@ def get_phylophlan_configuration(phylophlan_mode):
     configuration.update({'aligner':'mafft'})
     # fasttree, raxml, iqtree, astral, astrid
     configuration.update({'tree1':'raxml'})
+    configuration.update({'tree2':''})  
     
     return configuration
 
