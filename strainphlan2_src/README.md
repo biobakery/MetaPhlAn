@@ -116,7 +116,7 @@ The commands to run are:
 ```
 #!python
 mkdir -p output
-python strainphlan2.py -s consensus_markers/*.pkl -m db_markers/s__Bacteroides_caccae.fna -r reference_genomes/G000273725.fna.bz2 -o output -n 8 -c s__Bacteroides_caccae --mutation_rates
+python strainphlan2.py -s consensus_markers/*.pkl -m db_markers/s__Bacteroides_caccae.fna -r reference_genomes/G000273725.fna.bz2 -o output -n 8 -c s__Bacteroides_caccae --phylophlan_mode accurate --mutation_rates
 ```
 
 After this step, you will find the tree "output/RAxML_bestTree.s\_\_Bacteroides\_caccae.StrainPhlAn2.tre". All the output files can be found in the folder "output" in [this link](https://www.dropbox.com/sh/rq3xqm12h2amn6q/AAD81ckPfT_metLDJcl5YJGNa?dl=0).
@@ -214,6 +214,9 @@ optional arguments:
                         keep a secondary sample. Default 20
   --phylophlan_configuration PHYLOPHLAN_CONFIGURATION
                         The PhyloPhlAn configuration file
+  --phylophlan_mode PHYLOPHLAN_MODE
+                        The precision of the phylogenetic analysis {fast,
+                        normal [default], accurate}
   --mutation_rates      If specified will produced a mutation rates table for
                         each of the aligned markers and a summary table for
                         the concatenated MSA. This operation can take long
