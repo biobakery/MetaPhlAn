@@ -44,6 +44,7 @@ def merge( aaastrIn, ostm ):
                           sep='\t',
                           skiprows=len(headers),
                           names = names,
+                          usecols=range(3),
                           index_col=index_col
                         )
         if merged_tables.empty:
