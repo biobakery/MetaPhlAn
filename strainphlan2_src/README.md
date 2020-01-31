@@ -183,7 +183,7 @@ usage: strainphlan2.py [-h] [-d DATABASE] [-m CLADE_MARKERS]
 optional arguments:
   -h, --help            show this help message and exit
   -d DATABASE, --database DATABASE
-                        The input MetaPhlAn database
+                        The input MetaPhlAn2.9 database
   -m CLADE_MARKERS, --clade_markers CLADE_MARKERS
                         The clade markers as FASTA file
   -s SAMPLES [SAMPLES ...], --samples SAMPLES [SAMPLES ...]
@@ -220,7 +220,9 @@ optional arguments:
   --mutation_rates      If specified will produced a mutation rates table for
                         each of the aligned markers and a summary table for
                         the concatenated MSA. This operation can take long
-                        time to finish
+                        time to finish  
+  --print_clades_only   If specified only print the potential clades and stop
+                        without building any tree.
 ```
 
 ### Some other useful output files

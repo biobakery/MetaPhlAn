@@ -16,7 +16,7 @@ if sys.version_info[0] < 3:
                     .format(sys.version_info[0], sys.version_info[1], 
                         sys.version_info[2]), exit=True)
 
-import os, pickle, time, bz2, numpy
+import os, pickle, time, bz2, numpy, collections
 import argparse as ap
 from shutil import copyfile, rmtree, move
 from Bio import SeqIO
@@ -39,7 +39,7 @@ Reads and parses the command line arguments of the script.
 def read_params():
     p = ap.ArgumentParser(description="")
     p.add_argument('-d', '--database', type=str, default=None,
-                   help="The input MetaPhlAn database")
+                   help="The input MetaPhlAn2.9 database")
     p.add_argument('-m', '--clade_markers', type=str, default=None,
                    help="The clade markers as FASTA file")
     p.add_argument('-s', '--samples', type=str, 
@@ -75,6 +75,8 @@ def read_params():
     p.add_argument('--mutation_rates', action='store_true', default=False,
                    help=("If specified will produced a mutation rates table for each of the aligned markers and a summary table "
                          "for the concatenated MSA. This operation can take long time to finish"))
+    p.add_argument('--print_clades_only', action='store_true', default=False,
+                   help=("If specified only print the potential clades and stop without building any tree"))
     
     return p.parse_args()
 
@@ -86,7 +88,10 @@ Checks the mandatory command line arguments of the script.
 :returns: the checked args
 """
 def check_params(args):
-    if not (args.database or args.clade_markers):
+    if args.print_clades_only and not args.database:
+        error('-d (or --database) must be specified', exit=True, 
+            init_new_line=True)
+    elif not (args.database or args.clade_markers):
         error('-d (or --database) or -m (or --clade_markers) must be specified', 
             exit=True, init_new_line=True)
     elif args.database and args.clade_markers:
@@ -96,13 +101,13 @@ def check_params(args):
     elif not args.samples:
         error('-s (or --samples) must be specified', exit=True, 
             init_new_line=True)
-    elif not args.clade:
+    elif not args.print_clades_only and not args.clade:
         error('-c (or --clade) must be specified', exit=True, 
             init_new_line=True)
-    elif not check_clade(args.clade):
+    elif not args.print_clades_only and not check_clade(args.clade):
         error('The introduced clade is not at species level', exit=True, 
             init_new_line=True)
-    elif not args.output_dir:
+    elif not args.print_clades_only and not args.output_dir:
         error('-o (or --output_dir) must be specified', exit=True, 
             init_new_line=True)
     elif args.database and not os.path.exists(args.database):
@@ -136,7 +141,7 @@ def check_params(args):
     if len(args.samples)+len(args.references) < 4:
         error('The main inputs samples + references are less than 4', exit=True, 
             init_new_line=True)
-    if not args.output_dir.endswith('/'):
+    if not args.print_clades_only and not args.output_dir.endswith('/'):
         args.output_dir += '/'
 
     return args
@@ -638,6 +643,55 @@ def write_info(cleaned_markers_matrix, num_markers_for_clade, clade, output_dir,
 
 
 """
+Prints the clades detected in the reconstructed markers
+
+:param database: the MetaPhlan2 markers database
+:param samples: the folder containing the markers to main samples generated with script 
+    samples_to_markers.py
+:param samples_with_n_markers: threshold defining the minimun number of markers 
+    to keep a main sample
+"""
+def print_clades(database, samples, samples_with_n_markers):
+    info('Loading MetaPhlan database...', init_new_line=True)
+    db = pickle.load(bz2.BZ2File(database))
+    markers2species = dict()
+    for marker in db['markers']:
+        species = [t for t in db['markers'][marker]['taxon'].split('|') if t.startswith("s__")]
+        markers2species.update({marker: species[0]})
+    info('Done.',init_new_line=True)
+    info('Detecting clades...', init_new_line=True)
+    species2samples = dict()
+    for sample_path in samples:
+        species_in_sample = dict()
+        if os.path.splitext(sample_path)[1] == ".bz2":
+            sample = pickle.load(bz2.BZ2File(sample_path))
+        else:
+            sample = pickle.load(open(sample_path, "rb"))
+        for r in sample:
+            if r['marker'] in markers2species:
+                species = markers2species[r['marker']]            
+                if not species in species_in_sample:
+                    species_in_sample.update({species:1})
+                else:
+                    c = species_in_sample[species] + 1
+                    species_in_sample.update({species:c})
+        for species in species_in_sample:
+            if species_in_sample[species] >= samples_with_n_markers:
+                if not species in species2samples:
+                    species2samples.update({species: 1})
+                else:
+                    c = species2samples[species] + 1
+                    species2samples.update({species:c})
+    sorted_species2samples = collections.OrderedDict(sorted(species2samples.items(), 
+        key=lambda kv: kv[1], reverse=True))
+    info('Done.',init_new_line=True)
+    info('Detected clades: ', init_new_line=True)
+    for species in sorted_species2samples:
+        if species2samples[species] >= 4:            
+            info('\t' + species + ': in ' + str(species2samples[species]) + ' samples.', init_new_line=True)
+
+
+"""
 Executes StrainPhlAn2 
 
 :param database: the MetaPhlan2 markers database
@@ -660,57 +714,61 @@ Executes StrainPhlAn2
 :param phylophlan_mode: the precision of the phylogenetic analysis
 :param phylophlan_configuration: the PhyloPhlAn configuration file
 :param mutation_rates: whether get  the mutation rates for the markers
+:param print_clades_only: whether print only the potential clades and stop
 :param nprocs: the threads used for execution
 """
 def strainphlan2(database, clade_markers, samples, references, secondary_samples, 
     secondary_references, clade, output_dir, trim_sequences, samples_with_n_markers, 
     marker_in_n_samples, secondary_samples_with_n_markers, phylophlan_mode, 
-    phylophlan_configuration, mutation_rates, nprocs):
-    info("Creating temporal directory...", init_new_line=True)
-    tmp_dir = output_dir+'tmp/'
-    create_folder(tmp_dir)
-    info("Done.", init_new_line=True)
-    info("Getting markers from main sample files...", init_new_line=True)
-    markers_matrix, clade_markers_file = get_markers_matrix(database, clade_markers, 
-        samples, clade, tmp_dir, nprocs)
-    info("Done.", init_new_line=True)    
-    info("Getting markers from main reference files...", init_new_line=True)
-    markers_matrix = get_markers_from_references(tmp_dir, clade_markers_file, 
-        markers_matrix, references, nprocs)
-    info("Done.", init_new_line=True)    
-    info("Removing bad markers / samples...", init_new_line=True)
-    cleaned_markers_matrix = clean_markers_matrix(markers_matrix, samples_with_n_markers, 
-        marker_in_n_samples)
-    info("Done.", init_new_line=True)
-    cleaned_markers_matrix = add_secondary_samples_and_references(secondary_samples, 
-        secondary_references, cleaned_markers_matrix, secondary_samples_with_n_markers, 
-        clade_markers_file, tmp_dir, nprocs)
-    info("Writting samples as markers' FASTA files...", init_new_line=True)
-    samples_as_markers_dir = matrix_markers_to_fasta(cleaned_markers_matrix, clade,
-        samples+secondary_samples, references+secondary_references, trim_sequences, 
-        tmp_dir, nprocs)
-    info("Done.", init_new_line=True)
-    info("Writting filtered clade markers as FASTA file...", init_new_line=True)
-    cleaned_clade_markers_to_fasta(cleaned_markers_matrix, tmp_dir, clade, clade_markers_file)
-    info("Done.", init_new_line=True)
-    info("Calculating polimorfic rates...", init_new_line=True)
-    num_markers_for_clade = calculate_polimorfic_rates(samples+secondary_samples, clade_markers_file, 
-        clade, output_dir)
-    info("Done.", init_new_line=True)   
-    info("Executing PhyloPhlAn2...", init_new_line=True)
-    compute_phylogeny(samples_as_markers_dir, len(cleaned_markers_matrix), tmp_dir, 
-        output_dir, clade, marker_in_n_samples, phylophlan_mode, phylophlan_configuration,
-        mutation_rates, nprocs)
-    info("Done.", init_new_line=True)     
-    info("Writting information file...", init_new_line=True)
-    write_info(cleaned_markers_matrix, num_markers_for_clade, clade, output_dir,
-        samples, secondary_samples, references, secondary_references, trim_sequences, 
-        samples_with_n_markers, marker_in_n_samples, secondary_samples_with_n_markers, 
-        phylophlan_mode, nprocs)
-    info("Done.", init_new_line=True)
-    info("Removing temporal files...", init_new_line=True)
-    rmtree(tmp_dir, ignore_errors=False, onerror=None)
-    info("Done.", init_new_line=True)
+    phylophlan_configuration, mutation_rates, print_clades_only, nprocs):
+    if print_clades_only:
+        print_clades(database, samples, samples_with_n_markers)
+    else:
+        info("Creating temporal directory...", init_new_line=True)
+        tmp_dir = output_dir+'tmp/'
+        create_folder(tmp_dir)
+        info("Done.", init_new_line=True)
+        info("Getting markers from main sample files...", init_new_line=True)
+        markers_matrix, clade_markers_file = get_markers_matrix(database, clade_markers, 
+            samples, clade, tmp_dir, nprocs)
+        info("Done.", init_new_line=True)    
+        info("Getting markers from main reference files...", init_new_line=True)
+        markers_matrix = get_markers_from_references(tmp_dir, clade_markers_file, 
+            markers_matrix, references, nprocs)
+        info("Done.", init_new_line=True)    
+        info("Removing bad markers / samples...", init_new_line=True)
+        cleaned_markers_matrix = clean_markers_matrix(markers_matrix, samples_with_n_markers, 
+            marker_in_n_samples)
+        info("Done.", init_new_line=True)
+        cleaned_markers_matrix = add_secondary_samples_and_references(secondary_samples, 
+            secondary_references, cleaned_markers_matrix, secondary_samples_with_n_markers, 
+            clade_markers_file, tmp_dir, nprocs)
+        info("Writting samples as markers' FASTA files...", init_new_line=True)
+        samples_as_markers_dir = matrix_markers_to_fasta(cleaned_markers_matrix, clade,
+            samples+secondary_samples, references+secondary_references, trim_sequences, 
+            tmp_dir, nprocs)
+        info("Done.", init_new_line=True)
+        info("Writting filtered clade markers as FASTA file...", init_new_line=True)
+        cleaned_clade_markers_to_fasta(cleaned_markers_matrix, tmp_dir, clade, clade_markers_file)
+        info("Done.", init_new_line=True)
+        info("Calculating polimorfic rates...", init_new_line=True)
+        num_markers_for_clade = calculate_polimorfic_rates(samples+secondary_samples, clade_markers_file, 
+            clade, output_dir)
+        info("Done.", init_new_line=True)   
+        info("Executing PhyloPhlAn2...", init_new_line=True)
+        compute_phylogeny(samples_as_markers_dir, len(cleaned_markers_matrix), tmp_dir, 
+            output_dir, clade, marker_in_n_samples, phylophlan_mode, phylophlan_configuration,
+            mutation_rates, nprocs)
+        info("Done.", init_new_line=True)     
+        info("Writting information file...", init_new_line=True)
+        write_info(cleaned_markers_matrix, num_markers_for_clade, clade, output_dir,
+            samples, secondary_samples, references, secondary_references, trim_sequences, 
+            samples_with_n_markers, marker_in_n_samples, secondary_samples_with_n_markers, 
+            phylophlan_mode, nprocs)
+        info("Done.", init_new_line=True)
+        info("Removing temporal files...", init_new_line=True)
+        rmtree(tmp_dir, ignore_errors=False, onerror=None)
+        info("Done.", init_new_line=True)
 
 
 """
@@ -734,6 +792,7 @@ Main function
 :param phylophlan_mode: the precision of the phylogenetic analysis
 :param phylophlan_configuration: the PhyloPhlAn configuration file
 :param mutation_rates: whether get  the mutation rates for the markers
+:param print_clades_only: whether print only the potential clades and stop
 :param nprocs: the threads used for execution
 """
 if __name__ == "__main__":
@@ -745,8 +804,12 @@ if __name__ == "__main__":
         args.secondary_samples, args.secondary_references,  args.clade, args.output_dir, 
         args.trim_sequences, args.sample_with_n_markers, args.marker_in_n_samples,
         args.secondary_sample_with_n_markers, args.phylophlan_mode, args.phylophlan_configuration, 
-        args.mutation_rates, args.nprocs)
+        args.mutation_rates, args.print_clades_only, args.nprocs)
     exec_time = time.time() - t0
-    info("Finish StrainPhlAn2 execution ("+str(round(exec_time, 2))+
-        " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
-         init_new_line=True)
+    if not args.print_clades_only:
+        info("Finish StrainPhlAn2 execution ("+str(round(exec_time, 2))+
+            " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
+             init_new_line=True)
+    else:
+        info("Finish StrainPhlAn2 execution ("+str(round(exec_time, 2))+
+            " seconds)\n", init_new_line=True)
