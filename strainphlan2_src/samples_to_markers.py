@@ -41,7 +41,7 @@ def read_params():
     p.add_argument('-o', '--output_dir', type=str, default=None,
                    help="The output directory")
     p.add_argument('-b', '--breath_threshold', type=int, default=80,
-                   help="The breath threshold for the consensus markers. Default 80")
+                   help="The breath threshold for the consensus markers. Default 80 (%%)")
     p.add_argument('-n', '--nprocs', type=int, default=1,
                    help="The number of threads to execute the script")
     

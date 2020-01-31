@@ -15,6 +15,7 @@ if sys.version_info[0] < 3:
     error("StrainPhlAn2 requires Python 3, your current Python version is {}.{}.{}"
                     .format(sys.version_info[0], sys.version_info[1], 
                         sys.version_info[2]), exit=True)
+                        
 import pickle, bz2, os, time
 import subprocess as sb
 import argparse as ap
