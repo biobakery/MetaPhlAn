@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+__author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
+              'Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
-              'Francesco Beghini (francesco.beghini@unitn.it), '
-              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+              'Francesco Beghini (francesco.beghini@unitn.it)')
 __version__ = '2.0.0'
-__date__ = '29 Jul 2019'
+__date__ = '31 Jan 20'
 
 import sys
 from utils import error
@@ -63,7 +63,7 @@ def read_params():
     p.add_argument('--trim_sequences', type=int, default=50,
                     help="The number of bases to remove from both ends when trimming markers. Default 50")
     p.add_argument('--marker_in_n_samples', type=int, default=80,
-                    help="Theshold defining the minimum percentage of samples to keep a marker. Default 80")
+                    help="Theshold defining the minimum percentage of samples to keep a marker. Default 80 (%)")
     p.add_argument('--sample_with_n_markers', type=int, default=20,
                     help="Threshold defining the minimun number of markers to keep a sample. Default 20")
     p.add_argument('--secondary_sample_with_n_markers', type=int, default=20,

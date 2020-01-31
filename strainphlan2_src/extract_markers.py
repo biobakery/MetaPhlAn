@@ -1,20 +1,26 @@
 #!/usr/bin/env python
 
-__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+__author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
+              'Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
-              'Francesco Beghini (francesco.beghini@unitn.it), '
-              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+              'Francesco Beghini (francesco.beghini@unitn.it)')
 __version__ = '2.0.0'
-__date__ = '29 Jul 2019'
+__date__ = '31 Jan 20'
 
+import sys
+from utils import error
+
+if sys.version_info[0] < 3:
+    error("StrainPhlAn2 requires Python 3, your current Python version is {}.{}.{}"
+                    .format(sys.version_info[0], sys.version_info[1], 
+                        sys.version_info[2]), exit=True)
 import pickle, bz2, os, time
 import subprocess as sb
 import argparse as ap
 from Bio import SeqIO, Seq, SeqRecord
 from external_exec import generate_markers_fasta
-from utils import error, info
-
+from utils import info
 
 """
 Reads and parses the command line arguments of the script.

@@ -127,7 +127,7 @@ In order to add the metadata, we also provide a script called "add\_metadata\_tr
 
 ```
 #!python
-python add_metadata_tree.py -t output/RAxML_bestTree.s__Bacteroides_caccae.StrainPhlAn2.tre -f fastqs/metadata.txt -m subjectID
+python add_metadata_tree.py -t output/RAxML_bestTree.s__Bacteroides_caccae.StrainPhlAn2.tre -f fastqs/metadata.txt -m subjectID --string_to_remove .fastq.bz2
 ```
 
 The script "add\_metadata\_tree.py" can accept multiple metadata files (space separated, wild card can also be used) and multiple trees. A metadata file is a tab separated file where the first row is the meta-headers, and the following rows contain the metadata for each sample. Multiple metadata files are used in the case where your samples come from more than one dataset and you do not want to merge the metadata files.
@@ -205,7 +205,7 @@ optional arguments:
                         markers. Default 50
   --marker_in_n_samples MARKER_IN_N_SAMPLES
                         Theshold defining the minimum percentage of samples to
-                        keep a marker. Default 80
+                        keep a marker. Default 80 (%)
   --sample_with_n_markers SAMPLE_WITH_N_MARKERS
                         Threshold defining the minimun number of markers to
                         keep a sample. Default 20
@@ -222,7 +222,7 @@ optional arguments:
                         the concatenated MSA. This operation can take long
                         time to finish  
   --print_clades_only   If specified only print the potential clades and stop
-                        without building any tree.
+                        without building any tree
 ```
 
 ### Some other useful output files

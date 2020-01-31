@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+__author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
+              'Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
-              'Francesco Beghini (francesco.beghini@unitn.it), '
-              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+              'Francesco Beghini (francesco.beghini@unitn.it)')
 __version__ = '2.0.0'
-__date__ = '29 Jul 2019'
+__date__ = '31 Jan 20'
 
 import os, sys, re, shutil
 import subprocess as sb
