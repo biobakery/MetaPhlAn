@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.96'
-__date__ = '23 Jan 2020'
+__version__ = '2.96.1'
+__date__ = '02 Feb 2020'
 
 import sys
 import os
@@ -540,7 +540,7 @@ def resolve_latest_database(bowtie2_db, force=False):
     if os.path.exists(os.path.join(bowtie2_db,'mpa_latest')):
         ctime_latest_db = int(os.path.getctime(os.path.join(bowtie2_db,'mpa_latest')))
         if int(time.time()) - ctime_latest_db > 2419200:         #1 month in epoch
-            os.remove(os.path.join(bowtie2_db,'mpa_latest'))
+            os.rename(os.path.join(bowtie2_db,'mpa_latest'),os.path.join(bowtie2_db,'mpa_previous'))
             download(DATABASE_DOWNLOAD+'mpa_latest', os.path.join(bowtie2_db,'mpa_latest'), force=True)
 
     if not os.path.exists(os.path.join(bowtie2_db,'mpa_latest') or force):
@@ -569,6 +569,19 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
     if index == 'latest':
         index = resolve_latest_database(bowtie2_db, force_redownload_latest)
 
+    if os.path.exists(os.path.join(bowtie2_db,'mpa_previous')):
+        with open(os.path.join(bowtie2_db,'mpa_previous')) as mpa_previous:
+            previous_db_version = ''.join([line.strip() for line in mpa_previous if not line.startswith('#')])
+    
+        if index != previous_db_version:
+            choice = ''
+            while choice.upper() in ['Y','N']:
+                choice = input('A newer version of the database ({}) is available. Do you want to download it and replace the current one ({})?\t[Y/N]'.format(index, previous_db_version))
+
+            if choice.upper() == 'N':
+                os.rename(os.path.join(bowtie2_db,'mpa_previous'),os.path.join(bowtie2_db,'mpa_latest'))
+                index = previous_db_version
+                
     if len(glob(os.path.join(bowtie2_db, "*{}*".format(index)))) >= 7:
         return index
 
@@ -1316,10 +1329,10 @@ def metaphlan2():
                         add_repr = ''
                         if REPORT_MERGED and (clade, taxid) in mpa_pkl['merged_taxon']:
                             if pars['use_group_representative']:
-                                pass
+                                clade, taxid, _ = sorted(mpa_pkl['merged_taxon'][(clade, taxid)], key=lambda x:x[2], reverse=True)[0]
                             else:
-                                add_repr = '#Additional species represented by this clade: {}'.format(','.join( [ n for n, yt, _ in mpa_pkl['merged_taxon'][(clade, taxid)]] ))
-                            has_repr = True
+                                add_repr = '#Additional species represented by this clade: {}'.format(','.join( [ n[0] for n in mpa_pkl['merged_taxon'][(clade, taxid)]] ))
+                                has_repr = True
                         if not pars['legacy_output']:
                             outf.write( "\t".join( [clade, 
                                                     taxid, 
