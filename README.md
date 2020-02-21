@@ -1,10 +1,8 @@
-[TOC]
-
 # MetaPhlAn 2: Metagenomic Phylogenetic Analysis
 
 ## Installation
 
-MetaPhlAn 2.0 can be obtained
+MetaPhlAn2 can be obtained
 
 Through **Bioconda**
 
@@ -23,9 +21,9 @@ or **cloning the repository** using the following command
 ----------------------
 
 ## Description
-MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.
+MetaPhlAn2 is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea, Eukaryotes and Viruses) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.
 
-MetaPhlAn 2 relies on ~1M unique clade-specific marker genes ([the marker information file `mpa_v20_m200_marker_info.txt.bz2` can be found in the Download page here](https://bitbucket.org/biobakery/metaphlan2/downloads/mpa_v20_m200_marker_info.txt.bz2)) identified from ~17,000 reference genomes (~13,500 bacterial and archaeal, ~3,500 viral, and ~110 eukaryotic), allowing:
+MetaPhlAn2 relies on ~1M unique clade-specific marker genes ([the marker information file `mpa_v20_m200_marker_info.txt.bz2` can be found in the Download page here](https://bitbucket.org/biobakery/metaphlan2/downloads/mpa_v20_m200_marker_info.txt.bz2)) identified from ~17,000 reference genomes (~13,500 bacterial and archaeal, ~3,500 viral, and ~110 eukaryotic), allowing:
 
 * unambiguous taxonomic assignments;
 * accurate estimation of organismal relative abundance;
