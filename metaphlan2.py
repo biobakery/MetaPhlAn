@@ -44,6 +44,7 @@ import hashlib
 
 # set the location of the database download url
 DATABASE_DOWNLOAD = "https://bitbucket.org/biobakery/metaphlan2/downloads/"
+FILE_LIST= "https://www.dropbox.com/sh/7qze7m7g9fe2xjg/AAA4XDP85WHon_eHvztxkamTa/file_list.txt?dl=1"
 # get the directory that contains this script
 metaphlan2_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 # get the default database folder
@@ -445,17 +446,17 @@ def download(url, download_file, force=False):
         sys.stderr.write("\nFile {} already present!\n".format(download_file))
 
 
-def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
+def download_unpack_tar(ls_f, download_file_name, folder, bowtie2_build, nproc):
     """
     Download the url to the file and decompress into the folder
     """
     tar_file = os.path.join(folder, download_file_name + ".tar")
-    url_tar_file = os.path.join(url, download_file_name + ".tar")
+    url_tar_file = ls_f[download_file_name + ".tar"]
     download(url_tar_file, tar_file)
 
     # download MD5 checksum
     md5_file = os.path.join(folder, download_file_name + ".md5")
-    url_md5_file = os.path.join(url, download_file_name + ".md5")
+    url_md5_file = ls_f[download_file_name + ".md5"]
     download(url_md5_file, md5_file)
 
     md5_md5 = None
@@ -536,15 +537,15 @@ def download_unpack_tar(url, download_file_name, folder, bowtie2_build, nproc):
     os.remove(fna_file)
 
 
-def resolve_latest_database(bowtie2_db, force=False):
+def resolve_latest_database(bowtie2_db,mpa_latest_dbx_url, force=False):
     if os.path.exists(os.path.join(bowtie2_db,'mpa_latest')):
         ctime_latest_db = int(os.path.getctime(os.path.join(bowtie2_db,'mpa_latest')))
         if int(time.time()) - ctime_latest_db > 2419200:         #1 month in epoch
             os.rename(os.path.join(bowtie2_db,'mpa_latest'),os.path.join(bowtie2_db,'mpa_previous'))
-            download(DATABASE_DOWNLOAD+'mpa_latest', os.path.join(bowtie2_db,'mpa_latest'), force=True)
+            download(mpa_latest_dbx_url, os.path.join(bowtie2_db,'mpa_latest'), force=True)
 
     if not os.path.exists(os.path.join(bowtie2_db,'mpa_latest') or force):
-        download(DATABASE_DOWNLOAD+'mpa_latest', os.path.join(bowtie2_db,'mpa_latest'))
+        download(mpa_latest_dbx_url, os.path.join(bowtie2_db,'mpa_latest'))
 
     with open(os.path.join(bowtie2_db,'mpa_latest')) as mpa_latest:
         latest_db_version = [line.strip() for line in mpa_latest if not line.startswith('#')]
@@ -565,9 +566,17 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
         sys.exit("ERROR: The directory is not writeable: " + bowtie2_db + ". "
                  "Please modify the permissions.")
 
+    #Download the list of all the files in the Dropbox folder
+    list_file_path = os.path.join(bowtie2_db, "file_list.txt")
+    download(FILE_LIST, list_file_path)
+
+    if os.path.isfile(list_file_path):
+        with open(list_file_path) as f:
+            ls_f = dict( [row.strip().split() for row in f])
+
     """ Check if the database is installed, if not download and install """
     if index == 'latest':
-        index = resolve_latest_database(bowtie2_db, force_redownload_latest)
+        index = resolve_latest_database(bowtie2_db, ls_f['mpa_latest'], force_redownload_latest)
 
     if os.path.exists(os.path.join(bowtie2_db,'mpa_previous')):
         with open(os.path.join(bowtie2_db,'mpa_previous')) as mpa_previous:
@@ -588,7 +597,7 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
     # download the tar archive and decompress
     sys.stderr.write("\nDownloading MetaPhlAn2 database\nPlease note due to "
                      "the size this might take a few minutes\n")
-    download_unpack_tar(DATABASE_DOWNLOAD, index, bowtie2_db, bowtie2_build, nproc)
+    download_unpack_tar(ls_f, index, bowtie2_db, bowtie2_build, nproc)
     sys.stderr.write("\nDownload complete\n")
     return index
 
