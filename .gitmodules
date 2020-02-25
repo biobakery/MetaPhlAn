@@ -1,0 +1,3 @@
+[submodule "utils/hclust2"]
+	path = utils/hclust2
+	url = https://github.com/SegataLab/hclust2
