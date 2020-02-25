@@ -4,8 +4,8 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '2.96.1'
-__date__ = '02 Feb 2020'
+__version__ = '3.0'
+__date__ = '25 Feb 2020'
 
 import sys
 import os
@@ -19,36 +19,32 @@ try:
 except ImportError:
     sys.stderr.write("Error! numpy python library not detected!!\n")
     sys.exit(1)
-p2 = float(sys.version_info[0]) < 3.0
 
-if p2:
-    DEVNULL = open(os.devnull, 'wb')
-    import cPickle as pickle
-    from urllib import urlretrieve
-else:
-    from subprocess import DEVNULL
-    import pickle
-    from urllib.request import urlretrieve
+if float(sys.version_info[0]) < 3.0:
+    sys.stderr.write("PhyloPhlAn2 requires Python 3, your current Python version is {}.{}.{}"
+                    .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
+    sys.exit(1)
 
-import tempfile as tf
-import argparse as ap
-import subprocess as subp
 from collections import defaultdict as defdict
-import bz2
-import itertools
 from distutils.version import LooseVersion
-import pickle
 from glob import glob
+from subprocess import DEVNULL
+from urllib.request import urlretrieve
+import argparse as ap
+import bz2
 import hashlib
-
+import itertools
+import pickle
+import subprocess as subp
+import tempfile as tf
 
 # set the location of the database download url
-DATABASE_DOWNLOAD = "https://bitbucket.org/biobakery/metaphlan2/downloads/"
+DATABASE_DOWNLOAD = "https://bitbucket.org/biobakery/metaphlan/downloads/"
 FILE_LIST= "https://www.dropbox.com/sh/7qze7m7g9fe2xjg/AAA4XDP85WHon_eHvztxkamTa/file_list.txt?dl=1"
 # get the directory that contains this script
-metaphlan2_script_install_folder = os.path.dirname(os.path.abspath(__file__))
+metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 # get the default database folder
-DEFAULT_DB_FOLDER = os.path.join(metaphlan2_script_install_folder, "metaphlan_databases")
+DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "metaphlan_databases")
 
 
 #**********************************************************************************************
@@ -82,19 +78,11 @@ tax_units = "kpcofgst"
 def remove_prefix(text):
         return re.sub(r'^[a-z]__', '', text)
 
-if float(sys.version_info[0]) < 3.0:
-    def read_and_split(ofn):
-        return (l.strip().split('\t') for l in ofn)
+def read_and_split(ofn):
+    return (l.decode('utf-8').strip().split('\t') for l in ofn)
 
-    def read_and_split_line(line):
-        return line.strip().split('\t')
-else:
-    def read_and_split(ofn):
-        return (l.decode('utf-8').strip().split('\t') for l in ofn)
-
-    def read_and_split_line(line):
-        return line.decode('utf-8').strip().split('\t')
-
+def read_and_split_line(line):
+    return line.decode('utf-8').strip().split('\t')
 
 def plain_read_and_split(ofn):
     return (l.strip().split('\t') for l in ofn)
@@ -116,47 +104,47 @@ def read_params(args):
             " METAgenomic PHyLogenetic ANalysis for metagenomic taxonomic profiling.\n\n"
             "AUTHORS: "+__author__+"\n\n"
             "COMMON COMMANDS\n\n"
-            " We assume here that metaphlan2.py is in the system path and that mpa_dir bash variable contains the\n"
+            " We assume here that metaphlan.py is in the system path and that mpa_dir bash variable contains the\n"
             " main MetaPhlAn folder. Also BowTie2 should be in the system path with execution and read\n"
             " permissions, and Perl should be installed)\n\n"
 
-            "\n========== MetaPhlAn 2 clade-abundance estimation ================= \n\n"
-            "The basic usage of MetaPhlAn 2 consists in the identification of the clades (from phyla to species and \n"
+            "\n========== MetaPhlAn clade-abundance estimation ================= \n\n"
+            "The basic usage of MetaPhlAn consists in the identification of the clades (from phyla to species and \n"
             "strains in particular cases) present in the metagenome obtained from a microbiome sample and their \n"
             "relative abundance. This correspond to the default analysis type (-t rel_ab).\n\n"
 
             "*  Profiling a metagenome from raw reads:\n"
-            "$ metaphlan2.py metagenome.fastq --input_type fastq -o profiled_metagenome.txt\n\n"
+            "$ metaphlan.py metagenome.fastq --input_type fastq -o profiled_metagenome.txt\n\n"
 
             "*  You can take advantage of multiple CPUs and save the intermediate BowTie2 output for re-running\n"
             "   MetaPhlAn extremely quickly:\n"
-            "$ metaphlan2.py metagenome.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq -o profiled_metagenome.txt\n\n"
+            "$ metaphlan.py metagenome.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq -o profiled_metagenome.txt\n\n"
 
             "*  If you already mapped your metagenome against the marker DB (using a previous MetaPhlAn run), you\n"
             "   can obtain the results in few seconds by using the previously saved --bowtie2out file and \n"
             "   specifying the input (--input_type bowtie2out):\n"
-            "$ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out -o profiled_metagenome.txt\n\n"
+            "$ metaphlan.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out -o profiled_metagenome.txt\n\n"
             
-            "*  bowtie2out files generated with MetaPhlAn2 versions below 2.9 are not compatibile.\n"
-            "   Starting from MetaPhlAn2 2.9, the BowTie2 ouput now includes the size of the profiled metagenome.\n"
-            "   If you want to re-run MetaPhlAn2 using these file you should provide the metagenome size via --nreads:\n"
-            "$ metaphlan2.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out --nreads 520000 -o profiled_metagenome.txt\n\n"
+            "*  bowtie2out files generated with MetaPhlAn versions below 3 are not compatibile.\n"
+            "   Starting from MetaPhlAn 3.0, the BowTie2 ouput now includes the size of the profiled metagenome.\n"
+            "   If you want to re-run MetaPhlAn using these file you should provide the metagenome size via --nreads:\n"
+            "$ metaphlan.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out --nreads 520000 -o profiled_metagenome.txt\n\n"
 
             "*  You can also provide an externally BowTie2-mapped SAM if you specify this format with \n"
-            "   --input_type. Two steps: first apply BowTie2 and then feed MetaPhlAn2 with the obtained sam:\n"
-            "$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/metaphlan_databases/mpa_v25_CHOCOPhlAn_201901 -U metagenome.fastq\n"
-            "$ metaphlan2.py metagenome.sam --input_type sam -o profiled_metagenome.txt\n\n"
+            "   --input_type. Two steps: first apply BowTie2 and then feed MetaPhlAn with the obtained sam:\n"
+            "$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/metaphlan_databases/mpa_v30_CHOCOPhlAn_201901 -U metagenome.fastq\n"
+            "$ metaphlan.py metagenome.sam --input_type sam -o profiled_metagenome.txt\n\n"
 
             "*  We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in \n"
             "  multiple files (but you need to specify the --bowtie2out parameter):\n"
-            "$ metaphlan2.py metagenome_1.fastq,metagenome_2.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
+            "$ metaphlan.py metagenome_1.fastq,metagenome_2.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
             "\n------------------------------------------------------------------- \n \n\n"
 
             "\n========== Marker level analysis ============================ \n\n"
-            "MetaPhlAn 2 introduces the capability of charachterizing organisms at the strain level using non\n"
+            "MetaPhlAn introduces the capability of charachterizing organisms at the strain level using non\n"
             "aggregated marker information. Such capability comes with several slightly different flavours and \n"
             "are a way to perform strain tracking and comparison across multiple samples.\n"
-            "Usually, MetaPhlAn 2 is first ran with the default -t to profile the species present in\n"
+            "Usually, MetaPhlAn is first ran with the default -t to profile the species present in\n"
             "the community, and then a strain-level profiling can be performed to zoom-in into specific species\n"
             "of interest. This operation can be performed quickly as it exploits the --bowtie2out intermediate \n"
             "file saved during the execution of the default analysis type.\n\n"
@@ -164,24 +152,24 @@ def read_params(args):
             "*  The following command will output the abundance of each marker with a RPK (reads per kilo-base) \n"
             "   higher 0.0. (we are assuming that metagenome_outfmt.bz2 has been generated before as \n"
             "   shown above).\n"
-            "$ metaphlan2.py -t marker_ab_table metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
+            "$ metaphlan.py -t marker_ab_table metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
             "   The obtained RPK can be optionally normalized by the total number of reads in the metagenome \n"
             "   to guarantee fair comparisons of abundances across samples. The number of reads in the metagenome\n"
             "   needs to be passed with the '--nreads' argument\n\n"
 
             "*  The list of markers present in the sample can be obtained with '-t marker_pres_table'\n"
-            "$ metaphlan2.py -t marker_pres_table metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
+            "$ metaphlan.py -t marker_pres_table metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
             "   The --pres_th argument (default 1.0) set the minimum RPK value to consider a marker present\n\n"
 
             "*  The list '-t clade_profiles' analysis type reports the same information of '-t marker_ab_table'\n"
             "   but the markers are reported on a clade-by-clade basis.\n"
-            "$ metaphlan2.py -t clade_profiles metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n\n"
+            "$ metaphlan.py -t clade_profiles metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n\n"
 
             "*  Finally, to obtain all markers present for a specific clade and all its subclades, the \n"
             "   '-t clade_specific_strain_tracker' should be used. For example, the following command\n"
             "   is reporting the presence/absence of the markers for the B. fragulis species and its strains\n"
             "   the optional argument --min_ab specifies the minimum clade abundance for reporting the markers\n\n"
-            "$ metaphlan2.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
+            "$ metaphlan.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
 
             "\n------------------------------------------------------------------- \n\n"
             "",
@@ -225,8 +213,8 @@ def read_params(args):
     INDEX = 'latest'
     arg('-x', '--index', type=str, default=INDEX,
         help=("Specify the id of the database version to use. "
-              "If \"latest\", MetaPhlAn2 will get the latest version. If the database\n"
-              "files are not found on the local MetaPhlAn2 installation they\n"
+              "If \"latest\", MetaPhlAn will get the latest version. If the database\n"
+              "files are not found on the local MetaPhlAn installation they\n"
               "will be automatically downloaded [default "+INDEX+"]\n"))
 
     bt2ps = ['sensitive', 'very-sensitive', 'sensitive-local', 'very-sensitive-local']
@@ -347,9 +335,9 @@ def read_params(args):
                " Defaults to '#SampleID'."))
     arg('--use_group_representative', action='store_true',  help =("Use a species as representative for species groups."))
     arg('--sample_id',  metavar="value", type=str,
-        default="Metaphlan2_Analysis",
+        default="Metaphlan_Analysis",
         help =("Specify the sample ID for this analysis."
-               " Defaults to 'Metaphlan2_Analysis'."))
+               " Defaults to 'Metaphlan_Analysis'."))
     arg( '-s', '--samout', metavar="sam_output_file",
         type=str, default=None, help="The sam output file\n")
 
@@ -374,9 +362,9 @@ def read_params(args):
     arg('--nproc', metavar="N", type=int, default=4,
         help="The number of CPUs to use for parallelizing the mapping [default 4]")
     arg('--install', action='store_true',
-        help="Only checks if the MetaPhlAn2 DB is installed and installs it if not. All other parameters are ignored.")
+        help="Only checks if the MetaPhlAn DB is installed and installs it if not. All other parameters are ignored.")
     arg('--force_download', action='store_true',
-        help="Force the re-download of the latest MetaPhlAn2 database.")
+        help="Force the re-download of the latest MetaPhlAn database.")
     arg('--read_min_len', type=int, default=70,
         help="Specify the minimum length of the reads to be considered when parsing the input file with "
              "'read_fastx.py' script, default value is 70")
@@ -487,7 +475,7 @@ def download_unpack_tar(ls_f, download_file_name, folder, bowtie2_build, nproc):
     # compare checksums
     if md5_tar != md5_md5:
         sys.exit("MD5 checksums do not correspond! If this happens again, you should remove the database files and "
-                 "rerun MetaPhlAn2 so they are re-downloaded")
+                 "rerun MetaPhlAn so they are re-downloaded")
 
     # untar
     try:
@@ -595,7 +583,7 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
         return index
 
     # download the tar archive and decompress
-    sys.stderr.write("\nDownloading MetaPhlAn2 database\nPlease note due to "
+    sys.stderr.write("\nDownloading MetaPhlAn database\nPlease note due to "
                      "the size this might take a few minutes\n")
     download_unpack_tar(ls_f, index, bowtie2_db, bowtie2_build, nproc)
     sys.stderr.write("\nDownload complete\n")
@@ -686,7 +674,7 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
         
         n_metagenome_reads = ''.join(read_and_split_line(readin.stderr.readline()))
         if not len(n_metagenome_reads):
-            sys.stderr.write('Fatal error running MetaPhlAn2. Total metagenome size was not estimated.\nPlease update read_fastx.py to the latest version.\n')
+            sys.stderr.write('Fatal error running MetaPhlAn. Total metagenome size was not estimated.\nPlease update read_fastx.py to the latest version.\n')
             sys.exit(1)
         outf.write(lmybytes('#nreads\t{}'.format(n_metagenome_reads)))
         outf.close()
@@ -1079,7 +1067,7 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
 
 
 def maybe_generate_biom_file(tree, pars, abundance_predictions):
-    json_key = "MetaPhlAn2"
+    json_key = "MetaPhlAn"
 
     if not pars['biom']:
         return None
@@ -1118,7 +1106,7 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
     # np.array([a],[b],[c])
     data = np.array(data)
     sample_ids = [pars['sample_id']]
-    table_id = 'MetaPhlAn2_Analysis'
+    table_id = 'MetaPhlAn_Analysis'
 
 
 
@@ -1164,7 +1152,7 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
     return True
 
 
-def metaphlan2():
+def metaphlan():
     ranks2code = { 'k' : 'superkingdom', 'p' : 'phylum', 'c':'class',
                    'o' : 'order', 'f' : 'family', 'g' : 'genus', 's' : 'species'}
     pars = read_params(sys.argv)
@@ -1267,7 +1255,7 @@ def metaphlan2():
     if not n_metagenome_reads and not pars['nreads']:
         sys.stderr.write(
                 "Please provide the size of the metagenome using the "
-                "--nreads parameter when running MetaPhlAn2"
+                "--nreads parameter when running MetaPhlAn"
                 "\nExiting...\n\n" )
         sys.exit(1)
 
@@ -1351,7 +1339,7 @@ def metaphlan2():
                                                     str(relab*fraction_mapped_reads)] ) + "\n" )
                 if REPORT_MERGED and has_repr:
                     sys.stderr.write("WARNING: The metagenome profile contains clades that represent multiple species merged into a single representant.\n"
-                                     "An additional column listing the merged species is added to the MetaPhlAn2 output.\n"
+                                     "An additional column listing the merged species is added to the MetaPhlAn output.\n"
                                     )
             else:
                 if not pars['legacy_output']:
@@ -1448,5 +1436,5 @@ def metaphlan2():
 
 if __name__ == '__main__':
     t0 = time.time()
-    metaphlan2()
-    sys.stderr.write('Elapsed time to run MetaPhlAn2: {} s\n'.format( (time.time()-t0) ) )
+    metaphlan()
+    sys.stderr.write('Elapsed time to run MetaPhlAn: {} s\n'.format( (time.time()-t0) ) )

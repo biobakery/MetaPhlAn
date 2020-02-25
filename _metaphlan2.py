@@ -13,7 +13,7 @@ import os
 
 
 def metaphlan2_helper(raw_data, nproc, input_type, output_file, verbose=True):
-    cmd = ['metaphlan2.py', str(raw_data), '--input_type', str(input_type),
+    cmd = ['metaphlan.py', str(raw_data), '--input_type', str(input_type),
            '--biom', str(output_file), '--nproc', str(nproc)]
 
     if verbose:
