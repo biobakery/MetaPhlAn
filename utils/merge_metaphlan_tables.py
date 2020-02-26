@@ -77,7 +77,7 @@ def _main( ):
     if args.o is None:
         merge(args.aistms, sys.stdout)
     else:
-        with open(args.o, 'w') as fout:
+        with open(args.o[0], 'w') as fout:
             merge(args.aistms, fout)
 
 
