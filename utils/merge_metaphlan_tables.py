@@ -74,7 +74,12 @@ argp.usage = argp.format_usage()[7:]+"\n\n\tPlease make sure to supply file path
 
 def _main( ):
     args = argp.parse_args( )
-    merge(args.aistms, sys.stdout)
+    if args.o is None:
+        merge(args.aistms, sys.stdout)
+    else:
+        with open(args.o, 'w') as fout:
+            merge(args.aistms, fout)
+
 
 
 if __name__ == "__main__":
