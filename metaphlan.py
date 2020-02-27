@@ -21,7 +21,7 @@ except ImportError:
     sys.exit(1)
 
 if float(sys.version_info[0]) < 3.0:
-    sys.stderr.write("PhyloPhlAn2 requires Python 3, your current Python version is {}.{}.{}"
+    sys.stderr.write("MetaPhlAn requires Python 3, your current Python version is {}.{}.{}"
                     .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
     sys.exit(1)
 
