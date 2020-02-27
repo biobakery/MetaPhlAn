@@ -556,7 +556,8 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
 
     #Download the list of all the files in the Dropbox folder
     list_file_path = os.path.join(bowtie2_db, "file_list.txt")
-    download(FILE_LIST, list_file_path)
+    if not os.path.exists(list_file_path):
+        download(FILE_LIST, list_file_path)
 
     if os.path.isfile(list_file_path):
         with open(list_file_path) as f:
