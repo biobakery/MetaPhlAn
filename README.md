@@ -12,11 +12,11 @@ Through **Docker**
 
 ``$ docker pull segatalab/metaphlan2`` 
 
-by **direct download** from [Bitbucket](https://bitbucket.org/biobakery/metaphlan2/get/default.zip)
+by **direct download** from [GitHub](https://github.com/biobakery/MetaPhlAn/archive/master.zip)
 
 or **cloning the repository** using the following command
 
-``$ hg clone https://bitbucket.org/biobakery/metaphlan2``
+``$ git clone https://github.com/biobakery/metaphlan``
 
 ----------------------
 
@@ -50,15 +50,15 @@ If you use StrainPhlAn, please cite the MetaPhlAn2 paper and the following Strai
 
 In addition to the information on this page, you can refer to the following additional resources.
 
-* The [MetaPhlAn2 tutorial on bioBakery](https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2).
+* The [MetaPhlAn2 tutorial on bioBakery](https://github.com/biobakery/biobakery/wiki/metaphlan2).
 
-* The [StrainPhlAn tutorial on bioBakery](https://bitbucket.org/biobakery/biobakery/wiki/strainphlan).
+* The [StrainPhlAn tutorial on bioBakery](https://github.com/biobakery/biobakery/wiki/strainphlan).
 
-* The MetaPhlAn2 and StrainPhlAn [Google Group](http://groups.google.com/forum/#!forum/metaphlan-users) ([metaphlan-users@googlegroups.com](mailto:metaphlan-users@googlegroups.com))
+* The [MetaPhlAn2](https://forum.biobakery.org/c/Microbial-community-profiling/MetaPhlAn/) and [StrainPhlAn](https://forum.biobakery.org/c/Microbial-community-profiling/StrainPhlAn/) Discourse forum.
 
-* Related tools including [PanPhlAn](https://bitbucket.org/CibioCM/panphlan/src) (and its [tutorial](https://bitbucket.org/CibioCM/panphlan/wiki/Home)), [GraPhlAn](https://bitbucket.org/nsegata/graphlan/wiki/Home) (and it [tutorial](https://bitbucket.org/biobakery/biobakery/wiki/graphlan)), [PhyloPhlAn2](https://bitbucket.org/nsegata/phylophlan/wiki/Home) (and its [tutorial](https://bitbucket.org/biobakery/biobakery/wiki/phylophlan)), [HUMAnN2](https://bitbucket.org/biobakery/humann2/wiki/Home) (and its [tutorial](https://bitbucket.org/biobakery/biobakery/wiki/humann2)).
+* Related tools including [PanPhlAn](https://github.com/segatalab/panphlan) (and its [tutorial](https://github.com/segatalab/panphlan/wiki/Home)), [GraPhlAn](https://github.com/segatalab/graphlan) (and it [tutorial](https://github.com/biobakery/biobakery/wiki/graphlan)), [PhyloPhlAn2](https://github.com/biobakery/phylophlan) (and its [tutorial](https://github.com/biobakery/biobakery/wiki/phylophlan)), [HUMAnN2](https://github.com/biobakery/humann/) (and its [tutorial](https://github.com/biobakery/biobakery/wiki/humann2)).
 
-* The related [bioBakery workflows](https://bitbucket.org/biobakery/biobakery/wiki/biobakery_workflows)
+* The related [bioBakery workflows](https://github.com/biobakery/biobakery/wiki/biobakery_workflows)
 
 -------------
 
@@ -86,7 +86,7 @@ In case you moved the `metaphlan2.py` script, please export the `read_fastx.py` 
 
 ## Basic Usage
 
-This section presents some basic usages of MetaPhlAn2, for more advanced usages, please see at [its wiki](https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2).
+This section presents some basic usages of MetaPhlAn2, for more advanced usages, please see at [its wiki](https://github.com/biobakery/biobakery/wiki/metaphlan2).
 
 We assume here that ``metaphlan2.py`` is in the system path and that ``mpa_dir`` bash variable contains the main MetaPhlAn folder. You can set this two variables moving to your MetaPhlAn2 local folder and type:
 
@@ -498,7 +498,7 @@ optional arguments:
 
 ### GraPhlAn Visualization
 
-The tutorial of using GraPhlAn can be found from [the MetaPhlAn2 wiki](https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2).
+The tutorial of using GraPhlAn can be found from [the MetaPhlAn2 wiki](https://github.com/biobakery/biobakery/wiki/metaphlan2).
 
 
 ## Customizing the database
@@ -723,7 +723,7 @@ Note that "sampleID" is a compulsory field.
 
 After adding the metadata, you will obtain the tree files "*.tree.metadata" with metadata and view them by [Archaeopteryx](https://sites.google.com/site/cmzmasek/home/software/archaeopteryx) as in the previous step.
 
-If you have installed [graphlan](https://bitbucket.org/nsegata/graphlan/wiki/Home), you can plot the tree with the command:
+If you have installed [graphlan](https://github.com/segatalab/graphlan), you can plot the tree with the command:
 
 
 ```
