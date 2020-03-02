@@ -1,0 +1,4 @@
+__pypcache__
+*.pyc
+.idea/workspace.xml
+.hg
