@@ -1,3 +1,7 @@
 [submodule "utils/hclust2"]
 	path = utils/hclust2
-	url = https://github.com/SegataLab/hclust2
+    url = https://github.com/SegataLab/hclust2
+[submodule "strainphlan/cmseq"]
+	path = strainphlan/cmseq
+	url = https://github.com/SegataLab/cmseq
+
