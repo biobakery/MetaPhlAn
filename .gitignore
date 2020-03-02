@@ -2,3 +2,4 @@ __pypcache__
 *.pyc
 .idea/workspace.xml
 .hg
+strainphlan_scripts
