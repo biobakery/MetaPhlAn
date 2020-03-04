@@ -11,7 +11,7 @@ import sys
 from utils import error
 
 if sys.version_info[0] < 3:
-    error("StrainPhlAn 3.0 requires Python 3, your current Python version is {}.{}.{}"
+    error("StrainPhlAn " + __version__ + " requires Python 3, your current Python version is {}.{}.{}"
                     .format(sys.version_info[0], sys.version_info[1], 
                         sys.version_info[2]), exit=True)
 
@@ -38,7 +38,7 @@ Reads and parses the command line arguments of the script.
 def read_params():
     p = ap.ArgumentParser(description="")
     p.add_argument('-d', '--database', type=str, default=None,
-                   help="The input MetaPhlAn 3.0 database")
+                   help="The input MetaPhlAn " + __version__ + " database")
     p.add_argument('-m', '--clade_markers', type=str, default=None,
                    help="The clade markers as FASTA file")
     p.add_argument('-s', '--samples', type=str, 
@@ -651,7 +651,7 @@ Prints the clades detected in the reconstructed markers
     to keep a main sample
 """
 def print_clades(database, samples, samples_with_n_markers):
-    info('Loading MetaPhlan 3.0 database...', init_new_line=True)
+    info('Loading MetaPhlan '+ __version__ + ' database...', init_new_line=True)
     db = pickle.load(bz2.BZ2File(database))
     markers2species = dict()
     for marker in db['markers']:
@@ -691,7 +691,7 @@ def print_clades(database, samples, samples_with_n_markers):
 
 
 """
-Executes StrainPhlAn 3.0 
+Executes StrainPhlAn 
 
 :param database: the MetaPhlan2 markers database
 :param clade_markers: a FASTA containing the markers of a specific clade
@@ -723,7 +723,7 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
     if print_clades_only:
         print_clades(database, samples, samples_with_n_markers)
     else:
-        info("Creating temporal directory...", init_new_line=True)
+        info("Creating temporary directory...", init_new_line=True)
         tmp_dir = output_dir+'tmp/'
         create_folder(tmp_dir)
         info("Done.", init_new_line=True)
@@ -742,15 +742,15 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
         cleaned_markers_matrix = add_secondary_samples_and_references(secondary_samples, 
             secondary_references, cleaned_markers_matrix, secondary_samples_with_n_markers, 
             clade_markers_file, tmp_dir, nprocs)
-        info("Writting samples as markers' FASTA files...", init_new_line=True)
+        info("Writing samples as markers' FASTA files...", init_new_line=True)
         samples_as_markers_dir = matrix_markers_to_fasta(cleaned_markers_matrix, clade,
             samples+secondary_samples, references+secondary_references, trim_sequences, 
             tmp_dir, nprocs)
         info("Done.", init_new_line=True)
-        info("Writting filtered clade markers as FASTA file...", init_new_line=True)
+        info("Writing filtered clade markers as FASTA file...", init_new_line=True)
         cleaned_clade_markers_to_fasta(cleaned_markers_matrix, tmp_dir, clade, clade_markers_file)
         info("Done.", init_new_line=True)
-        info("Calculating polimorfic rates...", init_new_line=True)
+        info("Calculating polymorphic rates...", init_new_line=True)
         num_markers_for_clade = calculate_polimorfic_rates(samples+secondary_samples, clade_markers_file, 
             clade, output_dir)
         info("Done.", init_new_line=True)   
@@ -759,13 +759,13 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
             output_dir, clade, marker_in_n_samples, phylophlan_mode, phylophlan_configuration,
             mutation_rates, nprocs)
         info("Done.", init_new_line=True)     
-        info("Writting information file...", init_new_line=True)
+        info("Writing information file...", init_new_line=True)
         write_info(cleaned_markers_matrix, num_markers_for_clade, clade, output_dir,
             samples, secondary_samples, references, secondary_references, trim_sequences, 
             samples_with_n_markers, marker_in_n_samples, secondary_samples_with_n_markers, 
             phylophlan_mode, nprocs)
         info("Done.", init_new_line=True)
-        info("Removing temporal files...", init_new_line=True)
+        info("Removing temporary files...", init_new_line=True)
         rmtree(tmp_dir, ignore_errors=False, onerror=None)
         info("Done.", init_new_line=True)
 
@@ -798,7 +798,7 @@ if __name__ == "__main__":
     t0 = time.time()
     args = read_params()
     args = check_params(args)
-    info("Start StrainPhlAn 3.0 execution")
+    info("Start StrainPhlAn " + __version__ + " execution")
     strainphlan(args.database, args.clade_markers, args.samples, args.references, 
         args.secondary_samples, args.secondary_references,  args.clade, args.output_dir, 
         args.trim_sequences, args.sample_with_n_markers, args.marker_in_n_samples,
@@ -806,9 +806,9 @@ if __name__ == "__main__":
         args.mutation_rates, args.print_clades_only, args.nprocs)
     exec_time = time.time() - t0
     if not args.print_clades_only:
-        info("Finish StrainPhlAn 3.0 execution ("+str(round(exec_time, 2))+
+        info("Finish StrainPhlAn " + __version__ + " execution ("+str(round(exec_time, 2))+
             " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
              init_new_line=True)
     else:
-        info("Finish StrainPhlAn 3.0 execution ("+str(round(exec_time, 2))+
+        info("Finish StrainPhlAn " + __version__ + " execution ("+str(round(exec_time, 2))+
             " seconds)\n", init_new_line=True)

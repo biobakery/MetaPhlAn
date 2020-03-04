@@ -3,3 +3,5 @@ __pypcache__
 .idea/workspace.xml
 .hg
 strainphlan_scripts
+*.dev.py
+metaphlan_databases

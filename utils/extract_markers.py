@@ -10,7 +10,7 @@ import sys
 from utils import error
 
 if sys.version_info[0] < 3:
-    error("StrainPhlAn 3.0 requires Python 3, your current Python version is {}.{}.{}"
+    error("StrainPhlAn " + __version__ + " requires Python 3, your current Python version is {}.{}.{}"
                     .format(sys.version_info[0], sys.version_info[1], 
                         sys.version_info[2]), exit=True)
                         
@@ -91,7 +91,7 @@ def extract_markers(database, clade, output_dir):
     info('\tGenerating DB markers FASTA...', init_new_line=True)
     fasta_markers = generate_markers_fasta(database, output_dir)
     info('\tDone.', init_new_line=True)
-    info('\tLoading MetaPhlan 3.0 database...', init_new_line=True)
+    info('\tLoading MetaPhlan ' + __version__ + ' database...', init_new_line=True)
     db = pickle.load(bz2.BZ2File(database))
     info('\tDone.',init_new_line=True)
     markers = set([])
