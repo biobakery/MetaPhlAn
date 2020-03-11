@@ -23,11 +23,11 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
-from utils import decompress_bz2, create_blastn_db, execute_blastn
-from utils import generate_phylophlan_config_file, create_phylophlan_db, execute_phylophlan
-from utils import extract_markers
-from utils import execute_pool
-from utils import info, optimized_dump, create_folder, parse_marker_name, get_breath
+from utils.external_exec import decompress_bz2, create_blastn_db, execute_blastn
+from utils.external_exec import generate_phylophlan_config_file, create_phylophlan_db, execute_phylophlan
+from utils.external_exec import extract_markers
+from utils.parallelisation import execute_pool
+from utils.utils import info, optimized_dump, create_folder, parse_marker_name, get_breath
 
 # Regular expression to remove comments: \n\"\"\"[^"]+\n\"\"\"
 
