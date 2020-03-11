@@ -39,7 +39,11 @@ import subprocess as subp
 import tempfile as tf
 
 # set the location of the database download url
+<<<<<<< HEAD:metaphlan.py
 DATABASE_DOWNLOAD = "https://bitbucket.org/biobakery/metaphlan/downloads/"
+=======
+DATABASE_DOWNLOAD = "https://www.dropbox.com/sh/7qze7m7g9fe2xjg/AADHWzATSQcI0CNFD0sk7MAga"
+>>>>>>> 9bb9183406d22f8d33b9714c33bc5abde13649fa:metaphlan2.py
 FILE_LIST= "https://www.dropbox.com/sh/7qze7m7g9fe2xjg/AAA4XDP85WHon_eHvztxkamTa/file_list.txt?dl=1"
 # get the directory that contains this script
 metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
@@ -434,6 +438,7 @@ def download(url, download_file, force=False):
         sys.stderr.write("\nFile {} already present!\n".format(download_file))
 
 
+<<<<<<< HEAD:metaphlan.py
 def download_unpack_tar(ls_f, download_file_name, folder, bowtie2_build, nproc):
     """
     Download the url to the file and decompress into the folder
@@ -445,6 +450,40 @@ def download_unpack_tar(ls_f, download_file_name, folder, bowtie2_build, nproc):
     # download MD5 checksum
     md5_file = os.path.join(folder, download_file_name + ".md5")
     url_md5_file = ls_f[download_file_name + ".md5"]
+=======
+def download_unpack_tar(FILE_LIST, download_file_name, folder, bowtie2_build, nproc):
+    """
+    Download the url to the file and decompress into the folder
+    """
+
+    # Create the folder if it does not already exist
+    if not os.path.isdir(folder):
+        try:
+            os.makedirs(folder)
+        except EnvironmentError:
+            sys.exit("ERROR: Unable to create folder for database install: " + folder)
+
+    # Check the directory permissions
+    if not os.access(folder, os.W_OK):
+        sys.exit("ERROR: The directory is not writeable: " + folder + ". "
+                 "Please modify the permissions.")
+
+    #Download the list of all the files in the Dropbox folder
+    list_file_path = os.path.join(folder, "file_list.txt")
+    download(FILE_LIST, list_file_path)
+
+    if os.path.isfile(list_file_path):
+        with open(list_file_path) as f:
+            ls_f = dict( [row.strip().split() for row in f])
+
+    tar_file = os.path.join(folder, "mpa_" + download_file_name + ".tar")
+    url_tar_file = ls_f["mpa_" + download_file_name + ".tar"]
+    download(url_tar_file, tar_file)
+
+    # download MD5 checksum
+    md5_file = os.path.join(folder, "mpa_" + download_file_name + ".md5")
+    url_md5_file = ls_f["mpa_" + download_file_name + ".md5"]
+>>>>>>> 9bb9183406d22f8d33b9714c33bc5abde13649fa:metaphlan2.py
     download(url_md5_file, md5_file)
 
     md5_md5 = None
@@ -586,7 +625,11 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
     # download the tar archive and decompress
     sys.stderr.write("\nDownloading MetaPhlAn database\nPlease note due to "
                      "the size this might take a few minutes\n")
+<<<<<<< HEAD:metaphlan.py
     download_unpack_tar(ls_f, index, bowtie2_db, bowtie2_build, nproc)
+=======
+    download_unpack_tar(FILE_LIST, index, bowtie2_db, bowtie2_build, nproc)
+>>>>>>> 9bb9183406d22f8d33b9714c33bc5abde13649fa:metaphlan2.py
     sys.stderr.write("\nDownload complete\n")
     return index
 
