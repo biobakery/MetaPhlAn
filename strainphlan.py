@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
