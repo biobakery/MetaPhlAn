@@ -16,7 +16,7 @@ __date__ = '21 Feb 2020'
 
 import sys
 
-from utils import error
+from .utils import error
 
 
 
