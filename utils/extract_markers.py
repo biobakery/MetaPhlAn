@@ -19,10 +19,10 @@ import subprocess as sb
 import argparse as ap
 from Bio import SeqIO, Seq, SeqRecord
 try:
-    from .utils import generate_markers_fasta
+    from .util_fun import generate_markers_fasta
 except ImportError:
     from utils.external_exec import generate_markers_fasta
-from .utils import info
+from .util_fun import info
 
 """
 Reads and parses the command line arguments of the script.

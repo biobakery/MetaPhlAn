@@ -18,7 +18,7 @@ import os, sys, re, shutil
 
 import subprocess as sb
 
-from .utils import info, error
+from .util_fun import info, error
 
 
 
