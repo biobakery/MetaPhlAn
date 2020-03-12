@@ -14,7 +14,7 @@ __date__ = '21 Feb 2020'
 
 
 
-from .utils import error
+from .util_fun import error
 
 from multiprocessing import Event, Pool
 

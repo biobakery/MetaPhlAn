@@ -9,7 +9,7 @@ __date__ = '21 Feb 2020'
 
 
 import sys
-from utils.utils import error
+from utils.util_fun import error
 
 if sys.version_info[0] < 3:
     error("StrainPhlAn " + __version__ + " requires Python 3, your current Python version is {}.{}.{}"
@@ -27,7 +27,7 @@ from utils.external_exec import decompress_bz2, create_blastn_db, execute_blastn
 from utils.external_exec import generate_phylophlan_config_file, create_phylophlan_db, execute_phylophlan
 from utils.external_exec import extract_markers
 from utils.parallelisation import execute_pool
-from utils.utils import info, optimized_dump, create_folder, parse_marker_name, get_breath
+from utils.util_fun import info, optimized_dump, create_folder, parse_marker_name, get_breath
 
 # Regular expression to remove comments: \n\"\"\"[^"]+\n\"\"\"
 

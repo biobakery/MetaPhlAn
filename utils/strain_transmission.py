@@ -5,7 +5,7 @@ __date__ = '21 Feb 2020'
 
 import os, time, sys
 import argparse as ap
-from .utils import openw, info, error
+from .util_fun import openw, info, error
 from pyphlan import PpaTree, dist_matrix
 
 
