@@ -157,3 +157,6 @@ def main():
     run(cmd)
 
     print ('Output file: %s'%ofn_fig)
+
+if __name__ == '__main__':
+    main()

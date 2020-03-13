@@ -158,3 +158,6 @@ def main():
         sys.stderr.write(str(nreads))
     else:
         exit(1)
+
+if __name__ == '__main__':
+    main()

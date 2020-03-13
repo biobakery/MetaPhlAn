@@ -6,8 +6,8 @@ __date__ = '21 Feb 2020'
 
 import os, time, sys
 import argparse as ap
-from util_fun import openw, info, error
-from pyphlan import PpaTree, dist_matrix
+from .util_fun import openw, info, error
+from .pyphlan import PpaTree, dist_matrix
 
 
 DISTRIBUTION_THRESHOLD = 0.01
@@ -388,3 +388,6 @@ def main():
     exec_time = time.time() - t0
     info("Finish execution ("+str(round(exec_time, 2))+" seconds)\n", 
         init_new_line=True)
+
+if __name__ == '__main__':
+    main()
