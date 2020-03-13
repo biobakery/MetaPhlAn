@@ -100,3 +100,6 @@ def main():
         print ('Output:', ofn_tree)
         with open(ofn_tree, 'w') as ofile:
             ofile.write(line)
+
+if __name__ == '__main__':
+    main()

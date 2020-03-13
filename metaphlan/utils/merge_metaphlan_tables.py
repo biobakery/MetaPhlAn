@@ -79,3 +79,6 @@ def main( ):
     else:
         with open(args.o[0], 'w') as fout:
             merge(args.aistms, fout)
+
+if __name__ == '__main__':
+    main()

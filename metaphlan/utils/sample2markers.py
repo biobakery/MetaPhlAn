@@ -8,7 +8,7 @@ __version__ = '3.0'
 __date__ = '21 Feb 2020'
 
 import sys
-from util_fun import error
+from .util_fun import error
 
 if sys.version_info[0] < 3:
     error("StrainPhlAn 3.0 requires Python 3, your current Python version is {}.{}.{}"
@@ -18,10 +18,10 @@ if sys.version_info[0] < 3:
 import os, time, shutil, pickle
 import subprocess as sb
 import argparse as ap
-from external_exec import samtools_sam_to_bam, samtools_sort_bam_v1, decompress_bz2
-from util_fun import info, optimized_dump, get_breath
-from cmseq import cmseq
-from parallelisation import execute_pool
+from .external_exec import samtools_sam_to_bam, samtools_sort_bam_v1, decompress_bz2
+from .util_fun import info, optimized_dump, get_breath
+from .cmseq import cmseq
+from .parallelisation import execute_pool
 
 """
 Reads and parses the command line arguments of the script.
@@ -259,3 +259,6 @@ def main():
     info("Finish samples to markers execution ("+str(round(exec_time, 2))+
         " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
          init_new_line=True)
+
+if __name__ == '__main__':
+    main()

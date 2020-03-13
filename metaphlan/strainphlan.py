@@ -23,11 +23,6 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
-from .utils.external_exec import decompress_bz2, create_blastn_db, execute_blastn
-from .utils.external_exec import generate_phylophlan_config_file, create_phylophlan_db, execute_phylophlan
-from .utils.extract_markers import extract_markers
-from .utils.parallelisation import execute_pool
-from .utils.util_fun import info, optimized_dump, create_folder, parse_marker_name, get_breath
 
 # Regular expression to remove comments: \n\"\"\"[^"]+\n\"\"\"
 
@@ -813,3 +808,6 @@ def main():
     else:
         info("Finish StrainPhlAn " + __version__ + " execution ("+str(round(exec_time, 2))+
             " seconds)\n", init_new_line=True)
+
+if __name__ == '__main__':
+    main()

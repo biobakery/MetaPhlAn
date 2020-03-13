@@ -132,3 +132,6 @@ def main():
     info("Finish extract markers execution ("+str(round(exec_time, 2))+
         " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
          init_new_line=True)
+
+if __name__ == '__main__':
+    main()
