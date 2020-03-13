@@ -28,7 +28,7 @@ setuptools.setup(
 
             'add_metadata_tree.py = metaphlan.utils.add_metadata_tree:main',
             'extract_markers.py = metaphlan.utils.extract_markers:main',
-            'merge_metaphlan_tables = metaphlan.utils.merge_metaphlan_tables:main'
+            'merge_metaphlan_tables.py  = metaphlan.utils.merge_metaphlan_tables:main',
             'plot_tree_graphlan.py = metaphlan.utils.plot_tree_graphlan:main',
             'read_fastx.py = metaphlan.utils.read_fastx:main',
             'sample2markers.py = metaphlan.utils.sample2markers:main',
