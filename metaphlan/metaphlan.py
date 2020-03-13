@@ -693,13 +693,21 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
             sam_file.close()
 
         p.communicate()
-        
-        n_metagenome_reads = ''.join(read_and_split_line(readin.stderr.readline()))
-        if not len(n_metagenome_reads):
-            sys.stderr.write('Fatal error running MetaPhlAn. Total metagenome size was not estimated.\nPlease update read_fastx.py to the latest version.\n')
+        read_fastx_stderr = readin.stderr.readlines()
+        nreads = None
+        try:
+            nreads = int(read_fastx_stderr[0])
+            n_metagenome_reads = ''.join(read_and_split_line(nreads))
+            if not len(n_metagenome_reads):
+                sys.stderr.write('Fatal error running MetaPhlAn. Total metagenome size was not estimated.\nPlease check your input files.\n')
+                sys.exit(1)
+            outf.write(lmybytes('#nreads\t{}'.format(n_metagenome_reads)))
+            outf.close()
+        except:
+            sys.stderr.write(b''.join(read_fastx_stderr).decode())
+            outf.close()
+            os.unlink(outfmt6_out)
             sys.exit(1)
-        outf.write(lmybytes('#nreads\t{}'.format(n_metagenome_reads)))
-        outf.close()
 
     except OSError as e:
         sys.stderr.write('OSError: "{}"\nFatal error running BowTie2.\n'.format(e))
@@ -1062,12 +1070,12 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
             ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, open(mapping_f)
 
     reads2markers = {}
-    n_metagenoges_reads = None
+    n_metagenome_reads = None
 
     if input_type == 'bowtie2out':
         for r, c in ras(inpf):
             if r.startswith('#') and 'nreads' in r:
-                n_metagenoges_reads = int(c)
+                n_metagenome_reads = int(c)
             else:
                 reads2markers[r] = c
     elif input_type == 'sam':
@@ -1085,7 +1093,7 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
     for r, m in reads2markers.items():
         markers2reads[m].add(r)
 
-    return (markers2reads, n_metagenoges_reads)
+    return (markers2reads, n_metagenome_reads)
 
 
 def maybe_generate_biom_file(tree, pars, abundance_predictions):
