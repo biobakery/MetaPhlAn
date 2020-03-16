@@ -697,13 +697,12 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
         nreads = None
         try:
             nreads = int(read_fastx_stderr[0])
-            n_metagenome_reads = ''.join(read_and_split_line(nreads))
-            if not len(n_metagenome_reads):
+            if not nreads:
                 sys.stderr.write('Fatal error running MetaPhlAn. Total metagenome size was not estimated.\nPlease check your input files.\n')
                 sys.exit(1)
-            outf.write(lmybytes('#nreads\t{}'.format(n_metagenome_reads)))
+            outf.write(lmybytes('#nreads\t{}'.format(nreads)))
             outf.close()
-        except:
+        except ValueError:
             sys.stderr.write(b''.join(read_fastx_stderr).decode())
             outf.close()
             os.unlink(outfmt6_out)
@@ -711,9 +710,6 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
 
     except OSError as e:
         sys.stderr.write('OSError: "{}"\nFatal error running BowTie2.\n'.format(e))
-        sys.exit(1)
-    except ValueError as e:
-        sys.stderr.write('ValueError: "{}"\nFatal error running BowTie2.\n'.format(e))
         sys.exit(1)
     except IOError as e:
         sys.stderr.write('IOError: "{}"\nFatal error running BowTie2.\n'.format(e))
