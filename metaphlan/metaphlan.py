@@ -21,7 +21,7 @@ except ImportError:
     sys.exit(1)
 
 if float(sys.version_info[0]) < 3.0:
-    sys.stderr.write("MetaPhlAn requires Python 3, your current Python version is {}.{}.{}"
+    sys.stderr.write("MetaPhlAn requires Python 3, your current Python version is {}.{}.{}\n"
                     .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
     sys.exit(1)
 
@@ -459,13 +459,13 @@ def download_unpack_tar(FILE_LIST, download_file_name, folder, bowtie2_build, np
         with open(list_file_path) as f:
             ls_f = dict( [row.strip().split() for row in f])
 
-    tar_file = os.path.join(folder, "mpa_" + download_file_name + ".tar")
-    url_tar_file = ls_f["mpa_" + download_file_name + ".tar"]
+    tar_file = os.path.join(folder, download_file_name + ".tar")
+    url_tar_file = ls_f[download_file_name + ".tar"]
     download(url_tar_file, tar_file)
 
     # download MD5 checksum
-    md5_file = os.path.join(folder, "mpa_" + download_file_name + ".md5")
-    url_md5_file = ls_f["mpa_" + download_file_name + ".md5"]
+    md5_file = os.path.join(folder, download_file_name + ".md5")
+    url_md5_file = ls_f[download_file_name + ".md5"]
     download(url_md5_file, md5_file)
 
     md5_md5 = None
