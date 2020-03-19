@@ -130,11 +130,9 @@ class Install(install):
         print('Installing cmseq')
         cmseq_repo = "https://github.com/SegataLab/cmseq/archive/master.zip"
         cmseq_path = os.path.dirname(os.path.abspath(__file__))
+        print(cmseq_path)
         # cmseq_path = os.path.join(self.install_base, "lib", "python{}.{}".format(sys.version_info[0], sys.version_info[1]), "site-packages", "metaphlan","utils", 'cmseq')
-        if os.path.exists(cmseq_path):
-            os.rmdir(cmseq_path)
-        else:
-            download_unpack_zip(cmseq_repo, "cmseq.zip", 'work/metaphlan/utils/cmseq', "cmseq")
+        download_unpack_zip(cmseq_repo, "cmseq.zip", 'metaphlan/utils/cmseq', "cmseq")
         install.run(self)
 
 setuptools.setup(

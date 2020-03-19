@@ -8,13 +8,13 @@ package:
 source:
   # url: https://github.com/biobakery/MetaPhlAn/archive/{{version}}.tar.gz
   # sha256: 6249bf67f9e5a1a1264020bb0de689a17402606ada8134fb09ab416981d4a48b
-  git_url: https://github.com/biobakery/MetaPhlAn.git
-  git_rev: 32b32d5e8618acf88901a536428405dbb4f3be0b
-  # path: ..
+  # git_url: https://github.com/biobakery/MetaPhlAn.git
+  # git_rev: 19b67841cc78bb7f01e67b3eb0eadc0898e4fa9e
+  path: ..
 
 build:
   noarch: python
-  script: {{ PYTHON }} -m pip install . -vv
+  script: {{ PYTHON }} setup.py biocondainstall
 
 requirements:
   host:
@@ -26,6 +26,7 @@ requirements:
     - python >=3
     - bowtie2 >=2.0.0
     - dendropy
+    - cython
     - numpy
     - biom-format
     - matplotlib-base
