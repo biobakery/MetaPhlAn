@@ -127,13 +127,25 @@ def download_unpack_tar(url,download_file_name,folder,software_name):
 
 class Install(install):
     def run(self):  
-        print('Installing cmseq')
-        cmseq_repo = "https://github.com/SegataLab/cmseq/archive/master.zip"
-        cmseq_path = os.path.dirname(os.path.abspath(__file__))
-        print(cmseq_path)
-        # cmseq_path = os.path.join(self.install_base, "lib", "python{}.{}".format(sys.version_info[0], sys.version_info[1]), "site-packages", "metaphlan","utils", 'cmseq')
-        download_unpack_zip(cmseq_repo, "cmseq.zip", 'metaphlan/utils/cmseq', "cmseq")
         install.run(self)
+        print('Installing cmseq')
+
+        current_install_folder=None
+        for item in os.listdir(self.install_lib):
+            full_path_item=os.path.join(self.install_lib, item)
+            if os.path.isdir(full_path_item):
+                if "metaphlan" == item:
+                    current_install_folder=full_path_item
+                    break
+        
+        cmseq_repo = "https://github.com/SegataLab/cmseq/archive/master.zip"
+        cmseq_path = os.path.join(current_install_folder, "utils")
+        download_unpack_zip(cmseq_repo, "cmseq.zip", cmseq_path, "cmseq")
+        if(os.path.exists(os.path.join(cmseq_path,'cmseq-master'))):
+            shutil.move(os.path.join(cmseq_path,'cmseq-master'), os.path.join(cmseq_path,'cmseq'))
+        else:
+            print("WARNING: Unable to install cmseq")
+
 
 setuptools.setup(
     name='MetaPhlAn',
