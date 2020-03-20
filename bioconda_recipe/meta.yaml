@@ -6,11 +6,11 @@ package:
   version: {{ version }}
 
 source:
-  url: https://github.com/biobakery/MetaPhlAn/archive/{{version}}.tar.gz
-  sha256: 3a86b7010f0b8e006ecb536fb56e85ebd1e7665360adb7ef840fdfd7108c3594
+  # url: https://github.com/biobakery/MetaPhlAn/archive/{{version}}.tar.gz
+  # sha256: 3a86b7010f0b8e006ecb536fb56e85ebd1e7665360adb7ef840fdfd7108c3594
   # git_url: https://github.com/biobakery/MetaPhlAn.git
   # git_rev: 73ecd52
-  # path: ..
+  path: ..
 
 build:
   noarch: python
@@ -24,7 +24,7 @@ requirements:
     - numpy
   run:
     - python >=3
-    - bowtie2 >=2.0.0
+    - bowtie2 >=2.3.2
     - dendropy
     - cython
     - numpy

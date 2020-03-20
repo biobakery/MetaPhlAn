@@ -1,51 +1,35 @@
 #!/usr/bin/env python
-from __future__ import with_statement
 __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
 __version__ = '3.0'
-__date__ = '25 Feb 2020'
+__date__ = '20 Mar 2020'
 
 import sys
+if float(sys.version_info[0]) < 3.0:
+    sys.stderr.write("MetaPhlAn requires Python 3, your current Python version is {}.{}.{}\n"
+                    .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
+    sys.exit(1)
 import os
 import stat
 import re
 import time
-import tarfile
+from collections import defaultdict as defdict
+from distutils.version import LooseVersion
+from glob import glob
+from subprocess import DEVNULL
+import argparse as ap
+import bz2
+import pickle
+import subprocess as subp
+import tempfile as tf
 
 try:
     import numpy as np
 except ImportError:
     sys.stderr.write("Error! numpy python library not detected!!\n")
     sys.exit(1)
-
-if float(sys.version_info[0]) < 3.0:
-    sys.stderr.write("MetaPhlAn requires Python 3, your current Python version is {}.{}.{}\n"
-                    .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
-    sys.exit(1)
-
-from collections import defaultdict as defdict
-from distutils.version import LooseVersion
-from glob import glob
-from subprocess import DEVNULL
-from urllib.request import urlretrieve
-import argparse as ap
-import bz2
-import hashlib
-import itertools
-import pickle
-import subprocess as subp
-import tempfile as tf
-
-# set the location of the database download url
-DATABASE_DOWNLOAD = "https://www.dropbox.com/sh/7qze7m7g9fe2xjg/AADHWzATSQcI0CNFD0sk7MAga"
-FILE_LIST= "https://www.dropbox.com/sh/7qze7m7g9fe2xjg/AAA4XDP85WHon_eHvztxkamTa/file_list.txt?dl=1"
-# get the directory that contains this script
-metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
-# get the default database folder
-DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "metaphlan_databases")
-
 
 #**********************************************************************************************
 #  Modification of Code :                                                                     *
@@ -55,7 +39,6 @@ DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "metaphlan_dat
 #      run.                                                                                   *
 #  George Weingart    05/22/2017   george.weingart@mail.com                                   *
 #**********************************************************************************************
-
 
 #*************************************************************
 #*  Imports related to biom file generation                  *
@@ -72,30 +55,14 @@ except ImportError:
     sys.stderr.write("Warning! json python library not detected!"
                      "\n Exporting to biom format will not work!\n")
 
+from metaphlan import *
 
+# get the directory that contains this script
+metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
+# get the default database folder
+DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "metaphlan_databases")
+INDEX = 'latest'
 tax_units = "kpcofgst"
-
-def remove_prefix(text):
-        return re.sub(r'^[a-z]__', '', text)
-
-def read_and_split(ofn):
-    return (l.decode('utf-8').strip().split('\t') for l in ofn)
-
-def read_and_split_line(line):
-    return line.decode('utf-8').strip().split('\t')
-
-def plain_read_and_split(ofn):
-    return (l.strip().split('\t') for l in ofn)
-
-def plain_read_and_split_line(l):
-    return l.strip().split('\t')
-
-if float(sys.version_info[0]) < 3.0:
-    def mybytes(val):
-        return val
-else:
-    def mybytes(val):
-        return bytes(val, encoding='utf-8')
 
 def read_params(args):
     p = ap.ArgumentParser( description=
@@ -104,7 +71,7 @@ def read_params(args):
             " METAgenomic PHyLogenetic ANalysis for metagenomic taxonomic profiling.\n\n"
             "AUTHORS: "+__author__+"\n\n"
             "COMMON COMMANDS\n\n"
-            " We assume here that metaphlan.py is in the system path and that mpa_dir bash variable contains the\n"
+            " We assume here that metaphlan is in the system path and that mpa_dir bash variable contains the\n"
             " main MetaPhlAn folder. Also BowTie2 should be in the system path with execution and read\n"
             " permissions, and Perl should be installed)\n\n"
 
@@ -114,30 +81,30 @@ def read_params(args):
             "relative abundance. This correspond to the default analysis type (-t rel_ab).\n\n"
 
             "*  Profiling a metagenome from raw reads:\n"
-            "$ metaphlan.py metagenome.fastq --input_type fastq -o profiled_metagenome.txt\n\n"
+            "$ metaphlan metagenome.fastq --input_type fastq -o profiled_metagenome.txt\n\n"
 
             "*  You can take advantage of multiple CPUs and save the intermediate BowTie2 output for re-running\n"
             "   MetaPhlAn extremely quickly:\n"
-            "$ metaphlan.py metagenome.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq -o profiled_metagenome.txt\n\n"
+            "$ metaphlan metagenome.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq -o profiled_metagenome.txt\n\n"
 
             "*  If you already mapped your metagenome against the marker DB (using a previous MetaPhlAn run), you\n"
             "   can obtain the results in few seconds by using the previously saved --bowtie2out file and \n"
             "   specifying the input (--input_type bowtie2out):\n"
-            "$ metaphlan.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out -o profiled_metagenome.txt\n\n"
+            "$ metaphlan metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out -o profiled_metagenome.txt\n\n"
             
             "*  bowtie2out files generated with MetaPhlAn versions below 3 are not compatibile.\n"
             "   Starting from MetaPhlAn 3.0, the BowTie2 ouput now includes the size of the profiled metagenome.\n"
             "   If you want to re-run MetaPhlAn using these file you should provide the metagenome size via --nreads:\n"
-            "$ metaphlan.py metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out --nreads 520000 -o profiled_metagenome.txt\n\n"
+            "$ metaphlan metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out --nreads 520000 -o profiled_metagenome.txt\n\n"
 
             "*  You can also provide an externally BowTie2-mapped SAM if you specify this format with \n"
             "   --input_type. Two steps: first apply BowTie2 and then feed MetaPhlAn with the obtained sam:\n"
             "$ bowtie2 --sam-no-hd --sam-no-sq --no-unal --very-sensitive -S metagenome.sam -x ${mpa_dir}/metaphlan_databases/mpa_v30_CHOCOPhlAn_201901 -U metagenome.fastq\n"
-            "$ metaphlan.py metagenome.sam --input_type sam -o profiled_metagenome.txt\n\n"
+            "$ metaphlan metagenome.sam --input_type sam -o profiled_metagenome.txt\n\n"
 
             "*  We can also natively handle paired-end metagenomes, and, more generally, metagenomes stored in \n"
             "  multiple files (but you need to specify the --bowtie2out parameter):\n"
-            "$ metaphlan.py metagenome_1.fastq,metagenome_2.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
+            "$ metaphlan metagenome_1.fastq,metagenome_2.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq\n\n"
             "\n------------------------------------------------------------------- \n \n\n"
 
             "\n========== Marker level analysis ============================ \n\n"
@@ -152,24 +119,24 @@ def read_params(args):
             "*  The following command will output the abundance of each marker with a RPK (reads per kilo-base) \n"
             "   higher 0.0. (we are assuming that metagenome_outfmt.bz2 has been generated before as \n"
             "   shown above).\n"
-            "$ metaphlan.py -t marker_ab_table metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
+            "$ metaphlan -t marker_ab_table metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
             "   The obtained RPK can be optionally normalized by the total number of reads in the metagenome \n"
             "   to guarantee fair comparisons of abundances across samples. The number of reads in the metagenome\n"
             "   needs to be passed with the '--nreads' argument\n\n"
 
             "*  The list of markers present in the sample can be obtained with '-t marker_pres_table'\n"
-            "$ metaphlan.py -t marker_pres_table metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
+            "$ metaphlan -t marker_pres_table metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
             "   The --pres_th argument (default 1.0) set the minimum RPK value to consider a marker present\n\n"
 
             "*  The list '-t clade_profiles' analysis type reports the same information of '-t marker_ab_table'\n"
             "   but the markers are reported on a clade-by-clade basis.\n"
-            "$ metaphlan.py -t clade_profiles metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n\n"
+            "$ metaphlan -t clade_profiles metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n\n"
 
             "*  Finally, to obtain all markers present for a specific clade and all its subclades, the \n"
             "   '-t clade_specific_strain_tracker' should be used. For example, the following command\n"
             "   is reporting the presence/absence of the markers for the B. fragulis species and its strains\n"
             "   the optional argument --min_ab specifies the minimum clade abundance for reporting the markers\n\n"
-            "$ metaphlan.py -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
+            "$ metaphlan -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
 
             "\n------------------------------------------------------------------- \n\n"
             "",
@@ -195,22 +162,19 @@ def read_params(args):
 
     g = p.add_argument_group('Required arguments')
     arg = g.add_argument
-    input_type_choices = ['fastq','fasta','multifasta','multifastq','bowtie2out','sam']
-    arg( '--input_type', choices=input_type_choices, required = '--install' not in args, help =
-         "set whether the input is the multifasta file of metagenomic reads or \n"
+    input_type_choices = ['fastq','fasta','bowtie2out','sam']
+    arg( '--input_type', choices=input_type_choices, default='fastq', required = '--install' not in args, help =
+         "set whether the input is the FASTA file of metagenomic reads or \n"
          "the SAM file of the mapping of the reads against the MetaPhlAn db.\n"
-         "[default 'automatic', i.e. the script will try to guess the input format]\n" )
+         "[default 'FASTQ']\n" )
 
     g = p.add_argument_group('Mapping arguments')
     arg = g.add_argument
-    arg('--mpa_pkl', type=str, default=None,
-        help="The metadata pickled MetaPhlAn file [deprecated]")
     arg('--force', action='store_true', help="Force profiling of the input file by removing the bowtie2out file")
     arg('--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default=DEFAULT_DB_FOLDER,
-        help=("Folder containing the MetaPhlAn database. Used if "
-              "--input_type is fastq, fasta, multifasta, or multifastq [default "+DEFAULT_DB_FOLDER+"]\n"))
+        help=("Folder containing the MetaPhlAn database."
+              "[default "+DEFAULT_DB_FOLDER+"]\n"))
 
-    INDEX = 'latest'
     arg('-x', '--index', type=str, default=INDEX,
         help=("Specify the id of the database version to use. "
               "If \"latest\", MetaPhlAn will get the latest version. If the database\n"
@@ -220,7 +184,7 @@ def read_params(args):
     bt2ps = ['sensitive', 'very-sensitive', 'sensitive-local', 'very-sensitive-local']
     arg('--bt2_ps', metavar="BowTie2 presets", default='very-sensitive',
         choices=bt2ps, help="Presets options for BowTie2 (applied only when a "
-                            "multifasta file is provided)\n"
+                            "FASTA file is provided)\n"
                             "The choices enabled in MetaPhlAn are:\n"
                             " * sensitive\n"
                             " * very-sensitive\n"
@@ -288,7 +252,7 @@ def read_params(args):
          "marker abundance pattern found in the sample. It is generally recommended \n"
          "to keep the disambiguation procedure in order to minimize false positives\n")
     arg( '--stat', metavar="", choices=stat_choices, default="tavg_g", type=str, help =
-         "EXPERIMENTAL! Statistical approach for converting marker abundances into clade abundances\n"
+         "Statistical approach for converting marker abundances into clade abundances\n"
          "'avg_g'  : clade global (i.e. normalizing all markers together) average\n"
          "'avg_l'  : average of length-normalized marker counts\n"
          "'tavg_g' : truncated clade global average at --stat_q quantile\n"
@@ -341,7 +305,7 @@ def read_params(args):
     arg( '-s', '--samout', metavar="sam_output_file",
         type=str, default=None, help="The sam output file\n")
 
-    arg( '--legacy-output', action='store_true', help="Old two columns output\n")
+    arg( '--legacy-output', action='store_true', help="Old MetaPhlAn2 two columns output\n")
     arg( '--CAMI_format_output', action='store_true', help="Report the profiling using the CAMI output format\n")
     arg( '--unknown_estimation', action='store_true', help="Ignore estimation of reads mapping to unkwnown clades\n")
 
@@ -375,242 +339,6 @@ def read_params(args):
 
     return vars(p.parse_args())
 
-
-def byte_to_megabyte(byte):
-    """
-    Convert byte value to megabyte
-    """
-
-    return byte / (1024.0**2)
-
-
-class ReportHook():
-    def __init__(self):
-        self.start_time = time.time()
-
-    def report(self, blocknum, block_size, total_size):
-        """
-        Print download progress message
-        """
-
-        if blocknum == 0:
-            self.start_time = time.time()
-            if total_size > 0:
-                sys.stderr.write("Downloading file of size: {:.2f} MB\n"
-                                 .format(byte_to_megabyte(total_size)))
-        else:
-            total_downloaded = blocknum * block_size
-            status = "{:3.2f} MB ".format(byte_to_megabyte(total_downloaded))
-
-            if total_size > 0:
-                percent_downloaded = total_downloaded * 100.0 / total_size
-                # use carriage return plus sys.stderr to overwrite stderr
-                download_rate = total_downloaded / (time.time() - self.start_time)
-                estimated_time = (total_size - total_downloaded) / download_rate
-                estimated_minutes = int(estimated_time / 60.0)
-                estimated_seconds = estimated_time - estimated_minutes * 60.0
-                status += ("{:3.2f} %  {:5.2f} MB/sec {:2.0f} min {:2.0f} sec "
-                           .format(percent_downloaded,
-                                   byte_to_megabyte(download_rate),
-                                   estimated_minutes, estimated_seconds))
-
-            status += "        \r"
-            sys.stderr.write(status)
-
-
-def download(url, download_file, force=False):
-    """
-    Download a file from a url
-    """
-
-    if not os.path.isfile(download_file) or force:
-        try:
-            sys.stderr.write("\nDownloading " + url + "\n")
-            file, headers = urlretrieve(url, download_file,
-                                        reporthook=ReportHook().report)
-        except EnvironmentError:
-            sys.stderr.write("\nWarning: Unable to download " + url + "\n")
-    else:
-        sys.stderr.write("\nFile {} already present!\n".format(download_file))
-
-
-def download_unpack_tar(FILE_LIST, download_file_name, folder, bowtie2_build, nproc):
-    """
-    Download the url to the file and decompress into the folder
-    """
-
-    # Create the folder if it does not already exist
-    if not os.path.isdir(folder):
-        try:
-            os.makedirs(folder)
-        except EnvironmentError:
-            sys.exit("ERROR: Unable to create folder for database install: " + folder)
-
-    # Check the directory permissions
-    if not os.access(folder, os.W_OK):
-        sys.exit("ERROR: The directory is not writeable: " + folder + ". "
-                 "Please modify the permissions.")
-
-    #Download the list of all the files in the Dropbox folder
-    list_file_path = os.path.join(folder, "file_list.txt")
-    download(FILE_LIST, list_file_path)
-
-    if os.path.isfile(list_file_path):
-        with open(list_file_path) as f:
-            ls_f = dict( [row.strip().split() for row in f])
-
-    tar_file = os.path.join(folder, download_file_name + ".tar")
-    url_tar_file = ls_f[download_file_name + ".tar"]
-    download(url_tar_file, tar_file)
-
-    # download MD5 checksum
-    md5_file = os.path.join(folder, download_file_name + ".md5")
-    url_md5_file = ls_f[download_file_name + ".md5"]
-    download(url_md5_file, md5_file)
-
-    md5_md5 = None
-    md5_tar = None
-
-    if os.path.isfile(md5_file):
-        with open(md5_file) as f:
-            for row in f:
-                md5_md5 = row.strip().split(' ')[0]
-    else:
-        sys.stderr.write('File "{}" not found!\n'.format(md5_file))
-
-    # compute MD5 of .tar.bz2
-    if os.path.isfile(tar_file):
-        hash_md5 = hashlib.md5()
-
-        with open(tar_file, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_md5.update(chunk)
-
-        md5_tar = hash_md5.hexdigest()[:32]
-    else:
-        sys.stderr.write('File "{}" not found!\n'.format(tar_file))
-
-    if (md5_tar is None) or (md5_md5 is None):
-        sys.exit("MD5 checksums not found, something went wrong!")
-
-    # compare checksums
-    if md5_tar != md5_md5:
-        sys.exit("MD5 checksums do not correspond! If this happens again, you should remove the database files and "
-                 "rerun MetaPhlAn so they are re-downloaded")
-
-    # untar
-    try:
-        tarfile_handle = tarfile.open(tar_file)
-        tarfile_handle.extractall(path=folder)
-        tarfile_handle.close()
-    except EnvironmentError:
-        sys.stderr.write("Warning: Unable to extract {}.\n".format(tar_file))
-
-    # uncompress sequences
-    bz2_file = os.path.join(folder, download_file_name + ".fna.bz2")
-    fna_file = os.path.join(folder, download_file_name + ".fna")
-
-    if not os.path.isfile(fna_file):
-        sys.stderr.write('\n\nDecompressing {} into {}\n'.format(bz2_file, fna_file))
-
-        with open(fna_file, 'wb') as fna_h, \
-            bz2.BZ2File(bz2_file, 'rb') as bz2_h:
-            for data in iter(lambda: bz2_h.read(100 * 1024), b''):
-                fna_h.write(data)
-
-    # build bowtie2 indexes
-    if not glob(os.path.join(folder, download_file_name + "*.bt2")):
-        bt2_base = os.path.join(folder, download_file_name)
-        bt2_cmd = [bowtie2_build, '--quiet']
-
-        if nproc > 1:
-            bt2_build_output = subp.check_output([bowtie2_build, '--usage'], stderr=subp.STDOUT)
-
-            if 'threads' in str(bt2_build_output):
-                bt2_cmd += ['--threads', str(nproc)]
-
-        bt2_cmd += ['-f', fna_file, bt2_base]
-
-        sys.stderr.write('\nBuilding Bowtie2 indexes\n')
-
-        try:
-            subp.check_call(bt2_cmd)
-        except Exception as e:
-            sys.stderr.write("Fatal error running '{}'\nError message: '{}'\n\n".format(' '.join(bt2_cmd), e))
-            sys.exit(1)
-
-    for bt2 in glob(os.path.join(folder, download_file_name + "*.bt2")):
-        os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
-
-    sys.stderr.write('Removing uncompress database {}\n'.format(fna_file))
-    os.remove(fna_file)
-
-
-def resolve_latest_database(bowtie2_db,mpa_latest_dbx_url, force=False):
-    if os.path.exists(os.path.join(bowtie2_db,'mpa_latest')):
-        ctime_latest_db = int(os.path.getctime(os.path.join(bowtie2_db,'mpa_latest')))
-        if int(time.time()) - ctime_latest_db > 2419200:         #1 month in epoch
-            os.rename(os.path.join(bowtie2_db,'mpa_latest'),os.path.join(bowtie2_db,'mpa_previous'))
-            download(mpa_latest_dbx_url, os.path.join(bowtie2_db,'mpa_latest'), force=True)
-
-    if not os.path.exists(os.path.join(bowtie2_db,'mpa_latest') or force):
-        download(mpa_latest_dbx_url, os.path.join(bowtie2_db,'mpa_latest'))
-
-    with open(os.path.join(bowtie2_db,'mpa_latest')) as mpa_latest:
-        latest_db_version = [line.strip() for line in mpa_latest if not line.startswith('#')]
-    
-    return ''.join(latest_db_version)
-
-
-def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_redownload_latest):
-    # Create the folder if it does not already exist
-    if not os.path.isdir(bowtie2_db):
-        try:
-            os.makedirs(bowtie2_db)
-        except EnvironmentError:
-            sys.exit("ERROR: Unable to create folder for database install: " + bowtie2_db)
-
-    # Check the directory permissions
-    if not os.access(bowtie2_db, os.W_OK):
-        sys.exit("ERROR: The directory is not writeable: " + bowtie2_db + ". "
-                 "Please modify the permissions.")
-
-    #Download the list of all the files in the Dropbox folder
-    list_file_path = os.path.join(bowtie2_db, "file_list.txt")
-    if not os.path.exists(list_file_path):
-        download(FILE_LIST, list_file_path)
-
-    if os.path.isfile(list_file_path):
-        with open(list_file_path) as f:
-            ls_f = dict( [row.strip().split() for row in f])
-
-    """ Check if the database is installed, if not download and install """
-    if index == 'latest':
-        index = resolve_latest_database(bowtie2_db, ls_f['mpa_latest'], force_redownload_latest)
-
-    if os.path.exists(os.path.join(bowtie2_db,'mpa_previous')):
-        with open(os.path.join(bowtie2_db,'mpa_previous')) as mpa_previous:
-            previous_db_version = ''.join([line.strip() for line in mpa_previous if not line.startswith('#')])
-    
-        if index != previous_db_version:
-            choice = ''
-            while choice.upper() in ['Y','N']:
-                choice = input('A newer version of the database ({}) is available. Do you want to download it and replace the current one ({})?\t[Y/N]'.format(index, previous_db_version))
-
-            if choice.upper() == 'N':
-                os.rename(os.path.join(bowtie2_db,'mpa_previous'),os.path.join(bowtie2_db,'mpa_latest'))
-                index = previous_db_version
-                
-    if len(glob(os.path.join(bowtie2_db, "*{}*".format(index)))) >= 7:
-        return index
-
-    # download the tar archive and decompress
-    sys.stderr.write("\nDownloading MetaPhlAn database\nPlease note due to "
-                     "the size this might take a few minutes\n")
-    download_unpack_tar(FILE_LIST, index, bowtie2_db, bowtie2_build, nproc)
-    sys.stderr.write("\nDownload complete\n")
-    return index
-
 def set_mapping_arguments(index, bowtie2_db):
     mpa_pkl = 'mpa_pkl'
     bowtie2db = 'bowtie2db'
@@ -624,7 +352,7 @@ def set_mapping_arguments(index, bowtie2_db):
     return (mpa_pkl, bowtie2db)
 
 
-def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, file_format="multifasta",
+def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, file_format="fasta",
                 exe=None, samout=None, min_alignment_len=None, read_min_len=0):
     # checking read_fastx.py
     read_fastx = "read_fastx.py"
@@ -661,7 +389,7 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
 
         bowtie2_cmd += ["-U", "-"]  # if not stat.S_ISFIFO(os.stat(fna_in).st_mode) else []
 
-        if file_format == "multifasta":
+        if file_format == "fasta":
             bowtie2_cmd += ["-f"]
 
         p = subp.Popen(bowtie2_cmd, stdout=subp.PIPE, stdin=readin.stdout)
@@ -1199,11 +927,6 @@ def main():
                              'set min_alignment_len to 100! If you do not like, rerun the command and set '
                              'min_alignment_len to a specific value.\n')
 
-    if pars['input_type'] == 'fastq':
-        pars['input_type'] = 'multifastq'
-    if pars['input_type'] == 'fasta':
-        pars['input_type'] = 'multifasta'
-
     # check for the mpa_pkl file
     if not os.path.isfile(pars['mpa_pkl']):
         sys.stderr.write("Error: Unable to find the mpa_pkl file at: " + pars['mpa_pkl'] +
@@ -1217,7 +940,7 @@ def main():
         ignore_markers = set()
 
     no_map = False
-    if pars['input_type'] == 'multifasta' or pars['input_type'] == 'multifastq':
+    if pars['input_type'] == 'fasta' or pars['input_type'] == 'fastq':
         bow = pars['bowtie2db'] is not None
 
         if not bow:
@@ -1233,7 +956,7 @@ def main():
             if bow and not pars['bowtie2out']:
                 if pars['inp'] and "," in  pars['inp']:
                     sys.stderr.write("Error! --bowtie2out needs to be specified when multiple "
-                                     "fastq or fasta files (comma separated) are provided\n")
+                                     "FASTQ or FASTA files (comma separated) are provided\n")
                     sys.exit(1)
                 fname = pars['inp']
                 if fname is None:
@@ -1284,7 +1007,6 @@ def main():
                 "--nreads parameter when running MetaPhlAn"
                 "\nExiting...\n\n" )
         sys.exit(1)
-
 
     map_out = []
     for marker,reads in sorted(markers2reads.items(), key=lambda pars: pars[0]):
@@ -1352,7 +1074,8 @@ def main():
                         add_repr = ''
                         if REPORT_MERGED and (clade, taxid) in mpa_pkl['merged_taxon']:
                             if pars['use_group_representative']:
-                                clade, taxid, _ = sorted(mpa_pkl['merged_taxon'][(clade, taxid)], key=lambda x:x[2], reverse=True)[0]
+                                if '_group' in clade:
+                                    clade, taxid, _ = sorted(mpa_pkl['merged_taxon'][(clade, taxid)], key=lambda x:x[2], reverse=True)[0]
                             else:
                                 add_repr = '#Additional species represented by this clade: {}'.format(','.join( [ n[0] for n in mpa_pkl['merged_taxon'][(clade, taxid)]] ))
                                 has_repr = True
