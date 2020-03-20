@@ -1,8 +1,0 @@
-__pypcache__
-*.pyc
-.idea/workspace.xml
-metaphlan_databases
-test
-metaphlan_bioconda
-*.tar.gz
-.vscode
