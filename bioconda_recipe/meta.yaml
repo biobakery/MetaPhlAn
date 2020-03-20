@@ -6,11 +6,11 @@ package:
   version: {{ version }}
 
 source:
-  # url: https://github.com/biobakery/MetaPhlAn/archive/{{version}}.tar.gz
-  # sha256: 6249bf67f9e5a1a1264020bb0de689a17402606ada8134fb09ab416981d4a48b
+  url: https://github.com/biobakery/MetaPhlAn/archive/{{version}}.tar.gz
+  sha256: 3a86b7010f0b8e006ecb536fb56e85ebd1e7665360adb7ef840fdfd7108c3594
   # git_url: https://github.com/biobakery/MetaPhlAn.git
-  # git_rev: 19b67841cc78bb7f01e67b3eb0eadc0898e4fa9e
-  path: ..
+  # git_rev: 73ecd52
+  # path: ..
 
 build:
   noarch: python
@@ -48,6 +48,10 @@ test:
     - extract_markers.py -h
     - merge_metaphlan_tables.py -h
     - read_fastx.py -h
+    - add_metadata_tree.py -h
+    - plot_tree_graphlan.py -h
+    - sample2markers.py -h
+    - strain_transmission.py -h
 
 about:
   home: https://github.com/biobakery/metaphlan
