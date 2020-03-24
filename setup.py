@@ -6,7 +6,7 @@ from urllib.request import urlretrieve
 
 from metaphlan import download_unpack_zip
 
-install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'requests', 'dendropy', 'pysam']
+install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'requests', 'dendropy', 'pysam', 'cython']
 setup_requires = ['numpy', 'cython']
 
 if sys.version_info[0] < 3:
