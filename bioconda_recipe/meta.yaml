@@ -9,7 +9,7 @@ source:
   # url: https://github.com/biobakery/MetaPhlAn/archive/{{version}}.tar.gz
   # sha256: 3a86b7010f0b8e006ecb536fb56e85ebd1e7665360adb7ef840fdfd7108c3594
   # git_url: https://github.com/biobakery/MetaPhlAn.git
-  # git_rev: 73ecd52
+  # git_rev: 49b928cfd88494412dc4a3d929d201f16f614cb1
   path: ..
 
 build:
@@ -19,14 +19,13 @@ build:
 requirements:
   host:
     - python >=3
-    - pip
+    - setuptools
     - cython
     - numpy
   run:
     - python >=3
-    - bowtie2 >=2.3.2
+    - bowtie2 >=2.0.0
     - dendropy
-    - cython
     - numpy
     - biom-format
     - matplotlib-base
@@ -37,9 +36,9 @@ requirements:
     - requests
     - blast >=2.6.0
     - muscle >=3.8.1551
-    - pysam >=0.8.3
+    - pysam
     - raxml >=8.2.10
-    - samtools >=0.1.19,<1.0
+    - samtools >=1.9
 
 test:
   commands:
