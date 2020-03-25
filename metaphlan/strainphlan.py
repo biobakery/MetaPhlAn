@@ -10,7 +10,7 @@ __date__ = '21 Feb 2020'
 
 import sys
 from .utils.util_fun import error
-
+from .utils import *
 if sys.version_info[0] < 3:
     error("StrainPhlAn " + __version__ + " requires Python 3, your current Python version is {}.{}.{}"
                     .format(sys.version_info[0], sys.version_info[1], 

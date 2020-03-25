@@ -18,9 +18,9 @@ if sys.version_info[0] < 3:
 import os, time, shutil, pickle
 import subprocess as sb
 import argparse as ap
+from cmseq import cmseq
 from .external_exec import samtools_sam_to_bam, samtools_sort_bam_v1, decompress_bz2
 from .util_fun import info, optimized_dump, get_breath
-from .cmseq import cmseq
 from .parallelisation import execute_pool
 
 """
