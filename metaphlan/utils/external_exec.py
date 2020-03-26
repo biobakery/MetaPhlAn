@@ -8,7 +8,10 @@ __date__ = '21 Feb 2020'
 
 import os, sys, re, shutil
 import subprocess as sb
-from .util_fun import info, error
+try:
+    from .util_fun import info, error
+except ImportError:
+    from util_fun import info, error
 
 PHYLOPHLAN_PATH = str(os.path.dirname(os.path.abspath(sys.argv[0])))+"/utils/phylophlan/"
 

@@ -8,7 +8,10 @@ __version__ = '3.0'
 __date__ = '21 Feb 2020'
 
 import sys
-from .util_fun import error
+try:
+    from .util_fun import info, error
+except ImportError:
+    from util_fun import info, error
 
 if sys.version_info[0] < 3:
     error("StrainPhlAn " + __version__ + " requires Python 3, your current Python version is {}.{}.{}"
@@ -19,8 +22,13 @@ import pickle, bz2, os, time
 import subprocess as sb
 import argparse as ap
 from Bio import SeqIO, Seq, SeqRecord
-from .external_exec import generate_markers_fasta
-from .util_fun import info
+try:
+    from .external_exec import generate_markers_fasta
+except ImportError:
+    from external_exec import generate_markers_fasta
+
+DEFAULT_DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+    "../metaphlan_databases/mpa_v30_CHOCOPhlAn_201901.pkl")
 
 """
 Reads and parses the command line arguments of the script.
@@ -29,7 +37,7 @@ Reads and parses the command line arguments of the script.
 """
 def read_params():
     p = ap.ArgumentParser(description="")
-    p.add_argument('-d', '--database', type=str, default=None,
+    p.add_argument('-d', '--database', type=str, default=DEFAULT_DATABASE,
                    help="The input MetaPhlAn dtabase")
     p.add_argument('-c', '--clade', type=str, default=None,
                    help="The clades to investigate")
@@ -45,10 +53,7 @@ Checks the mandatory command line arguments of the script.
 :returns: the checked args
 """
 def check_params(args):
-    if not args.database:
-        error('-d (or --database) must be specified', exit=True, 
-            init_new_line=True)
-    elif not args.clade:
+    if not args.clade:
         error('-c (or --clade) must be specified', exit=True, 
             init_new_line=True)
     elif not args.output_dir:

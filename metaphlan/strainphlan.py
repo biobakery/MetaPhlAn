@@ -9,8 +9,10 @@ __date__ = '21 Feb 2020'
 
 
 import sys
-from .utils.util_fun import error
-from .utils import *
+try:
+    from .utils import *
+except ImportError:
+    from utils import *
 if sys.version_info[0] < 3:
     error("StrainPhlAn " + __version__ + " requires Python 3, your current Python version is {}.{}.{}"
                     .format(sys.version_info[0], sys.version_info[1], 
@@ -24,6 +26,9 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 
+DEFAULT_DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+    "metaphlan_databases/mpa_v30_CHOCOPhlAn_201901.pkl")
+
 # Regular expression to remove comments: \n\"\"\"[^"]+\n\"\"\"
 
 """
@@ -33,7 +38,7 @@ Reads and parses the command line arguments of the script.
 """
 def read_params():
     p = ap.ArgumentParser(description="")
-    p.add_argument('-d', '--database', type=str, default=None,
+    p.add_argument('-d', '--database', type=str, default=DEFAULT_DATABASE,
                    help="The input MetaPhlAn " + __version__ + " database")
     p.add_argument('-m', '--clade_markers', type=str, default=None,
                    help="The clade markers as FASTA file")
@@ -83,19 +88,9 @@ Checks the mandatory command line arguments of the script.
 :returns: the checked args
 """
 def check_params(args):
-    if args.print_clades_only and not args.database:
-        error('-d (or --database) must be specified', exit=True, 
-            init_new_line=True)
     if args.print_clades_only and args.clade_markers:
         error('-m (or --clade_markers) cannot be specified together with --print_clades_only', 
             exit=True, init_new_line=True)
-    elif not (args.database or args.clade_markers):
-        error('-d (or --database) or -m (or --clade_markers) must be specified', 
-            exit=True, init_new_line=True)
-    elif args.database and args.clade_markers:
-        error('-d (or --database) and -m (or --clade_markers) can '+
-            'not be specified at same time', exit=True, 
-            init_new_line=True)
     elif not args.samples:
         error('-s (or --samples) must be specified', exit=True, 
             init_new_line=True)
@@ -284,7 +279,7 @@ a threhold, if not, removes the marker.
 :returns: the filtered markers matrix
 """
 def clean_markers_matrix(markers_matrix, samples_with_n_markers, 
-    marker_in_n_samples):    
+    marker_in_n_samples, messages = True):    
     # Checks if the percentage of markers of a sample sample reachs a threshold, 
     # if not, removes the sample    
     cleaned_markers_matrix = []
@@ -299,8 +294,11 @@ def clean_markers_matrix(markers_matrix, samples_with_n_markers,
 
     # Checks how many samples were deleted
     if len(cleaned_markers_matrix) < 4:
-        error("Phylogeny can not be inferred. Too many samples were discarded", 
-            exit=True, init_new_line=True) 
+        if messages:
+            error("Phylogeny can not be inferred. Too many samples were discarded", 
+                exit=True, init_new_line=True) 
+        else:
+            return []
 
     # Checks if the percentage of samples that contain a marker reachs a threhold,
     # if not, removes the marker
@@ -316,9 +314,29 @@ def clean_markers_matrix(markers_matrix, samples_with_n_markers,
                 counter += 1
 
     # Checks how many markers were deleted
-    if sum(list(cleaned_markers_matrix[0].values())[1:]) < samples_with_n_markers:
-        error("Phylogeny can not be inferred. Too many markers were discarded", 
-            exit=True, init_new_line=True) 
+    if len(list(cleaned_markers_matrix[0].values())[1:]) < samples_with_n_markers:        
+        if messages:
+            error("Phylogeny can not be inferred. Too many markers were discarded", 
+                exit=True, init_new_line=True) 
+        else:
+            return []
+
+    # Checks again if the percentage of markers of a sample sample is at least 1, 
+    # if not, removes the sample  
+    to_remove = []
+    for m in cleaned_markers_matrix:
+        if sum(list(m.values())[1:]) < 1:
+            to_remove.append(m)
+    for r in to_remove:
+        cleaned_markers_matrix.remove(r)
+
+    # Checks again how many samples were deleted
+    if len(cleaned_markers_matrix) < 4:        
+        if messages:
+            error("Phylogeny can not be inferred. No enough markers were kept for the samples", 
+                exit=True, init_new_line=True)
+        else:
+            return []
 
     return cleaned_markers_matrix
 
@@ -645,45 +663,55 @@ Prints the clades detected in the reconstructed markers
     samples_to_markers.py
 :param samples_with_n_markers: threshold defining the minimun number of markers 
     to keep a main sample
+:param marker_in_n_samples: threshold defining the minimum percentage of samples
+    to keep a marker
 """
-def print_clades(database, samples, samples_with_n_markers):
+def print_clades(database, samples, samples_with_n_markers, marker_in_n_samples):
+    sample_id = 0
+    markers2species = dict()
+    species2markers = dict()
+    species_markers_matrix = dict()
+    species2samples = dict()
+
     info('Loading MetaPhlan '+ __version__ + ' database...', init_new_line=True)
     db = pickle.load(bz2.BZ2File(database))
-    markers2species = dict()
     for marker in db['markers']:
         species = db['markers'][marker]['clade']
-        markers2species.update({marker: species})
+        markers2species[marker] = species
+        if not species in species2markers:
+            species2markers[species] = list()
+        species2markers[species].append(marker)
     info('Done.',init_new_line=True)
-    info('Detecting clades...', init_new_line=True)
-    species2samples = dict()
+
+    info('Detecting clades...', init_new_line=True)     
     for sample_path in samples:
-        species_in_sample = dict()
         if os.path.splitext(sample_path)[1] == ".bz2":
             sample = pickle.load(bz2.BZ2File(sample_path))
         else:
             sample = pickle.load(open(sample_path, "rb"))
         for r in sample:
             if r['marker'] in markers2species:
-                species = markers2species[r['marker']]            
-                if not species in species_in_sample:
-                    species_in_sample.update({species:1})
-                else:
-                    c = species_in_sample[species] + 1
-                    species_in_sample.update({species:c})
-        for species in species_in_sample:
-            if species_in_sample[species] >= samples_with_n_markers:
-                if not species in species2samples:
-                    species2samples.update({species: 1})
-                else:
-                    c = species2samples[species] + 1
-                    species2samples.update({species:c})
-    sorted_species2samples = collections.OrderedDict(sorted(species2samples.items(), 
-        key=lambda kv: kv[1], reverse=True))
+                species = markers2species[r['marker']]
+                if species not in species_markers_matrix:
+                    species_markers_matrix[species] = list()
+                    for sp in samples:
+                        markers = {"sample": sp}
+                        for m in species2markers[species]:
+                            markers.update({m : 0})
+                        species_markers_matrix[species].append(markers)
+                species_markers_matrix[species][sample_id][r['marker']] = 1
+        sample_id += 1  
+    for species in species_markers_matrix:    
+        cleaned_markers_matrix = clean_markers_matrix(species_markers_matrix[species], samples_with_n_markers, marker_in_n_samples, False)
+        if len(cleaned_markers_matrix) >= 4:
+            species2samples[species] = len(cleaned_markers_matrix)
     info('Done.',init_new_line=True)
+
     info('Detected clades: ', init_new_line=True)
+    sorted_species2samples = collections.OrderedDict(sorted(species2samples.items(), key=lambda kv: kv[1], reverse=True))
     for species in sorted_species2samples:
-        if species2samples[species] >= 4:            
-            info('\t' + species + ': in ' + str(species2samples[species]) + ' samples.', init_new_line=True)
+        info('\t' + species + ': in ' + str(sorted_species2samples[species]) + ' samples.', init_new_line=True)
+    info('Done.',init_new_line=True) 
 
 
 """
@@ -717,7 +745,7 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
     marker_in_n_samples, secondary_samples_with_n_markers, phylophlan_mode, 
     phylophlan_configuration, mutation_rates, print_clades_only, nprocs):
     if print_clades_only:
-        print_clades(database, samples, samples_with_n_markers)
+        print_clades(database, samples, samples_with_n_markers, marker_in_n_samples)
     else:
         info("Creating temporary directory...", init_new_line=True)
         tmp_dir = output_dir+'tmp/'
