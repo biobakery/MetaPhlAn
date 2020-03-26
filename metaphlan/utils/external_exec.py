@@ -13,7 +13,7 @@ try:
 except ImportError:
     from util_fun import info, error
 
-PHYLOPHLAN_PATH = str(os.path.dirname(os.path.abspath(sys.argv[0])))+"/utils/phylophlan/"
+PHYLOPHLAN_PATH = str(os.path.dirname(os.path.abspath(__file__)))+"/phylophlan/"
 
 #ToDo: We have to recover the info/errors from the std_out and std_err
 """
