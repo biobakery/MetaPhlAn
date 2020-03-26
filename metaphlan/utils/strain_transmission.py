@@ -5,8 +5,13 @@ __date__ = '17 Mar 2020'
 
 import os, time, sys
 import argparse as ap
-from .util_fun import openw, info, error
-from .pyphlan import PpaTree, dist_matrix
+
+try:
+    from .util_fun import openw, info, error
+    from .pyphlan import PpaTree, dist_matrix
+except ImportError:
+    from util_fun import openw, info, error
+    from pyphlan import PpaTree, dist_matrix
 
 
 DISTRIBUTION_THRESHOLD = 0.01

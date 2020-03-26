@@ -6,7 +6,10 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
 __version__ = '3.0'
 __date__ = '21 Feb 2020'
 
-from .util_fun import error
+try:
+    from .util_fun import error
+except ImportError:
+    from util_fun import error
 from multiprocessing import Event, Pool
 
 CHUNKSIZE = 1

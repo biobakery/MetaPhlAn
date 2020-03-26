@@ -7,7 +7,7 @@ __version__ = '3.0'
 __date__ = '21 Feb 2020'
 
 
-import os, sys, re, pickletools, pickle, time
+import os, sys, re, pickletools, pickle, time, bz2, gzip
 from hashlib import sha256
 
 """
