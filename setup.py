@@ -6,8 +6,7 @@ from urllib.request import urlretrieve
 
 from metaphlan import download_unpack_zip
 
-install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'requests', 'dendropy', 'pysam', 'cmseq @ git+https://github.com/SegataLab/cmseq.git'],
-setup_requires = ['numpy', 'cython']
+install_requires = ['numpy', 'h5py', 'biom-format @ git+https://github.com/fbeghini/biom-format', 'biopython', 'pandas', 'scipy', 'requests', 'dendropy', 'pysam', 'cmseq @ git+https://github.com/SegataLab/cmseq', 'phylophlan @ git+https://github.com/biobakery/phylophlan@dev'],
 
 if sys.version_info[0] < 3:
     sys.stdout.write('MetaPhlAn requires Python 3 or higher. Please update you Python installation')
@@ -39,7 +38,5 @@ setuptools.setup(
     },
     description='MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea and Eukaryotes) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.',
     long_description=open('README.md').read(),
-    install_requires=install_requires,
-    setup_requires = setup_requires
-    # dependency_links=['git+https://github.com/SegataLab/cmseq.git@862dbd4#egg=cmseq-1.0.0']
+    install_requires=install_requires
 )
