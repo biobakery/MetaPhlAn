@@ -541,11 +541,11 @@ Executes PhyloPhlAn2 to compute phylogeny
 """
 def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, clade, 
     marker_in_n_samples, phylophlan_mode, phylophlan_configuration, mutation_rates, nprocs):    
-    info("\tCreating PhyloPhlAn2 database...", init_new_line=True)
+    info("\tCreating PhyloPhlAn 3.0 database...", init_new_line=True)
     create_phylophlan_db(tmp_dir, clade)
     info("\tDone.", init_new_line=True)
     if not phylophlan_configuration:     
-        info("\tGenerating PhyloPhlAn2 configuration file...", init_new_line=True)
+        info("\tGenerating PhyloPhlAn 3.0 configuration file...", init_new_line=True)
         conf = get_phylophlan_configuration(phylophlan_mode)
         phylophlan_configuration = generate_phylophlan_config_file(tmp_dir, conf)
         info("\tDone.", init_new_line=True)   
@@ -647,12 +647,12 @@ def write_info(cleaned_markers_matrix, num_markers_for_clade, clade, output_dir,
             str(secondary_samples_with_n_markers) +
             "\n\tMinimum percentage of samples to keep a marker: "+ str(marker_in_n_samples) +
             "\nNumber of markers selected after filtering: "+str(len(cleaned_markers_matrix[0].keys())-1) +
-            "\nNumber of main samples after filtering:: "+str(f_p_samples) +
-            "\nNumber of secondary samples after filtering:: " + str(f_s_samples) +
-            "\nNumber of main references after filtering:: " + str(f_p_references) +            
-            "\nNumber of secondary references after filtering:: " + str(f_s_references) +
+            "\nNumber of main samples after filtering: "+str(f_p_samples) +
+            "\nNumber of secondary samples after filtering: " + str(f_s_samples) +
+            "\nNumber of main references after filtering: " + str(f_p_references) +            
+            "\nNumber of secondary references after filtering: " + str(f_s_references) +
             "\nPhyloPhlan phylogenetic precision mode: "+ phylophlan_mode +
-            "\nNumber of processes used: "+ str(nprocs)) 
+            "\nNumber of processes used: "+ str(nprocs)) + "\n" 
 
 
 """
@@ -778,7 +778,7 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
         num_markers_for_clade = calculate_polimorfic_rates(samples+secondary_samples, clade_markers_file, 
             clade, output_dir)
         info("Done.", init_new_line=True)   
-        info("Executing PhyloPhlAn2...", init_new_line=True)
+        info("Executing PhyloPhlAn 3.0...", init_new_line=True)
         compute_phylogeny(samples_as_markers_dir, len(cleaned_markers_matrix), tmp_dir, 
             output_dir, clade, marker_in_n_samples, phylophlan_mode, phylophlan_configuration,
             mutation_rates, nprocs)
