@@ -13,9 +13,6 @@ try:
 except ImportError:
     from util_fun import info, error
 
-PHYLOPHLAN_PATH = str(os.path.dirname(os.path.abspath(__file__)))+"/phylophlan/"
-
-#ToDo: We have to recover the info/errors from the std_out and std_err
 """
 Executes a command
 
@@ -30,7 +27,10 @@ def execute(cmd):
     if cmd['stdout']:
         out_f = open(cmd['stdout'], 'w')
 
-    sb.run(cmd['command_line'], stdin=inp_f, stdout=out_f, stderr=sb.DEVNULL)
+    exec_res = sb.run(cmd['command_line'], stdin=inp_f, stdout=out_f)
+    if exec_res.returncode == 1:
+        error("An error was ocurred executing a external tool, exiting...", 
+            init_new_line=True, exit=True) 
 
     if cmd['stdin']:
         inp_f.close()
@@ -92,7 +92,7 @@ Creates the PhyloPhlAn database
 def create_phylophlan_db(output_dir, clade):
     markers = output_dir+clade
     params = {
-        "program_name" : PHYLOPHLAN_PATH+"phylophlan2_setup_database.py",
+        "program_name" :"phylophlan_setup_database",
         "params" : "-d "+clade+" -e fna -t n --overwrite",
         "input" : "-i",
         "command_line" : "#program_name# #input# #params#"
@@ -110,7 +110,7 @@ Generates the PhyloPhlan configuration file
 def generate_phylophlan_config_file(output_dir, configuration):
     conf_file = output_dir+"phylophlan.cfg"
     params = {
-        "program_name" : PHYLOPHLAN_PATH+"phylophlan2_write_config_file.py",
+        "program_name" : "phylophlan_write_config_file",
         "params" : "-d n --db_dna makeblastdb --map_dna "+configuration['map']+
             " --msa "+configuration['aligner']+" --tree1 "+configuration['tree1']+
             configuration['tree2'],
@@ -122,10 +122,10 @@ def generate_phylophlan_config_file(output_dir, configuration):
 
 
 """
-Executes PhyloPhlAn2
+Executes PhyloPhlAn
 
 :param samples_markers_dir: the temporal samples markers directory
-:param conf_file: the PhyloPhlAn2 configuration file
+:param conf_file: the PhyloPhlAn configuration file
 :param min_entries: the minimun number of entries to consider a good marker 
 :param tmp_dir: the temporal output directory
 :param output_dir: the output_directory
@@ -142,7 +142,7 @@ def execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, out
     if mutation_rates:
         accuracy = accuracy + " --mutation_rates"
     params = {
-        "program_name" : PHYLOPHLAN_PATH+"phylophlan2.py",
+        "program_name" : "phylophlan",
         "params" : "-d "+clade+" --databases_folder "+tmp_dir+" -t n -f "+conf_file+
             " --diversity low"+accuracy+" --genome_extension fna"+
             " --force_nucleotides --min_num_entries "+str(min_entries),
@@ -338,3 +338,4 @@ def compose_command(params, check=False, input_file=None, database=None, output_
 
     return {'command_line': [str(a).replace('#', ' ') for a in re.sub(' +', ' ', command_line.replace('"', '')).split(' ') if a],
             'stdin': stdin, 'stdout': stdout, 'env': environment, 'output_path': r_output_path, 'output_file': r_output_file}
+
