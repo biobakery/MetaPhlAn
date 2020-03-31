@@ -154,9 +154,8 @@ decompressed file format
 :returns: the decompressed file and the decompressed file format
 """
 def decompress_bz2_file(input, output_dir):
-    f, _ = os.path.splitext(input)
     decompressed_file = decompress_bz2(input, output_dir)
-    _, e = os.path.splitext(f)
+    _, e = os.path.splitext(decompressed_file)
     return decompressed_file, e
 
 
