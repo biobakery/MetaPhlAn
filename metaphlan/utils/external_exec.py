@@ -171,8 +171,12 @@ def decompress_bz2(input, output_dir):
         "input" : "-cdk",
         "command_line" : "#program_name# #input# > #output#"
     }      
-    execute(compose_command(params, input_file=input, output_file=output_dir+n))
-    return output_dir+n
+    decompressed_file = output_dir + n 
+    execute(compose_command(params, input_file=input, output_file=decompressed_file))
+    if decompressed_file.endswith('_sam'):
+        os.rename(decompressed_file, decompressed_file[:-4] + '.sam')
+        decompressed_file = decompressed_file[:-4] + '.sam'
+    return decompressed_file
 
 
 """
