@@ -38,58 +38,15 @@ If you use StrainPhlAn, please cite the MetaPhlAn2 paper and the following Strai
 -------------
 
 ## Installation
-The best way to install MetaPhlAn is through conda:
+The best way to install MetaPhlAn is through conda via the Bioconda channel. If you have not configured you Anaconda installation in order to fetch packages from Bioconda, please follow [these steps](https://bioconda.github.io/user/install.html#set-up-channels) in order to setup the channels.
+
+You can install MetaPhlAn by running
 
 ```
 $ conda install -c bioconda metaphlan
 ```
 
-It is recommended to create an isolated conda environment and install MetaPhlAn2 into it. 
-
-```
-$ conda create --name mpa -c bioconda metaphlan
-```
-
-This allow to have the correct version of all the dependencies isolated from the system's python installation.
-
-Before using MetaPhlAn, you should activate the `mpa` environment:
-
-```
-$ conda activate mpa
-```
-
-You can also install and run MetaPhlAn2 through Docker
-
-```
-$ docker pull quay.io/biocontainers/metaphlan:3.0
-```
-
-Alternatively, you can **manually download** from [GitHub](https://github.com/biobakery/MetaPhlAn/archive/3.0.zip) or **clone the repository** using the following command 
-
-```
-$ git clone https://github.com/biobakery/MetaPhlAn.git
-``` 
-
-and install MetaPhlAn by running 
-
-```console
-$ pip install .
-```
-
-If you choose this way, **you'll need to install manually all the dependencies!**
-
-
-MetaPhlAn needs the clade markers and the database to be downloaded locally. To obtain them:
-
-```
-$ metaphlan --install 
-```
-
-By default, the latest MetaPhlAn2 database is downloaded and built. You can download a specific version with the `--index` parameter
-
-```
-$ metaphlan --install --index mpa_v296_CHOCOPhlAn_201901
-```
+For installing it from the source code and for further installation instructions, please see the Wiki at the [Installation](https://github.com/biobakery/MetaPhlAn/wiki/MetaPhlAn-3.0#installation) paragraph.
 
 -------------
 
