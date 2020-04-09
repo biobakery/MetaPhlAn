@@ -276,7 +276,7 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
     
         if index != previous_db_version:
             choice = ''
-            while choice.upper() in ['Y','N']:
+            while choice.upper() not in ['Y','N']:
                 choice = input('A newer version of the database ({}) is available. Do you want to download it and replace the current one ({})?\t[Y/N]'.format(index, previous_db_version))
 
             if choice.upper() == 'N':
