@@ -1045,7 +1045,7 @@ def main():
                            "@Ranks:superkingdom|phylum|class|order|family|genus|species|strain\n"
                            "@@TAXID\tRANK\tTAXPATH\tTAXPATHSN\tPERCENTAGE\n".format(pars["sample_id"],__version__))
             elif not pars['legacy_output']:
-                outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
+                outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\tadditional_species\n')
 
             cl2ab, _, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
@@ -1078,12 +1078,14 @@ def main():
                                 if '_group' in clade:
                                     clade, taxid, _ = sorted(mpa_pkl['merged_taxon'][(clade, taxid)], key=lambda x:x[2], reverse=True)[0]
                             else:
-                                add_repr = '#Additional species represented by this clade: {}'.format(','.join( [ n[0] for n in mpa_pkl['merged_taxon'][(clade, taxid)]] ))
+                                add_repr = '{}'.format(','.join( [ n[0] for n in mpa_pkl['merged_taxon'][(clade, taxid)]] ))
                                 has_repr = True
                         if not pars['legacy_output']:
                             outf.write( "\t".join( [clade, 
                                                     taxid, 
-                                                    str(relab*fraction_mapped_reads), add_repr] ) + "\n" )
+                                                    str(relab*fraction_mapped_reads), 
+                                                    add_repr
+                                                ] ) + "\n" )
                         else:
                             outf.write( "\t".join( [clade, 
                                                     str(relab*fraction_mapped_reads)] ) + "\n" )
