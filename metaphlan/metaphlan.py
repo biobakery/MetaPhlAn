@@ -7,6 +7,11 @@ __version__ = '3.0'
 __date__ = '20 Mar 2020'
 
 import sys
+try:
+    from metaphlan import mybytes, plain_read_and_split, plain_read_and_split_line, read_and_split, read_and_split_line, check_and_install_database, remove_prefix
+except ImportError:
+    sys.exit("CRITICAL ERROR: Unable to find the MetaPhlAn python package. Please check your install.") 
+
 if float(sys.version_info[0]) < 3.0:
     sys.stderr.write("MetaPhlAn requires Python 3, your current Python version is {}.{}.{}\n"
                     .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
@@ -54,8 +59,6 @@ try:
 except ImportError:
     sys.stderr.write("Warning! json python library not detected!"
                      "\n Exporting to biom format will not work!\n")
-
-from metaphlan import *
 
 # get the directory that contains this script
 metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
@@ -706,7 +709,7 @@ class TaxTree:
 
     def markers2counts( self ):
         m2c = {}
-        for k,v in self.all_clades.items():
+        for _ ,v in self.all_clades.items():
             for m,c in v.markers2nreads.items():
                 m2c[m] = c
         return m2c
@@ -856,7 +859,7 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
                   for (abundance, clade) in clades)
 
     # unpack that tuple here to stay under 80 chars on a line
-    data, clade_names, clade_ids = zip(*packed)
+    data, clade_names, _ = zip(*packed)
     # biom likes column vectors, so we give it an array like this:
     # np.array([a],[b],[c])
     data = np.array(data)
@@ -1040,10 +1043,10 @@ def main():
 
         elif pars['t'] == 'rel_ab':
             if pars['CAMI_format_output']:
-                outf.write("@SampleID:{}\n"
-                           "@Version:0.10.0\n"
-                           "@Ranks:superkingdom|phylum|class|order|family|genus|species|strain\n"
-                           "@@TAXID\tRANK\tTAXPATH\tTAXPATHSN\tPERCENTAGE\n".format(pars["sample_id"],__version__))
+                outf.write('''@SampleID:{}\n
+                           @Version:0.10.0\n
+                           @Ranks:superkingdom|phylum|class|order|family|genus|species|strain\n
+                           @@TAXID\tRANK\tTAXPATH\tTAXPATHSN\tPERCENTAGE\n'''.format(pars["sample_id"]))
             elif not pars['legacy_output']:
                 outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\tadditional_species\n')
 
@@ -1170,7 +1173,7 @@ def main():
 
         elif pars['t'] == 'clade_specific_strain_tracker':
             cl2pr = tree.clade_profiles( None, get_all = True  )
-            cl2ab, _ = tree.relative_abundances( None )
+            cl2ab, _, _ = tree.relative_abundances( None )
             strout = []
             for clade,v in cl2pr.items():
                 if clade.endswith(pars['clade']) and cl2ab[clade]*100.0 < pars['min_ab']:
