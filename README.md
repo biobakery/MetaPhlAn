@@ -1,5 +1,5 @@
 # MetaPhlAn: Metagenomic Phylogenetic Analysis
-
+![Build MetaPhlAn package](https://github.com/biobakery/MetaPhlAn/workflows/Build%20MetaPhlAn%20package/badge.svg?branch=3.0)
 ## What's new in version 3
 * New MetaPhlAn marker genes extracted with a newer version of ChocoPhlAn based on UniRef
 * Estimation of metagenome composed by unknown microbes with parameter `--unknown_estimation`
