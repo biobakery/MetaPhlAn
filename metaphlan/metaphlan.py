@@ -483,14 +483,14 @@ class TaxClade:
         return terms
 
     def get_full_taxids( self ):
+        fullname = ['']
         if self.tax_id:
             fullname = [self.tax_id]
-            cl = self.father
-            while cl:
-                fullname = [cl.tax_id] + fullname
-                cl = cl.father
-            return "|".join(fullname[1:])
-        return ""
+        cl = self.father
+        while cl:
+            fullname = [cl.tax_id] + fullname
+            cl = cl.father
+        return "|".join(fullname[1:])
 
     def get_full_name( self ):
         fullname = [self.name]
@@ -763,10 +763,11 @@ class TaxTree:
             tot_reads += clade.compute_mapped_reads()
 
         for clade_label, clade in self.all_clades.items():
-            nreads = clade.nreads
-            clade_label = clade.get_full_name()
-            tax_id = clade.get_full_taxids()
-            clade2est_nreads[(clade_label, tax_id)] = nreads
+            if clade.name[:3] != 't__':
+                nreads = clade.nreads
+                clade_label = clade.get_full_name()
+                tax_id = clade.get_full_taxids()
+                clade2est_nreads[(clade_label, tax_id)] = nreads
 
         ret_d = dict([( tax, float(abundance) / tot_ab if tot_ab else 0.0) for tax, abundance in clade2abundance.items()])
 
