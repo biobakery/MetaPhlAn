@@ -354,7 +354,6 @@ def set_mapping_arguments(index, bowtie2_db):
 
     return (mpa_pkl, bowtie2db)
 
-
 def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, file_format="fasta",
                 exe=None, samout=None, min_alignment_len=None, read_min_len=0):
     # checking read_fastx.py
@@ -625,7 +624,6 @@ class TaxClade:
             ret += c.get_all_abundances()
         return ret
 
-
 class TaxTree:
     def __init__( self, mpa, markers_to_ignore = None ): #, min_cu_len ):
         self.root = TaxClade( "root", 0)
@@ -823,7 +821,6 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
 
     return (markers2reads, n_metagenome_reads)
 
-
 def maybe_generate_biom_file(tree, pars, abundance_predictions):
     json_key = "MetaPhlAn"
 
@@ -909,11 +906,11 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
 
     return True
 
-
 def main():
     ranks2code = { 'k' : 'superkingdom', 'p' : 'phylum', 'c':'class',
                    'o' : 'order', 'f' : 'family', 'g' : 'genus', 's' : 'species'}
     pars = read_params(sys.argv)
+    ESTIMATE_UNK = pars['unknown_estimation']
 
     # check if the database is installed, if not then install
     pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'])
@@ -996,6 +993,7 @@ def main():
         pars['inp'] = pars['bowtie2out'] # !!!
     with bz2.BZ2File( pars['mpa_pkl'], 'r' ) as a:
         mpa_pkl = pickle.load( a )
+
     REPORT_MERGED = mpa_pkl.get('merged_taxon',False)
     tree = TaxTree( mpa_pkl, ignore_markers )
     tree.set_min_cu_len( pars['min_cu_len'] )
@@ -1005,12 +1003,13 @@ def main():
     if no_map:
         os.remove( pars['inp'] )
 
-    if not n_metagenome_reads and not pars['nreads']:
-        sys.stderr.write(
-                "Please provide the size of the metagenome using the "
-                "--nreads parameter when running MetaPhlAn"
-                "\nExiting...\n\n" )
-        sys.exit(1)
+    if ESTIMATE_UNK and pars['input_type'] == 'sam':
+        if not n_metagenome_reads and not pars['nreads']:
+            sys.stderr.write(
+                    "Please provide the size of the metagenome using the "
+                    "--nreads parameter when running MetaPhlAn using SAM files as input"
+                    "\nExiting...\n\n" )
+            sys.exit(1)
 
     map_out = []
     for marker,reads in sorted(markers2reads.items(), key=lambda pars: pars[0]):
@@ -1028,38 +1027,43 @@ def main():
     if pars['output'] is None and pars['output_file'] is not None:
         pars['output'] = pars['output_file']
 
-    with (open(pars['output'],"w") if pars['output'] else sys.stdout) as outf:
-        if not pars['legacy_output']:
+    out_stream = open(pars['output'],"w") if pars['output'] else sys.stdout
+    MPA2_OUTPUT = pars['legacy_output']
+    CAMI_OUTPUT = pars['CAMI_format_output']
+
+    with out_stream as outf:
+        if not MPA2_OUTPUT:
             outf.write('#{}\n'.format(pars['index']))
             outf.write('#{}\n'.format(' '.join(sys.argv)))
 
-        if not pars['CAMI_format_output']:
+        if not CAMI_OUTPUT:
             outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
         
         if pars['t'] == 'reads_map':
-            if not pars['legacy_output']:
+            if not MPA2_OUTPUT:
                outf.write('#read_id\tNCBI_taxlineage_str\tNCBI_taxlineage_ids\n')
             outf.write( "\n".join( map_out ) + "\n" )
 
         elif pars['t'] == 'rel_ab':
-            if pars['CAMI_format_output']:
+            if CAMI_OUTPUT:
                 outf.write('''@SampleID:{}\n
                            @Version:0.10.0\n
                            @Ranks:superkingdom|phylum|class|order|family|genus|species|strain\n
                            @@TAXID\tRANK\tTAXPATH\tTAXPATHSN\tPERCENTAGE\n'''.format(pars["sample_id"]))
-            elif not pars['legacy_output']:
+            if not MPA2_OUTPUT:
                 outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\tadditional_species\n')
 
             cl2ab, _, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
 
-            fraction_mapped_reads = tot_nreads/float(n_metagenome_reads) if pars['unknown_estimation'] else 1.0
-            if fraction_mapped_reads > 1.0: fraction_mapped_reads = 1.0
+            # If the mapped reads are over-estimated, set the ratio at 1
+            fraction_mapped_reads = min(tot_nreads/float(n_metagenome_reads), 1.0) if ESTIMATE_UNK else 1.0
             
             outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid), relab in cl2ab.items() if relab > 0.0]
             has_repr = False
+            
             if outpred:
-                if pars['CAMI_format_output']:
+                if CAMI_OUTPUT:
                     for clade, taxid, relab in sorted(  outpred, reverse=True,
                                         key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
                         if taxid:
@@ -1068,7 +1072,7 @@ def main():
                             taxpathsh = '|'.join([remove_prefix(name) if '_unclassified' not in name else '' for name in clade.split('|')])
                             outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(relab*fraction_mapped_reads) ] ) + '\n' )
                 else:
-                    if pars['unknown_estimation']:
+                    if ESTIMATE_UNK:
                         outf.write( "\t".join( [    "UNKNOWN",
                                                     "-1",
                                                     str(round((1-fraction_mapped_reads)*100,5))]) + "\n" )
@@ -1083,7 +1087,7 @@ def main():
                             else:
                                 add_repr = '{}'.format(','.join( [ n[0] for n in mpa_pkl['merged_taxon'][(clade, taxid)]] ))
                                 has_repr = True
-                        if not pars['legacy_output']:
+                        if not MPA2_OUTPUT:
                             outf.write( "\t".join( [clade, 
                                                     taxid, 
                                                     str(relab*fraction_mapped_reads), 
@@ -1097,7 +1101,7 @@ def main():
                                      "An additional column listing the merged species is added to the MetaPhlAn output.\n"
                                     )
             else:
-                if not pars['legacy_output']:
+                if not MPA2_OUTPUT:
                     outf.write( "UNKNOWN\t-1\t100.0\n" )
                 else:
                     outf.write( "UNKNOWN\t100.0\n" )
@@ -1107,8 +1111,7 @@ def main():
             cl2ab, rr, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
 
-            fraction_mapped_reads = tot_nreads/float(n_metagenome_reads) if not pars['unknown_estimation'] else 1
-            if fraction_mapped_reads > 1.0: fraction_mapped_reads = 1.0
+            fraction_mapped_reads = min(tot_nreads/float(n_metagenome_reads), 1.0) if ESTIMATE_UNK else 1.0
             unmapped_reads = max(n_metagenome_reads - tot_nreads, 0)
 
             outpred = [(taxstr, taxid,round(relab*100.0*fraction_mapped_reads,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
@@ -1120,7 +1123,7 @@ def main():
                                             "relative_abundance",
                                             "coverage",
                                             "estimated_number_of_reads_from_the_clade" ]) +"\n" )
-                if not pars['unknown_estimation']:
+                if not ESTIMATE_UNK:
                     outf.write( "\t".join( [    "UNKNOWN",
                                                 "-1",
                                                 str(round((1-fraction_mapped_reads)*100,5)),
@@ -1136,7 +1139,7 @@ def main():
                                                 str( int( round( rr[(taxstr, taxid)][1], 0) )  if (taxstr, taxid) in rr else '-')       #estimated_number_of_reads_from_the_clade
                                                 ] ) + "\n" )
             else:
-                if not pars['legacy_output']:
+                if not MPA2_OUTPUT:
                     outf.write( "#estimated_reads_mapped_to_known_clades:0\n")
                     outf.write( "\t".join( [    "#clade_name",
                                                 "clade_taxid",
