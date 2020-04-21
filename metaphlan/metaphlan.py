@@ -1051,7 +1051,10 @@ def main():
                            @Ranks:superkingdom|phylum|class|order|family|genus|species|strain\n
                            @@TAXID\tRANK\tTAXPATH\tTAXPATHSN\tPERCENTAGE\n'''.format(pars["sample_id"]))
             if not MPA2_OUTPUT:
-                outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\tadditional_species\n')
+                if not pars['use_group_representative']:
+                    outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\tadditional_species\n')
+                else:
+                    outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
 
             cl2ab, _, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
