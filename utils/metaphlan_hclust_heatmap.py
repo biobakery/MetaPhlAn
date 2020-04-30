@@ -232,7 +232,7 @@ def heatmap_panel( fig, D, minv, maxv, idx1, idx2, cm_name, scale, cols, rows, l
                       cm._segmentdata['green'][0][1],
                       cm._segmentdata['blue'][0][1]   ]
     axmatrix = fig.add_axes(    [0.0,0.0,1.0,1.0],
-                                axisbg=bottom_col)
+                                facecolor=bottom_col)
     if any([c < 0.95 for c in bottom_col]):
         axmatrix.spines['right'].set_color('none')
         axmatrix.spines['left'].set_color('none')
