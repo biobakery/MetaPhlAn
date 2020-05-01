@@ -24,7 +24,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
-        sudo apt install bowtie2 muscle ncbi-blast+ raxml 
+        sudo apt install bowtie2 muscle ncbi-blast+ raxml python-numpy python-scipy
         pip install .
     - name: Test 
       run: |
