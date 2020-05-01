@@ -38,5 +38,6 @@ setuptools.setup(
     },
     description='MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea and Eukaryotes) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.',
     long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
     install_requires=install_requires
 )
