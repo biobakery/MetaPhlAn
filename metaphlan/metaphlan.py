@@ -1126,7 +1126,7 @@ def main():
                                             "relative_abundance",
                                             "coverage",
                                             "estimated_number_of_reads_from_the_clade" ]) +"\n" )
-                if not ESTIMATE_UNK:
+                if ESTIMATE_UNK:
                     outf.write( "\t".join( [    "UNKNOWN",
                                                 "-1",
                                                 str(round((1-fraction_mapped_reads)*100,5)),
