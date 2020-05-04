@@ -733,22 +733,23 @@ def download_unpack_tar(FILE_LIST, download_file_name, folder, bowtie2_build, np
         sys.exit("ERROR: The directory is not writeable: " + folder + ". "
                  "Please modify the permissions.")
 
-    #Download the list of all the files in the Dropbox folder
-    list_file_path = os.path.join(folder, "file_list.txt")
-    download(FILE_LIST, list_file_path)
-
-    if os.path.isfile(list_file_path):
-        with open(list_file_path) as f:
-            ls_f = dict( [row.strip().split() for row in f])
-
     tar_file = os.path.join(folder, "mpa_" + download_file_name + ".tar")
-    url_tar_file = ls_f["mpa_" + download_file_name + ".tar"]
-    download(url_tar_file, tar_file)
-
-    # download MD5 checksum
     md5_file = os.path.join(folder, "mpa_" + download_file_name + ".md5")
-    url_md5_file = ls_f["mpa_" + download_file_name + ".md5"]
-    download(url_md5_file, md5_file)
+    if not os.path.isfile(md5_file) or not os.path.isfile(tar_file):
+        #Download the list of all the files in the Dropbox folder
+        list_file_path = os.path.join(folder, "file_list.txt")
+        download(FILE_LIST, list_file_path)
+
+        if os.path.isfile(list_file_path):
+            with open(list_file_path) as f:
+                ls_f = dict( [row.strip().split() for row in f])
+
+        url_tar_file = ls_f["mpa_" + download_file_name + ".tar"]
+        download(url_tar_file, tar_file)
+
+        # download MD5 checksum
+        url_md5_file = ls_f["mpa_" + download_file_name + ".md5"]
+        download(url_md5_file, md5_file)
 
     md5_md5 = None
     md5_tar = None
