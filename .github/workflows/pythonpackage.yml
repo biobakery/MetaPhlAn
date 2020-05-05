@@ -18,13 +18,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.7
       uses: actions/setup-python@v1
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: 3.7
     - name: Install dependencies
       run: |
-        sudo apt install bowtie2 muscle ncbi-blast+ raxml python-numpy python-scipy
+        pip install numpy scipy cython
+        sudo apt install bowtie2 muscle ncbi-blast+ raxml
         pip install .
     - name: Test 
       run: |
