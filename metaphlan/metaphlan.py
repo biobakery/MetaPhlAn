@@ -310,7 +310,7 @@ def read_params(args):
 
     arg( '--legacy-output', action='store_true', help="Old MetaPhlAn2 two columns output\n")
     arg( '--CAMI_format_output', action='store_true', help="Report the profiling using the CAMI output format\n")
-    arg( '--unknown_estimation', action='store_true', help="Ignore estimation of reads mapping to unkwnown clades\n")
+    arg( '--unknown_estimation', action='store_true', help="Scale relative abundances to the number of reads mapping to known clades in order to estimate unknowness\n")
 
     #*************************************************************
     #* Parameters related to biom file generation                *
