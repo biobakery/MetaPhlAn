@@ -652,7 +652,7 @@ def write_info(cleaned_markers_matrix, num_markers_for_clade, clade, output_dir,
             "\nNumber of main references after filtering: " + str(f_p_references) +            
             "\nNumber of secondary references after filtering: " + str(f_s_references) +
             "\nPhyloPhlan phylogenetic precision mode: "+ phylophlan_mode +
-            "\nNumber of processes used: "+ str(nprocs)) + "\n" 
+            "\nNumber of processes used: "+ str(nprocs) + "\n" )
 
 
 """
