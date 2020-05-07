@@ -18,7 +18,7 @@ if sys.version_info[0] < 3:
                     .format(sys.version_info[0], sys.version_info[1], 
                         sys.version_info[2]), exit=True)
 
-import os, pickle, time, bz2, numpy, collections
+import os, pickle, time, bz2, numpy, collections, tempfile
 import argparse as ap
 from shutil import copyfile, rmtree, move
 from Bio import SeqIO
@@ -748,8 +748,7 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
         print_clades(database, samples, samples_with_n_markers, marker_in_n_samples)
     else:
         info("Creating temporary directory...", init_new_line=True)
-        tmp_dir = output_dir+'tmp/'
-        create_folder(tmp_dir)
+        tmp_dir = tempfile.mkdtemp(dir=output_dir) + "/"
         info("Done.", init_new_line=True)
         info("Getting markers from main sample files...", init_new_line=True)
         markers_matrix, clade_markers_file = get_markers_matrix(database, clade_markers, 
