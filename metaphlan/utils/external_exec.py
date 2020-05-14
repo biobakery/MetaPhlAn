@@ -144,7 +144,7 @@ def execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, out
     params = {
         "program_name" : "phylophlan",
         "params" : "-d "+clade+" --data_folder "+tmp_dir+
-        " --databases_folder "+tmp_dir+" -t n -f "+conf_file+
+            " --databases_folder "+tmp_dir+" -t n -f "+conf_file+
             " --diversity low"+accuracy+" --genome_extension fna"+
             " --force_nucleotides --min_num_entries "+str(min_entries),
         "input" : "-i",
