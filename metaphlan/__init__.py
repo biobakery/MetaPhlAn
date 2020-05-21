@@ -252,11 +252,6 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
         except EnvironmentError:
             sys.exit("ERROR: Unable to create folder for database install: " + bowtie2_db)
 
-    # Check the directory permissions
-    if not os.access(bowtie2_db, os.W_OK):
-        sys.exit("ERROR: The directory is not writeable: " + bowtie2_db + ". "
-                 "Please modify the permissions.")
-
     #Download the list of all the files in the Dropbox folder
     list_file_path = os.path.join(bowtie2_db, "file_list.txt")
     if not os.path.exists(list_file_path):
