@@ -232,7 +232,7 @@ def download_unpack_zip(url,download_file_name,folder,software_name):
 def resolve_latest_database(bowtie2_db,mpa_latest_dbx_url, force=False):
     if os.path.exists(os.path.join(bowtie2_db,'mpa_latest')):
         ctime_latest_db = int(os.path.getctime(os.path.join(bowtie2_db,'mpa_latest')))
-        if int(time.time()) - ctime_latest_db > 2419200:         #1 month in epoch
+        if int(time.time()) - ctime_latest_db > 31536000:         #1 year in epoch
             os.rename(os.path.join(bowtie2_db,'mpa_latest'),os.path.join(bowtie2_db,'mpa_previous'))
             download(mpa_latest_dbx_url, os.path.join(bowtie2_db,'mpa_latest'), force=True)
 
@@ -251,6 +251,9 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
             os.makedirs(bowtie2_db)
         except EnvironmentError:
             sys.exit("ERROR: Unable to create folder for database install: " + bowtie2_db)
+
+    if index != 'latest' and len(glob(os.path.join(bowtie2_db, "*{}*".format(index)))) >= 7:
+        return index
 
     #Download the list of all the files in the Dropbox folder
     list_file_path = os.path.join(bowtie2_db, "file_list.txt")
