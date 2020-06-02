@@ -1037,7 +1037,7 @@ def main():
             outf.write('#{}\n'.format(' '.join(sys.argv)))
 
         if not CAMI_OUTPUT:
-            outf.write('\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
+            outf.write('#' + '\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
         
         if pars['t'] == 'reads_map':
             if not MPA2_OUTPUT:
