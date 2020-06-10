@@ -135,7 +135,7 @@ def main():
     extract_markers(args.database, args.clade, args.output_dir)
     exec_time = time.time() - t0
     info("Finish extract markers execution ("+str(round(exec_time, 2))+
-        " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
+        " seconds): Results are stored at \""+args.output_dir+"\"\n",
          init_new_line=True)
 
 if __name__ == '__main__':

@@ -48,8 +48,8 @@ def read_params():
                    help="The input samples format {bam, sam, bz2}. Default bz2")
     p.add_argument('-o', '--output_dir', type=str, default=None,
                    help="The output directory")
-    p.add_argument('-b', '--breath_threshold', type=int, default=80,
-                   help="The breath threshold for the consensus markers. Default 80 (%%)")
+    p.add_argument('-b', '--breadth_threshold', type=int, default=80,
+                   help="The breadth of coverage threshold for the consensus markers. Default 80 (%%)")
     p.add_argument('-n', '--nprocs', type=int, default=1,
                    help="The number of threads to execute the script")
     
@@ -252,7 +252,7 @@ Main function
 :param sorted: whether the BAM files are sorted
 :param input_format: format of the sample files [bam or sam]
 :param output_dir: the output directory
-:param breath_threshold: the breath threshold for the consensus markers
+:param breadth_threshold: the breadth of coverage threshold for the consensus markers
 :param nprocs: number of threads to use in the execution
 """
 def main():
@@ -262,10 +262,10 @@ def main():
     check_dependencies()
     args = check_params(args)
     samples_to_markers(args.input, args.sorted, args.input_format, args.output_dir, 
-        args.breath_threshold, args.nprocs)
+        args.breadth_threshold, args.nprocs)
     exec_time = time.time() - t0
     info("Finish samples to markers execution ("+str(round(exec_time, 2))+
-        " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
+        " seconds): Results are stored at \""+args.output_dir+"\"\n",
          init_new_line=True)
 
 if __name__ == '__main__':
