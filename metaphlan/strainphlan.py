@@ -830,7 +830,7 @@ def main():
     exec_time = time.time() - t0
     if not args.print_clades_only:
         info("Finish StrainPhlAn " + __version__ + " execution ("+str(round(exec_time, 2))+
-            " seconds): Results are stored at \""+os.getcwd()+"/"+args.output_dir+"\"\n",
+            " seconds): Results are stored at \""+args.output_dir+"\"\n",
              init_new_line=True)
     else:
         info("Finish StrainPhlAn " + __version__ + " execution ("+str(round(exec_time, 2))+
