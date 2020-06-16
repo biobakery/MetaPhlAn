@@ -252,7 +252,7 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
         except EnvironmentError:
             sys.exit("ERROR: Unable to create folder for database install: " + bowtie2_db)
 
-    if index != 'latest' and len(glob(os.path.join(bowtie2_db, "*{}*".format(index)))) >= 7:
+    if index != 'latest' and len(glob(os.path.join(bowtie2_db, "*{}*".format(index)))) >= 6:
         return index
 
     #Download the list of all the files in the Dropbox folder
