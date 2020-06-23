@@ -1078,7 +1078,7 @@ def main():
                     if ESTIMATE_UNK:
                         outf.write( "\t".join( [    "UNKNOWN",
                                                     "-1",
-                                                    str(round((1-fraction_mapped_reads)*100,5))]) + "\n" )
+                                                    str(round((1-fraction_mapped_reads)*100,5)),""]) + "\n" )
                                                     
                     for clade, taxid, relab in sorted(  outpred, reverse=True,
                                         key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
@@ -1105,7 +1105,7 @@ def main():
                                     )
             else:
                 if not MPA2_OUTPUT:
-                    outf.write( "UNKNOWN\t-1\t100.0\n" )
+                    outf.write( "UNKNOWN\t-1\t100.0\t\n" )
                 else:
                     outf.write( "UNKNOWN\t100.0\n" )
             maybe_generate_biom_file(tree, pars, outpred)
