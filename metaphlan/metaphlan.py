@@ -4,7 +4,7 @@ __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
 __version__ = '3.0'
-__date__ = '20 Mar 2020'
+__date__ = '24 Jun 2020'
 
 import sys
 try:
@@ -111,7 +111,7 @@ def read_params(args):
             "\n------------------------------------------------------------------- \n \n\n"
 
             "\n========== Marker level analysis ============================ \n\n"
-            "MetaPhlAn introduces the capability of charachterizing organisms at the strain level using non\n"
+            "MetaPhlAn introduces the capability of characterizing organisms at the strain level using non\n"
             "aggregated marker information. Such capability comes with several slightly different flavours and \n"
             "are a way to perform strain tracking and comparison across multiple samples.\n"
             "Usually, MetaPhlAn is first ran with the default -t to profile the species present in\n"
@@ -137,7 +137,7 @@ def read_params(args):
 
             "*  Finally, to obtain all markers present for a specific clade and all its subclades, the \n"
             "   '-t clade_specific_strain_tracker' should be used. For example, the following command\n"
-            "   is reporting the presence/absence of the markers for the B. fragulis species and its strains\n"
+            "   is reporting the presence/absence of the markers for the B. fragilis species and its strains\n"
             "   the optional argument --min_ab specifies the minimum clade abundance for reporting the markers\n\n"
             "$ metaphlan -t clade_specific_strain_tracker --clade s__Bacteroides_fragilis metagenome_outfmt.bz2 --input_type bowtie2out -o marker_abundance_table.txt\n"
 
@@ -166,10 +166,10 @@ def read_params(args):
     g = p.add_argument_group('Required arguments')
     arg = g.add_argument
     input_type_choices = ['fastq','fasta','bowtie2out','sam']
-    arg( '--input_type', choices=input_type_choices, default='fastq', required = '--install' not in args, help =
+    arg( '--input_type', choices=input_type_choices, required = '--install' not in args, help =
          "set whether the input is the FASTA file of metagenomic reads or \n"
          "the SAM file of the mapping of the reads against the MetaPhlAn db.\n"
-         "[default 'FASTQ']\n" )
+        )
 
     g = p.add_argument_group('Mapping arguments')
     arg = g.add_argument
@@ -259,7 +259,7 @@ def read_params(args):
          "'avg_g'  : clade global (i.e. normalizing all markers together) average\n"
          "'avg_l'  : average of length-normalized marker counts\n"
          "'tavg_g' : truncated clade global average at --stat_q quantile\n"
-         "'tavg_l' : trunated average of length-normalized marker counts (at --stat_q)\n"
+         "'tavg_l' : truncated average of length-normalized marker counts (at --stat_q)\n"
          "'wavg_g' : winsorized clade global average (at --stat_q)\n"
          "'wavg_l' : winsorized average of length-normalized marker counts (at --stat_q)\n"
          "'med'    : median of length-normalized marker counts\n"
@@ -291,15 +291,15 @@ def read_params(args):
     arg( '--clade', metavar="", default=None, type=str, help =
          "The clade for clade_specific_strain_tracker analysis\n"  )
     arg( '--min_ab', metavar="", default=0.1, type=float, help =
-         "The minimum percentage abundace for the clade in the clade_specific_strain_tracker analysis\n"  )
+         "The minimum percentage abundance for the clade in the clade_specific_strain_tracker analysis\n"  )
 
     g = p.add_argument_group('Output arguments')
     arg = g.add_argument
     arg( '-o', '--output_file',  metavar="output file", type=str, default=None, help =
          "The output file (if not specified as positional argument)\n")
-    arg('--sample_id_key',  metavar="name", type=str, default="#SampleID",
+    arg('--sample_id_key',  metavar="name", type=str, default="SampleID",
         help =("Specify the sample ID key for this analysis."
-               " Defaults to '#SampleID'."))
+               " Defaults to 'SampleID'."))
     arg('--use_group_representative', action='store_true',  help =("Use a species as representative for species groups."))
     arg('--sample_id',  metavar="value", type=str,
         default="Metaphlan_Analysis",
