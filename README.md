@@ -1,5 +1,5 @@
 # MetaPhlAn: Metagenomic Phylogenetic Analysis
-![Build MetaPhlAn package](https://github.com/biobakery/MetaPhlAn/workflows/Build%20MetaPhlAn%20package/badge.svg?branch=3.0)
+![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat) ![PyPI - Downloads](https://img.shields.io/pypi/dm/metaphlan?label=MetaPhlAn%20on%20PyPi) ![MetaPhlAn on DockerHub](https://img.shields.io/docker/pulls/biobakery/metaphlan?label=MetaPhlAn%20on%20DockerHub) ![Build MetaPhlAn package](https://github.com/biobakery/MetaPhlAn/workflows/Build%20MetaPhlAn%20package/badge.svg?branch=3.0)
 ## What's new in version 3
 * New MetaPhlAn marker genes extracted with a newer version of ChocoPhlAn based on UniRef
 * Estimation of metagenome composed by unknown microbes with parameter `--unknown_estimation`
