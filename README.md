@@ -23,11 +23,7 @@ MetaPhlAn relies on ~1.1M unique clade-specific marker genes (the latest marker 
 * orders of magnitude speedups compared to existing methods.
 * metagenomic strain-level population genomics
 
-If you use MetaPhlAn version 1, please cite:
-
-[**Metagenomic microbial community profiling using unique clade-specific marker genes.**](https://www.nature.com/articles/nmeth.2066) *Nicola Segata, Levi Waldron, Annalisa Ballarini, Vagheesh Narasimhan, Olivier Jousson, &  Curtis Huttenhower*. Nature Methods 9, 811-814 (2012)
-
-If you use MetaPhlAn2, please cite:
+If you use MetaPhlAn, please cite:
 
 [**MetaPhlAn2 for enhanced metagenomic taxonomic profiling.**](http://www.nature.com/nmeth/journal/v12/n10/pdf/nmeth.3589.pdf) *Duy Tin Truong, Eric A Franzosa, Timothy L Tickle, Matthias Scholz, George Weingart, Edoardo Pasolli, Adrian Tett, Curtis Huttenhower & Nicola Segata*. Nature Methods 12, 902-903 (2015)
 
@@ -38,7 +34,7 @@ If you use StrainPhlAn, please cite the MetaPhlAn2 paper and the following Strai
 -------------
 
 ## Installation
-The best way to install MetaPhlAn is through conda via the Bioconda channel. If you have not configured you Anaconda installation in order to fetch packages from Bioconda, please follow [these steps](https://bioconda.github.io/user/install.html#set-up-channels) in order to setup the channels.
+The best way to install MetaPhlAn is through conda via the Bioconda channel. If you have not configured you Anaconda installation in order to fetch packages from Bioconda, **please follow [these steps](https://bioconda.github.io/user/install.html#set-up-channels) in order to setup the channels.**
 
 You can install MetaPhlAn by running
 
@@ -50,7 +46,7 @@ For installing it from the source code and for further installation instructions
 
 -------------
 
-## MetaPhlAn2 and StrainPhlAn tutorials and resources
+## MetaPhlAn and StrainPhlAn tutorials and resources
 
 In addition to the information on this page, you can refer to the following additional resources.
 
