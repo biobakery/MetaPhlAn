@@ -43,7 +43,7 @@ The best way to install MetaPhlAn is through conda via the Bioconda channel. If 
 You can install MetaPhlAn by running
 
 ```
-$ conda install -c bioconda metaphlan
+$ conda install -c bioconda python=3.7 metaphlan
 ```
 
 For installing it from the source code and for further installation instructions, please see the Wiki at the [Installation](https://github.com/biobakery/MetaPhlAn/wiki/MetaPhlAn-3.0#installation) paragraph.
