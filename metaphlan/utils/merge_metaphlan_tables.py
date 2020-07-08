@@ -28,7 +28,7 @@ def merge( aaastrIn, ostm ):
         if len(headers) == 1:
             names = ['clade_name', 'relative_abundance']
             index_col = 0
-        if len(headers) == 4:
+        if len(headers) >= 4:
             names = headers[-1].split('#')[1].strip().split('\t')
             index_col = [0,1]
 
