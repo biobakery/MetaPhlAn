@@ -251,9 +251,6 @@ def resolve_latest_database(bowtie2_db,mpa_latest_url, force=False):
     
     return ''.join(latest_db_version)
 
-def download_from_dropbox(bowtie2_db):
-
-
 def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_redownload_latest):
     # Create the folder if it does not already exist
     if not os.path.isdir(bowtie2_db):
