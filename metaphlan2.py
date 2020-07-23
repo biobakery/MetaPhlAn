@@ -16,8 +16,8 @@ from __future__ import with_statement
 __author__ = ('Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '2.8'
-__date__ = '31 May 2018'
+__version__ = '2.8.1'
+__date__ = '23 Jul 2020'
 
 
 import sys
@@ -647,6 +647,8 @@ def read_params(args):
         help="The number of CPUs to use for parallelizing the mapping [default 4]")
     arg('--install', action='store_true',
         help="Only checks if the MetaPhlAn2 DB is installed and installs it if not. All other parameters are ignored.")
+    arg('--offline', action='store_true',
+        help="Run MetaPhlAn2 in offline mode, no internet connection is established in order to download the DB.")
     arg('--read_min_len', type=int, default=70,
         help="Specify the minimum length of the reads to be considered when parsing the input file with "
              "'read_fastx.py' script, default value is 70")
@@ -825,17 +827,20 @@ def download_unpack_tar(FILE_LIST, download_file_name, folder, bowtie2_build, np
     os.remove(fna_file)
 
 
-def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc):
+def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, offline=False):
     """ Check if the database is installed, if not download and install """
 
     if len(glob(os.path.join(bowtie2_db, "mpa_{}*".format(index)))) >= 7:
         return
-
-    # download the tar archive and decompress
-    sys.stderr.write("\nDownloading MetaPhlAn2 database\nPlease note due to "
-                     "the size this might take a few minutes\n")
-    download_unpack_tar(FILE_LIST, index, bowtie2_db, bowtie2_build, nproc)
-    sys.stderr.write("\nDownload complete\n")
+    elif offline:
+        sys.stderr.write("No database files found in {}. Exiting.\n".format(bowtie2_db))
+        exit(1)
+    else:
+        # download the tar archive and decompress
+        sys.stderr.write("\nDownloading MetaPhlAn2 database\nPlease note due to "
+                         "the size this might take a few minutes\n")
+        download_unpack_tar(FILE_LIST, index, bowtie2_db, bowtie2_build, nproc)
+        sys.stderr.write("\nDownload complete\n")
 
 
 def set_mapping_arguments(index, bowtie2_db):
@@ -1365,7 +1370,7 @@ def metaphlan2():
     pars = read_params(sys.argv)
 
     # check if the database is installed, if not then install
-    check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'])
+    check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['offline'])
 
     if pars['install']:
         sys.stderr.write('The database is installed\n')
