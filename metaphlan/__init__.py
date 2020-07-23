@@ -71,7 +71,8 @@ class ReportHook():
 
 # set the location of the database download url
 DATABASE_DOWNLOAD = "https://www.dropbox.com/sh/7qze7m7g9fe2xjg/AADHWzATSQcI0CNFD0sk7MAga"
-FILE_LIST= "https://www.dropbox.com/sh/7qze7m7g9fe2xjg/AAA4XDP85WHon_eHvztxkamTa/file_list.txt?dl=1"
+ZENODO_DATABASE_DOWNLOAD = "https://zenodo.org/record/3957592"
+DBX_FILE_LIST = "https://www.dropbox.com/sh/7qze7m7g9fe2xjg/AAA4XDP85WHon_eHvztxkamTa/file_list.txt?dl=1"
 
 def download(url, download_file, force=False):
     """
@@ -88,7 +89,7 @@ def download(url, download_file, force=False):
     else:
         sys.stderr.write("\nFile {} already present!\n".format(download_file))
 
-def download_unpack_tar(FILE_LIST, download_file_name, folder, bowtie2_build, nproc):
+def download_unpack_tar(FILE_LIST, download_file_name, folder, bowtie2_build, nproc, use_zenodo):
     """
     Download the url to the file and decompress into the folder
     """
@@ -105,21 +106,27 @@ def download_unpack_tar(FILE_LIST, download_file_name, folder, bowtie2_build, np
         sys.exit("ERROR: The directory is not writeable: " + folder + ". "
                  "Please modify the permissions.")
 
-    #Download the list of all the files in the Dropbox folder
-    list_file_path = os.path.join(folder, "file_list.txt")
-    download(FILE_LIST, list_file_path)
-
-    if os.path.isfile(list_file_path):
-        with open(list_file_path) as f:
-            ls_f = dict( [row.strip().split() for row in f])
-
+    #local path of the tarfile and md5file
     tar_file = os.path.join(folder, download_file_name + ".tar")
-    url_tar_file = ls_f[download_file_name + ".tar"]
-    download(url_tar_file, tar_file)
-
-    # download MD5 checksum
     md5_file = os.path.join(folder, download_file_name + ".md5")
-    url_md5_file = ls_f[download_file_name + ".md5"]
+
+    #Download the list of all the files in the Dropbox folder
+    if not use_zenodo:
+        list_file_path = os.path.join(folder, "file_list.txt")
+        if not os.path.exists(list_file_path):
+            download(FILE_LIST, list_file_path)
+
+        if os.path.isfile(list_file_path):
+            with open(list_file_path) as f:
+                ls_f = dict( [row.strip().split() for row in f])
+            url_tar_file = ls_f[download_file_name + ".tar"]
+            url_md5_file = ls_f[download_file_name + ".md5"]
+    else:
+        url_tar_file = "https://zenodo.org/record/3957592/files/{}.tar?download=1".format(download_file_name)
+        url_md5_file = "https://zenodo.org/record/3957592/files/{}.md5?download=1".format(download_file_name)
+
+    # download tar and MD5 checksum
+    download(url_tar_file, tar_file)
     download(url_md5_file, md5_file)
 
     md5_md5 = None
@@ -229,20 +236,23 @@ def download_unpack_zip(url,download_file_name,folder,software_name):
         except EnvironmentError:
             print("WARNING: Unable to remove the temp download: " + download_file)
 
-def resolve_latest_database(bowtie2_db,mpa_latest_dbx_url, force=False):
+def resolve_latest_database(bowtie2_db,mpa_latest_url, force=False):
     if os.path.exists(os.path.join(bowtie2_db,'mpa_latest')):
         ctime_latest_db = int(os.path.getctime(os.path.join(bowtie2_db,'mpa_latest')))
         if int(time.time()) - ctime_latest_db > 31536000:         #1 year in epoch
             os.rename(os.path.join(bowtie2_db,'mpa_latest'),os.path.join(bowtie2_db,'mpa_previous'))
-            download(mpa_latest_dbx_url, os.path.join(bowtie2_db,'mpa_latest'), force=True)
+            download(mpa_latest_url, os.path.join(bowtie2_db,'mpa_latest'), force=True)
 
     if not os.path.exists(os.path.join(bowtie2_db,'mpa_latest') or force):
-        download(mpa_latest_dbx_url, os.path.join(bowtie2_db,'mpa_latest'))
+        download(mpa_latest_url, os.path.join(bowtie2_db,'mpa_latest'))
 
     with open(os.path.join(bowtie2_db,'mpa_latest')) as mpa_latest:
         latest_db_version = [line.strip() for line in mpa_latest if not line.startswith('#')]
     
     return ''.join(latest_db_version)
+
+def download_from_dropbox(bowtie2_db):
+
 
 def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_redownload_latest):
     # Create the folder if it does not already exist
@@ -255,14 +265,19 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
     if index != 'latest' and len(glob(os.path.join(bowtie2_db, "*{}*".format(index)))) >= 6:
         return index
 
-    #Download the list of all the files in the Dropbox folder
     list_file_path = os.path.join(bowtie2_db, "file_list.txt")
-    if not os.path.exists(list_file_path):
-        download(FILE_LIST, list_file_path)
+    #try downloading from Dropbox
+    try:
+        if not os.path.exists(list_file_path):
+            download(DBX_FILE_LIST, list_file_path)
 
-    if os.path.isfile(list_file_path):
-        with open(list_file_path) as f:
-            ls_f = dict( [row.strip().split() for row in f])
+        if os.path.isfile(list_file_path):
+            with open(list_file_path) as f:
+                ls_f = dict( [row.strip().split() for row in f])
+        use_zenodo = False
+    except: #If fails, use zenodo
+        ls_f = {'mpa_lates' : 'https://zenodo.org/record/3957592/files/mpa_latest?download=1' }
+        use_zenodo = True
 
     """ Check if the database is installed, if not download and install """
     if index == 'latest':
@@ -287,6 +302,6 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
     # download the tar archive and decompress
     sys.stderr.write("\nDownloading MetaPhlAn database\nPlease note due to "
                      "the size this might take a few minutes\n")
-    download_unpack_tar(FILE_LIST, index, bowtie2_db, bowtie2_build, nproc)
+    download_unpack_tar(DBX_FILE_LIST, index, bowtie2_db, bowtie2_build, nproc, use_zenodo)
     sys.stderr.write("\nDownload complete\n")
     return index

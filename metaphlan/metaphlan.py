@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-__author__ = ('Nicola Segata (nicola.segata@unitn.it), '
+__author__ = ('Francesco Beghini (francesco.beghini@unitn.it),'
+              'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
-              'Francesco Asnicar (f.asnicar@unitn.it), '
-              'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '3.0.1'
-__date__ = '25 Jun 2020'
+              'Francesco Asnicar (f.asnicar@unitn.it)')
+__version__ = '3.0.2'
+__date__ = '23 Jul 2020'
 
 import sys
 try:
@@ -16,6 +16,7 @@ if float(sys.version_info[0]) < 3.0:
     sys.stderr.write("MetaPhlAn requires Python 3, your current Python version is {}.{}.{}\n"
                     .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
     sys.exit(1)
+    
 import os
 import stat
 import re
@@ -26,6 +27,7 @@ from glob import glob
 from subprocess import DEVNULL
 import argparse as ap
 import bz2
+import json
 import pickle
 import subprocess as subp
 import tempfile as tf
@@ -53,11 +55,6 @@ try:
     import biom.table
 except ImportError:
     sys.stderr.write("Warning! Biom python library not detected!"
-                     "\n Exporting to biom format will not work!\n")
-try:
-    import json
-except ImportError:
-    sys.stderr.write("Warning! json python library not detected!"
                      "\n Exporting to biom format will not work!\n")
 
 # get the directory that contains this script
