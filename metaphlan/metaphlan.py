@@ -1178,12 +1178,13 @@ def main():
             cl2pr = tree.clade_profiles( None, get_all = True  )
             cl2ab, _, _ = tree.relative_abundances( None )
             strout = []
-            for clade,v in cl2pr.items():
-                if clade.endswith(pars['clade']) and cl2ab[clade]*100.0 < pars['min_ab']:
+            for (taxstr, taxid), relab in cl2ab.items():
+                clade = taxstr
+                if clade.endswith(pars['clade']) and relab*100.0 < pars['min_ab']:
                     strout = []
                     break
                 if pars['clade'] in clade:
-                    strout += ["\t".join([str(a),str(int(b > pars['pres_th']))]) for a,b in v]
+                    strout += ["\t".join([str(a),str(int(b > pars['pres_th']))]) for a,b in cl2pr[clade]]
             if strout:
                 strout = sorted(strout,key=lambda x:x[0])
                 outf.write( "\n".join(strout) + "\n" )
