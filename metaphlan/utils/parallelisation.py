@@ -39,7 +39,7 @@ def parallel_execution(arguments):
             return function(*args)
         except Exception as e:
             terminating.set()
-            error("Parallel execution fails: "+str(e), init_new_line=True, exit=True)
+            raise
     else:
         terminating.set()
 
