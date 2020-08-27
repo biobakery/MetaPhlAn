@@ -1001,6 +1001,7 @@ def main():
         os.remove( pars['inp'] )
 
     if ESTIMATE_UNK and pars['input_type'] == 'sam':
+        n_metagenome_reads = pars['nreads']
         if not n_metagenome_reads and not pars['nreads']:
             sys.stderr.write(
                     "Please provide the size of the metagenome using the "
