@@ -98,7 +98,7 @@ def create_phylophlan_db(output_dir, clade):
         "command_line" : "#program_name# #input# #params#"
     }
     execute(compose_command(params, input_file=markers))
-    os.rename(output_dir+clade+".fna", markers+"/"+clade+".fna")
+    #os.rename(output_dir+clade+".fna", markers+"/"+clade+".fna")
 
 
 """
