@@ -4,7 +4,7 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
 __version__ = '3.0'
-__date__ = '21 Feb 2020'
+__date__ = '1 Sep 2020'
 
 import os, sys, re, shutil
 import subprocess as sb
@@ -112,8 +112,9 @@ def generate_phylophlan_config_file(output_dir, configuration):
     params = {
         "program_name" : "phylophlan_write_config_file",
         "params" : "-d n --db_dna makeblastdb --map_dna "+configuration['map']+
-            " --msa "+configuration['aligner']+" --tree1 "+configuration['tree1']+
-            configuration['tree2'],
+            " --msa "+configuration['aligner']+" --trim "+configuration['trim']+
+            " --tree1 "+configuration['tree1'], #+
+            # configuration['tree2'],
         "output" : "-o",
         "command_line" : "#program_name# #output# #params#"
     }
@@ -136,9 +137,8 @@ Executes PhyloPhlAn
 """
 def execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, output_dir, 
     clade, phylogeny_conf, mutation_rates, nprocs):
-    accuracy=""
-    if phylogeny_conf == 'accurate' or phylogeny_conf == 'fast':
-        accuracy = " --"+phylogeny_conf
+    accuracy = " --"+phylogeny_conf
+
     if mutation_rates:
         accuracy = accuracy + " --mutation_rates"
     params = {

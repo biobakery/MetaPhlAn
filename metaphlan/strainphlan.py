@@ -5,7 +5,7 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
 __version__ = '3.0'
-__date__ = '21 Feb 2020'
+__date__ = '1 Sep 2020'
 
 
 import sys
@@ -28,6 +28,7 @@ from Bio.Alphabet import generic_dna
 
 DEFAULT_DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
     "metaphlan_databases/mpa_v30_CHOCOPhlAn_201901.pkl")
+PHYLOPHLAN_MODES = ['accurate', 'fast']
 
 # Regular expression to remove comments: \n\"\"\"[^"]+\n\"\"\"
 
@@ -37,7 +38,7 @@ Reads and parses the command line arguments of the script.
 :returns: the parsed arguments
 """
 def read_params():
-    p = ap.ArgumentParser(description="")
+    p = ap.ArgumentParser(description="", formatter_class=ap.ArgumentDefaultsHelpFormatter)
     p.add_argument('-d', '--database', type=str, default=DEFAULT_DATABASE,
                    help="The input MetaPhlAn " + __version__ + " database")
     p.add_argument('-m', '--clade_markers', type=str, default=None,
@@ -61,15 +62,15 @@ def read_params():
                     nargs='+', default=[],
                     help="The secondary reference genomes")
     p.add_argument('--trim_sequences', type=int, default=50,
-                    help="The number of bases to remove from both ends when trimming markers. Default 50")
+                    help="The number of bases to remove from both ends when trimming markers")
     p.add_argument('--marker_in_n_samples', type=int, default=80,
-                    help="Theshold defining the minimum percentage of samples to keep a marker. Default 80 (%%)")
+                    help="Theshold defining the minimum percentage of samples to keep a marker")
     p.add_argument('--sample_with_n_markers', type=int, default=20,
-                    help="Threshold defining the minimun number of markers to keep a sample. Default 20")
+                    help="Threshold defining the minimun number of markers to keep a sample")
     p.add_argument('--secondary_sample_with_n_markers', type=int, default=20,
-                    help="Threshold defining the minimun number of markers to keep a secondary sample. Default 20")
-    p.add_argument('--phylophlan_mode', type=str, default='normal',
-                    help="The precision of the phylogenetic analysis {fast, normal [default], accurate}")                    
+                    help="Threshold defining the minimun number of markers to keep a secondary sample")
+    p.add_argument('--phylophlan_mode', choices=PHYLOPHLAN_MODES, default='accurate',
+                    help="The presets for fast or accurate phylogenetic analysis")
     p.add_argument('--phylophlan_configuration', type=str, default=None,
                     help="The PhyloPhlAn configuration file")
     p.add_argument('--mutation_rates', action='store_true', default=False,
@@ -105,10 +106,7 @@ def check_params(args):
             init_new_line=True)
     elif args.clade_markers and not os.path.exists(args.clade_markers):
         error('The clade markers file does not exist', exit=True, 
-            init_new_line=True)     
-    elif args.phylophlan_mode not in ["fast", "normal", "accurate"]:
-        error('The phylogeny precision must be {fast, normal or accurate}', exit=True, 
-            init_new_line=True)            
+            init_new_line=True)
     elif args.phylophlan_configuration and not os.path.exists(args.phylophlan_configuration):
         error('The phylophlan configuration file does not exist', exit=True, 
             init_new_line=True)
@@ -512,15 +510,17 @@ Gets PhyloPhlAn configuration
 :param phylophlan_mode: the precision of the phylogenetic analysis
 :returns: the configuration to create a PhyloPhlAn configuration file
 """
-def get_phylophlan_configuration(phylophlan_mode):
+def get_phylophlan_configuration():
     configuration = dict()
     # blastn, tblastn, diamond
     configuration.update({'map':'blastn'})
     # muscle, mafft, opal, upp
     configuration.update({'aligner':'mafft'})
+    # trimal
+    configuration.update({'trim':'trimal'})
     # fasttree, raxml, iqtree, astral, astrid
     configuration.update({'tree1':'raxml'})
-    configuration.update({'tree2':''})  
+    # configuration.update({'tree2':''})
     
     return configuration
 
@@ -546,7 +546,7 @@ def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, cla
     info("\tDone.", init_new_line=True)
     if not phylophlan_configuration:     
         info("\tGenerating PhyloPhlAn 3.0 configuration file...", init_new_line=True)
-        conf = get_phylophlan_configuration(phylophlan_mode)
+        conf = get_phylophlan_configuration()
         phylophlan_configuration = generate_phylophlan_config_file(tmp_dir, conf)
         info("\tDone.", init_new_line=True)   
     info("\tProcessing samples...", init_new_line=True)
