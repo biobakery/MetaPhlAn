@@ -13,7 +13,7 @@ if sys.version_info[0] < 3:
 
 setuptools.setup(
     name='MetaPhlAn',
-    version='3.0.3',
+    version='3.0.4',
     author='Francesco Beghini',
     author_email='francesco.beghini@unitn.it',
     url='http://github.com/biobakery/MetaPhlAn/',
