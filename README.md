@@ -54,7 +54,7 @@ In addition to the information on this page, you can refer to the following addi
 
 * The [StrainPhlAn tutorial](https://github.com/biobakery/MetaPhlAn/wiki/StrainPhlAn-3.0).
 
-* The [MetaPhlAn](https://github.com/biobakery/biobakery/wiki/metaphlan2) and [StrainPhlAn](https://github.com/biobakery/biobakery/wiki/strainphlan2) wikis on bioBakery.
+* The [MetaPhlAn](https://github.com/biobakery/biobakery/wiki/metaphlan3) and [StrainPhlAn](https://github.com/biobakery/biobakery/wiki/strainphlan3) wikis on bioBakery.
 
 * The [MetaPhlAn](https://forum.biobakery.org/c/Microbial-community-profiling/MetaPhlAn/) and [StrainPhlAn](https://forum.biobakery.org/c/Microbial-community-profiling/StrainPhlAn/) Discourse forum.
 
