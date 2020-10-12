@@ -3,8 +3,8 @@ __author__ = ('Francesco Beghini (francesco.beghini@unitn.it),'
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '3.0.2'
-__date__ = '23 Jul 2020'
+__version__ = '3.0.4'
+__date__ = '23 Sep 2020'
 
 import sys
 try:
