@@ -3,8 +3,8 @@ __author__ = ('Francesco Beghini (francesco.beghini@unitn.it),'
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '3.0.4'
-__date__ = '23 Sep 2020'
+__version__ = '3.0.5'
+__date__ = '10 Nov 2020'
 
 import sys
 try:
@@ -422,12 +422,18 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
         p.communicate()
         read_fastx_stderr = readin.stderr.readlines()
         nreads = None
+        avg_read_length = None
         try:
-            nreads = int(read_fastx_stderr[0])
+            nreads, avg_read_length = list(map(float, read_fastx_stderr[0].decode().split()))
             if not nreads:
                 sys.stderr.write('Fatal error running MetaPhlAn. Total metagenome size was not estimated.\nPlease check your input files.\n')
                 sys.exit(1)
-            outf.write(lmybytes('#nreads\t{}'.format(nreads)))
+            if not avg_read_length:
+                sys.stderr.write('Fatal error running MetaPhlAn. The average read length was not estimated.\nPlease check your input files.\n')
+                sys.exit(1)
+
+            outf.write(lmybytes('#nreads\t{}\n'.format(int(nreads))))
+            outf.write(lmybytes('#avg_read_length\t{}'.format(avg_read_length)))
             outf.close()
         except ValueError:
             sys.stderr.write(b''.join(read_fastx_stderr).decode())
@@ -457,6 +463,7 @@ class TaxClade:
     perc_nonzero = None
     quantile = None
     avoid_disqm = False
+    avg_read_length = 1
 
     def __init__( self, name, tax_id, uncl = False):
         self.children, self.markers2nreads = {}, {}
@@ -500,7 +507,7 @@ class TaxClade:
         return "|".join(fullname[1:])
 
     def get_normalized_counts( self ):
-        return [(m,float(n)*1000.0/self.markers2lens[m])
+        return [(m,float(n)*1000.0/(self.markers2lens[m] - self.avg_read_length +1) )
                     for m,n in self.markers2nreads.items()]
 
     def compute_mapped_reads( self ):
@@ -577,24 +584,24 @@ class TaxClade:
         elif self.stat == 'avg_g' or (not qn and self.stat in ['wavg_g','tavg_g']):
             loc_ab = nrawreads / rat if rat >= 0 else 0.0
         elif self.stat == 'avg_l' or (not qn and self.stat in ['wavg_l','tavg_l']):
-            loc_ab = np.mean([float(n)/r for r,n in rat_nreads])
+            loc_ab = np.mean([float(n)/(r - self.avg_read_length + 1) for r,n in rat_nreads])
         elif self.stat == 'tavg_g':
-            wnreads = sorted([(float(n)/r,r,n) for r,n in rat_nreads], key=lambda x:x[0])
+            wnreads = sorted([(float(n)/(r-self.avg_read_length+1),(r - self.avg_read_length+1) ,n) for r,n in rat_nreads], key=lambda x:x[0])
             den,num = zip(*[v[1:] for v in wnreads[ql:qr]])
             loc_ab = float(sum(num))/float(sum(den)) if any(den) else 0.0
         elif self.stat == 'tavg_l':
-            loc_ab = np.mean(sorted([float(n)/r for r,n in rat_nreads])[ql:qr])
+            loc_ab = np.mean(sorted([float(n)/(r - self.avg_read_length + 1) for r,n in rat_nreads])[ql:qr])
         elif self.stat == 'wavg_g':
             vmin, vmax = nreads_v[ql], nreads_v[qr]
             wnreads = [vmin]*qn+list(nreads_v[ql:qr])+[vmax]*qn
             loc_ab = float(sum(wnreads)) / rat
         elif self.stat == 'wavg_l':
-            wnreads = sorted([float(n)/r for r,n in rat_nreads])
+            wnreads = sorted([float(n)/(r - self.avg_read_length + 1) for r,n in rat_nreads])
             vmin, vmax = wnreads[ql], wnreads[qr]
             wnreads = [vmin]*qn+list(wnreads[ql:qr])+[vmax]*qn
             loc_ab = np.mean(wnreads)
         elif self.stat == 'med':
-            loc_ab = np.median(sorted([float(n)/r for r,n in rat_nreads])[ql:qr])
+            loc_ab = np.median(sorted([float(n)/(r - self.avg_read_length +1) for r,n in rat_nreads])[ql:qr])
 
         self.abundance = loc_ab
         if rat < self.min_cu_len and self.children:
@@ -628,6 +635,7 @@ class TaxTree:
         TaxClade.markers2lens = self.markers2lens
         TaxClade.markers2exts = self.markers2exts
         TaxClade.taxa2clades = self.taxa2clades
+        self.avg_read_length = 1
 
         for clade, value in mpa['taxonomy'].items():
             clade = clade.strip().split("|")
@@ -674,11 +682,12 @@ class TaxTree:
     def set_min_cu_len( self, min_cu_len ):
         TaxClade.min_cu_len = min_cu_len
 
-    def set_stat( self, stat, quantile, perc_nonzero, avoid_disqm = False):
+    def set_stat( self, stat, quantile, perc_nonzero, avg_read_length, avoid_disqm = False):
         TaxClade.stat = stat
         TaxClade.perc_nonzero = perc_nonzero
         TaxClade.quantile = quantile
         TaxClade.avoid_disqm = avoid_disqm
+        TaxClade.avg_read_length = avg_read_length
 
     def add_reads(  self, marker, n,
                     add_viruses = False,
@@ -794,11 +803,14 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
 
     reads2markers = {}
     n_metagenome_reads = None
+    avg_read_length = 1 #Set to 1 if it is not calculated from read_fastx
 
     if input_type == 'bowtie2out':
         for r, c in ras(inpf):
             if r.startswith('#') and 'nreads' in r:
                 n_metagenome_reads = int(c)
+            if r.startswith('#') and 'avg_read_length' in r:
+                avg_read_length = float(c)            
             else:
                 reads2markers[r] = c
     elif input_type == 'sam':
@@ -816,7 +828,7 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
     for r, m in reads2markers.items():
         markers2reads[m].add(r)
 
-    return (markers2reads, n_metagenome_reads)
+    return (markers2reads, n_metagenome_reads, avg_read_length)
 
 def maybe_generate_biom_file(tree, pars, abundance_predictions):
     json_key = "MetaPhlAn"
@@ -994,9 +1006,11 @@ def main():
     REPORT_MERGED = mpa_pkl.get('merged_taxon',False)
     tree = TaxTree( mpa_pkl, ignore_markers )
     tree.set_min_cu_len( pars['min_cu_len'] )
-    tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], pars['avoid_disqm'])
+    
+    markers2reads, n_metagenome_reads, avg_read_length = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'])
 
-    markers2reads, n_metagenome_reads = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'])
+    tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'])
+
     if no_map:
         os.remove( pars['inp'] )
 

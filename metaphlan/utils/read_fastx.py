@@ -55,75 +55,75 @@ def fopen(fn):
 
 def read_and_write_raw_int(fd, min_len=None):
     fmt = None
+    avg_read_length = 0
     nreads = 0
     discarded = 0
-    if min_len:
-        r = []
+    #if min_len:
+    r = []
 
-        while True:
-            l = fd.readline()
-
-            if not fmt:
-                fmt = fastx(l)
-                parser = FastqGeneralIterator if fmt == 'fastq' else SimpleFastaParser
-                readn = 4 if fmt == 'fastq' else 2
-
-            r.append(l)
-
-            if len(r) == readn:
-                break
-
-        for record in parser(uio.StringIO("".join(r))):
-            if readn == 4:
-                description, sequence, qual = record
-            else:
-                qual = None
-                description, sequence = record
-
-            if len(sequence) >= min_len:
-                description = ignore_spaces(description, forced=True)
-                _ = sys.stdout.write(print_record(description, sequence, qual, fmt))
-            else:
-                discarded = discarded + 1
-        
-        for idx, record in enumerate(parser(fd),2):
-            if readn == 4:
-                description, sequence, qual = record
-            else:
-                qual = None
-                description, sequence = record
-
-            if len(sequence) >= min_len:
-                description = ignore_spaces(description, forced=True)
-                _ = sys.stdout.write(print_record(description, sequence, qual, fmt))
-            else:
-                discarded = discarded + 1
-    else:
-        for idx, l in enumerate(fd,1):
-            _ = sys.stdout.write(ignore_spaces(l))
-            
-        #Read again the first line of the file to determine if is a fasta or a fastq
-        fd.seek(0)
+    while True:
         l = fd.readline()
-        readn = 4 if fastx(l) == 'fastq' else 2
-        idx = idx // readn
+
+        if not fmt:
+            fmt = fastx(l)
+            parser = FastqGeneralIterator if fmt == 'fastq' else SimpleFastaParser
+            readn = 4 if fmt == 'fastq' else 2
+
+        r.append(l)
+
+        if len(r) == readn:
+            break
+
+    for record in parser(uio.StringIO("".join(r))):
+        if readn == 4:
+            description, sequence, qual = record
+        else:
+            qual = None
+            description, sequence = record
+
+        if len(sequence) >= min_len:
+            description = ignore_spaces(description, forced=True)
+            avg_read_length = len(sequence) + avg_read_length
+            _ = sys.stdout.write(print_record(description, sequence, qual, fmt))
+        else:
+            discarded = discarded + 1
+    
+    for idx, record in enumerate(parser(fd),2):
+        if readn == 4:
+            description, sequence, qual = record
+        else:
+            qual = None
+            description, sequence = record
+
+        if len(sequence) >= min_len:
+            avg_read_length = len(sequence) + avg_read_length
+            description = ignore_spaces(description, forced=True)
+            _ = sys.stdout.write(print_record(description, sequence, qual, fmt))
+        else:
+            discarded = discarded + 1
+    # else:
+    #     for idx, l in enumerate(fd,1):
+    #         avg_read_length = len(l) + avg_read_length
+    #         _ = sys.stdout.write(ignore_spaces(l))
 
     nreads = idx - discarded
-    return nreads
+    avg_read_length /= nreads
+    return (nreads, avg_read_length)
 
 def read_and_write_raw(fd, opened=False, min_len=None):
     if opened:  #fd is stdin
-        nreads = read_and_write_raw_int(fd, min_len=min_len)
+        nreads, avg_read_length = read_and_write_raw_int(fd, min_len=min_len)
     else:
         with fopen(fd) as inf:
-            nreads = read_and_write_raw_int(inf, min_len=min_len)
-    return nreads
+            nreads, avg_read_length = read_and_write_raw_int(inf, min_len=min_len)
+    return  (nreads, avg_read_length)
 
 
 def main():
-    min_len = None
+    min_len = 0
     args = []
     nreads = None
+    avg_read_length = None
 
     if len(sys.argv) > 1:
         for l in sys.argv[1:]:
@@ -140,10 +140,10 @@ def main():
                 args.append(l)
 
     if len(args) == 0:
-        nreads = read_and_write_raw(sys.stdin, opened=True, min_len=min_len)
+        nreads, avg_read_length = read_and_write_raw(sys.stdin, opened=True, min_len=min_len)
     else:
         files = []
-        nreads = 0
+        avg_read_length, nreads = 0, 0
         for a in args:
             for f in a.split(','):
                 if os.path.isdir(f):
@@ -152,10 +152,13 @@ def main():
                     files += [f]
 
         for f in files:
-            nreads += read_and_write_raw(f, opened=False, min_len=min_len)
+            f_nreads, f_avg_read_length = read_and_write_raw(f, opened=False, min_len=min_len)
+            nreads += f_nreads
+            avg_read_length += f_avg_read_length
+        avg_read_length = avg_read_length / len(files)
 
-    if nreads:
-        sys.stderr.write(str(nreads))
+    if nreads and avg_read_length:
+        sys.stderr.write('{}\t{}'.format(nreads,avg_read_length) )
     else:
         exit(1)
 
