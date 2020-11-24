@@ -507,7 +507,7 @@ class TaxClade:
         return "|".join(fullname[1:])
 
     def get_normalized_counts( self ):
-        return [(m,float(n)*1000.0/(self.markers2lens[m] - self.avg_read_length +1) )
+        return [(m,float(n)*1000.0/(np.absolute(self.markers2lens[m] - self.avg_read_length) +1) )
                     for m,n in self.markers2nreads.items()]
 
     def compute_mapped_reads( self ):
@@ -584,24 +584,24 @@ class TaxClade:
         elif self.stat == 'avg_g' or (not qn and self.stat in ['wavg_g','tavg_g']):
             loc_ab = nrawreads / rat if rat >= 0 else 0.0
         elif self.stat == 'avg_l' or (not qn and self.stat in ['wavg_l','tavg_l']):
-            loc_ab = np.mean([float(n)/(r - self.avg_read_length + 1) for r,n in rat_nreads])
+            loc_ab = np.mean([float(n)/(np.absolute(r - self.avg_read_length) + 1) for r,n in rat_nreads])
         elif self.stat == 'tavg_g':
-            wnreads = sorted([(float(n)/(r-self.avg_read_length+1),(r - self.avg_read_length+1) ,n) for r,n in rat_nreads], key=lambda x:x[0])
+            wnreads = sorted([(float(n)/(np.absolute(r-self.avg_read_length)+1),(np.absolute(r - self.avg_read_length)+1) ,n) for r,n in rat_nreads], key=lambda x:x[0])
             den,num = zip(*[v[1:] for v in wnreads[ql:qr]])
             loc_ab = float(sum(num))/float(sum(den)) if any(den) else 0.0
         elif self.stat == 'tavg_l':
-            loc_ab = np.mean(sorted([float(n)/(r - self.avg_read_length + 1) for r,n in rat_nreads])[ql:qr])
+            loc_ab = np.mean(sorted([float(n)/(np.absolute(r - self.avg_read_length) + 1) for r,n in rat_nreads])[ql:qr])
         elif self.stat == 'wavg_g':
             vmin, vmax = nreads_v[ql], nreads_v[qr]
             wnreads = [vmin]*qn+list(nreads_v[ql:qr])+[vmax]*qn
             loc_ab = float(sum(wnreads)) / rat
         elif self.stat == 'wavg_l':
-            wnreads = sorted([float(n)/(r - self.avg_read_length + 1) for r,n in rat_nreads])
+            wnreads = sorted([float(n)/(np.absolute(r - self.avg_read_length) + 1) for r,n in rat_nreads])
             vmin, vmax = wnreads[ql], wnreads[qr]
             wnreads = [vmin]*qn+list(wnreads[ql:qr])+[vmax]*qn
             loc_ab = np.mean(wnreads)
         elif self.stat == 'med':
-            loc_ab = np.median(sorted([float(n)/(r - self.avg_read_length +1) for r,n in rat_nreads])[ql:qr])
+            loc_ab = np.median(sorted([float(n)/(np.absolute(r - self.avg_read_length) +1) for r,n in rat_nreads])[ql:qr])
 
         self.abundance = loc_ab
         if rat < self.min_cu_len and self.children:
