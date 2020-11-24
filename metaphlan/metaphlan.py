@@ -3,8 +3,8 @@ __author__ = ('Francesco Beghini (francesco.beghini@unitn.it),'
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '3.0.5'
-__date__ = '10 Nov 2020'
+__version__ = '3.0.6'
+__date__ = '24s Nov 2020'
 
 import sys
 try:
@@ -201,7 +201,7 @@ def read_params(args):
     arg('--bowtie2out', metavar="FILE_NAME", type=str, default=None,
         help="The file for saving the output of BowTie2")
     arg('--min_mapq_val', type=int, default=5,
-        help="Minimum mapping quality value (MAPQ)")
+        help="Minimum mapping quality value (MAPQ) [default 5]")
     arg('--no_map', action='store_true',
         help="Avoid storing the --bowtie2out map file")
     arg('--tmp_dir', metavar="", default=None, type=str,
