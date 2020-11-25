@@ -1,28 +1,22 @@
 #!/usr/bin/env python
-#Author: Duy Tin Truong (duytin.truong@unitn.it)
-#        at CIBIO, University of Trento, Italy
+__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '3.0'
+__date__    = '21 Feb 2020'
 
-
-# import sys
-# import os
 import argparse as ap
 import pandas
-# import copy
-# import ConfigParser
 import dendropy
-# import numpy
-# import ipdb
-
+import numpy
 
 def read_params():
     p = ap.ArgumentParser()
-    p.add_argument('--ifn_trees', nargs='+', required=True, default=None, type=str)
-    p.add_argument('--ifn_metadatas', nargs='+', required=True, default=None, type=str)
+    p.add_argument('-t', '--ifn_trees', nargs='+', required=True, default=None, type=str)
+    p.add_argument('-f', '--ifn_metadatas', nargs='+', required=True, default=None, type=str)
     p.add_argument('--string_to_remove',
                    required=False, default='', type=str,
                    help='string to be removed in the tree node names')
-    p.add_argument(
-                    '--metadatas',
+    p.add_argument('-m', '--metadatas',
                     nargs='+',
                     required=False,
                     default=['all'],
@@ -42,10 +36,11 @@ def get_index_col(ifn):
     return -1
 
 
-def main(args):
+def main():
+    args = read_params()
     add_fields = args['metadatas']
     for ifn_tree in args['ifn_trees']:
-        print 'Input:', ifn_tree
+        print ('Input:', ifn_tree)
         df_list = []
         samples = []
         for ifn in args['ifn_metadatas']:
@@ -53,7 +48,7 @@ def main(args):
             df = pandas.read_csv(
                 ifn,
                 sep='\t',
-                dtype=unicode,
+                dtype=numpy.unicode_,
                 header=0,
                 index_col=index_col)
             df = df.transpose()
@@ -63,14 +58,14 @@ def main(args):
                 with open(ifn, 'r') as ifile:
                     add_fields = [f for f in ifile.readline().strip().split('\t') \
                                   if f.upper() != 'SAMPLEID']
-        print 'number of samples in metadata: %d'%len(samples)
+        print ('number of samples in metadata: %d'%len(samples))
         count = 0
         with open(ifn_tree, 'r') as ifile:
             line = ifile.readline()
         line = line.replace(args['string_to_remove'], '')
-        tree = dendropy.Tree(stream=open(ifn_tree, 'r'), schema='newick')
+        tree = dendropy.Tree.get(stream=open(ifn_tree, 'r'), schema='newick')
         for node in tree.leaf_nodes():
-            sample = node.get_node_str().strip("'")
+            sample = node.__getattribute__("taxon").__str__().strip("'")
             sample = sample.replace(' ', '_')
             sample = sample.replace(args['string_to_remove'], '')
             prefixes = [prefix for prefix in
@@ -101,11 +96,10 @@ def main(args):
             line = line.replace(sample + ':', metadata + ':')
 
         ofn_tree = ifn_tree + '.metadata'
-        print 'Number of samples in tree: %d'%count
-        print 'Output:', ofn_tree
+        print ('Number of samples in tree: %d'%count)
+        print ('Output:', ofn_tree)
         with open(ofn_tree, 'w') as ofile:
             ofile.write(line)
 
-if __name__ == "__main__":
-    args = read_params()
-    main(args)
+if __name__ == '__main__':
+    main()

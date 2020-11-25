@@ -1,4 +1,14 @@
-== Version 2.2.0
+=== Version 3.0
+* New MetaPhlAn marker genes extracted with a newer version of ChocoPhlAn based on UniRef
+* Estimation of metagenome composed by unknown microbes with parameter `--unknown_estimation`
+* Automatic retrieval and installation of the latest MetaPhlAn database  with parameter `--index latest`
+* Virus profiling with `--add_viruses`
+* Calculation of metagenome size for improved estimation of reads mapped to a given clade
+* Inclusion of NCBI taxonomy ID in the ouput file
+* CAMI (Taxonomic) Profiling Output Format included
+* Removal of reads with low MAPQ values
+
+=== Version 2.2.0
 - added option "marker_counts" (by Nicola)
 
 === Version 2.1.0

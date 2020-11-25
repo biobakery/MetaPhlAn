@@ -20,7 +20,7 @@ def main():
         parser.print_help()
         sys.exit()
 
-    re_candidates = re.compile(r"s__|unclassified\t")
+    re_candidates = re.compile(r"s__")
     re_replace = re.compile(r"\w__")
     re_bar = re.compile(r"\|")
 

@@ -1,31 +1,26 @@
 #!/usr/bin/env python
-#Author: Duy Tin Truong (duytin.truong@unitn.it)
-#        at CIBIO, University of Trento, Italy
+__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '3.0'
+__date__    = '21 Feb 2020'
 
-__author__  = 'Duy Tin Truong (duytin.truong@unitn.it)'
-__version__ = '0.1'
-__date__    = '4 May 2015'
-
-# import sys
-# import os
 import argparse as ap
 import dendropy
-from StringIO import StringIO
+from io import StringIO
 import re
 from collections import defaultdict
-# import ConfigParser
 import matplotlib.colors as colors
 import subprocess
 
 
 def read_params():
     p = ap.ArgumentParser()
-    p.add_argument('--ifn_tree',
+    p.add_argument('-t', '--ifn_tree',
                    required=True,
                    default=None,
                    type=str,
                    help='The input tree in newick format.')
-    p.add_argument('--colorized_metadata',
+    p.add_argument('-m', '--colorized_metadata',
                    required=False,
                    default='unset',
                    type=str,
@@ -82,17 +77,12 @@ def read_params():
                    help='The prefix of output files.')
     return p.parse_args()
 
-
-
-
 def run(cmd):
-    print cmd
+    print (cmd)
     subprocess.call(cmd.split())
 
-
-
-
-def main(args):
+def main():
+    args = read_params()
     tree = dendropy.Tree.get_from_path(args.ifn_tree, schema='newick',
                                        preserve_underscores=True)
     tree.reroot_at_midpoint()
@@ -100,7 +90,7 @@ def main(args):
     metadatas = set([])
     node2metadata = {}
     for node in tree.preorder_node_iter():
-        nodestr = node.get_node_str().strip("'")
+        nodestr = node.__getattribute__("taxon").__str__().strip("'")
         if node.is_leaf():
             if '.' in nodestr:
                 nodestr = nodestr.replace('.',',')
@@ -116,7 +106,7 @@ def main(args):
             count += 1
             node.taxon = dendropy.Taxon(label='node_%d'%count)
     metadatas = sorted(list(metadatas))
-    color_names = colors.cnames.keys()
+    color_names = list(colors.cnames.keys())
     metadata2color = {}
     for i, md in enumerate(metadatas):
         metadata2color[md] = color_names[i % len(color_names)]
@@ -146,12 +136,12 @@ def main(args):
         # remove intermedate nodes
         for node in tree.preorder_node_iter():
             if not node.is_leaf():
-                nodestr = node.get_node_str().strip("'")
+                nodestr = node.__getattribute__("taxon").__str__().strip("'")
                 ofile.write('%s\tclade_marker_size\t0\n'%(nodestr))
 
         # colorize leaf nodes
         for node in tree.seed_node.leaf_nodes():
-            nodestr = node.get_node_str().strip("'")
+            nodestr = node.__getattribute__("taxon").__str__().strip("'")
             if nodestr in node2metadata:
                 leaf_color = metadata2color[node2metadata[nodestr]]
                 ofile.write('%s\tclade_marker_size\t%d\n'%(nodestr, args.leaf_marker_size))
@@ -166,12 +156,7 @@ def main(args):
     cmd = 'graphlan.py %s %s --dpi %d --size %f'%(ofn_xml, ofn_fig, args.dpi, args.fig_size)
     run(cmd)
 
-    print 'Output file: %s'%ofn_fig
+    print ('Output file: %s'%ofn_fig)
 
-
-
-
-if __name__ == "__main__":
-    args = read_params()
-    main(args)
-    #test()
+if __name__ == '__main__':
+    main()
