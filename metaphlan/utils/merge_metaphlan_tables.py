@@ -45,8 +45,8 @@ def merge( aaastrIn, ostm ):
                           skiprows=len(headers),
                           names = names,
                           usecols=range(3),
-                          index_col=index_col
-                        )
+                        ).fillna('')
+        iIn = iIn.set_index(iIn.columns[index_col].to_list())
         if merged_tables.empty:
             merged_tables = iIn.iloc[:,0].rename(os.path.splitext(os.path.basename(f))[0]).to_frame()
         else:
