@@ -255,8 +255,20 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
         return index
     
     use_zenodo = False
-    if urllib.request.urlopen("http://cmprod1.cibio.unitn.it/biobakery3/metaphlan_databases/mpa_latest").getcode() != 200:
-        use_zenodo = True
+    try:
+        if urllib.request.urlopen("http://cmprod1.cibio.unitn.it/biobakery3/metaphlan_databases/mpa_latest").getcode() != 200:
+            use_zenodo = True
+    except:
+        print('WARNING: It seems that you do not have Internet access.')
+        if os.path.exists(os.path.join(bowtie2_db,'mpa_latest')):
+            print('WARNING: Cannot connect to the database server. The latest available local database will be used.')
+            with open(os.path.join(bowtie2_db,'mpa_latest')) as mpa_latest:
+                latest_db_version = [line.strip() for line in mpa_latest if not line.startswith('#')]
+        else:
+            print("""ERROR: Cannot find a local database. Please run MetaPhlAn using option "-x <database_name>".
+            You can download the MetaPhlAn database from \n {} \n {} \n {} 
+                  """.format('http://cmprod1.cibio.unitn.it/biobakery3/metaphlan_databases',ZENODO_DATABASE_DOWNLOAD, DROPBOX_DATABASE_DOWNLOAD))
+            sys.exit()
 
     #try downloading from the segatalab website. If fails, use zenodo
     if index == 'latest':
