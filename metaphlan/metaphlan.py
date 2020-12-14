@@ -176,7 +176,7 @@ def read_params(args):
 
     arg('-x', '--index', type=str, default=INDEX,
         help=("Specify the id of the database version to use. "
-              "If \"latest\", MetaPhlAn will get the latest version.\n" "
+              "If \"latest\", MetaPhlAn will get the latest version.\n" 
               "If an index name is provided, MetaPhlAn will try to use it, if available, and skip the online check.\n"
               "If the database files are not found on the local MetaPhlAn installation they\n"
               "will be automatically downloaded [default "+INDEX+"]\n"))
