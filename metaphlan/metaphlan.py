@@ -71,13 +71,12 @@ def read_params(args):
             " METAgenomic PHyLogenetic ANalysis for metagenomic taxonomic profiling.\n\n"
             "AUTHORS: "+__author__+"\n\n"
             "COMMON COMMANDS\n\n"
-            " We assume here that metaphlan is in the system path and that mpa_dir bash variable contains the\n"
-            " main MetaPhlAn folder. Also BowTie2 should be in the system path with execution and read\n"
-            " permissions, and Perl should be installed)\n\n"
+            " We assume here that MetaPhlAn is installed using the several options available (pip, conda, PyPi)\n"
+            " Also BowTie2 should be in the system path with execution and read permissions, and Perl should be installed)\n\n"
 
             "\n========== MetaPhlAn clade-abundance estimation ================= \n\n"
-            "The basic usage of MetaPhlAn consists in the identification of the clades (from phyla to species and \n"
-            "strains in particular cases) present in the metagenome obtained from a microbiome sample and their \n"
+            "The basic usage of MetaPhlAn consists in the identification of the clades (from phyla to species ) \n"
+            "present in the metagenome obtained from a microbiome sample and their \n"
             "relative abundance. This correspond to the default analysis type (-t rel_ab).\n\n"
 
             "*  Profiling a metagenome from raw reads:\n"
@@ -93,7 +92,7 @@ def read_params(args):
             "$ metaphlan metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out -o profiled_metagenome.txt\n\n"
             
             "*  bowtie2out files generated with MetaPhlAn versions below 3 are not compatibile.\n"
-            "   Starting from MetaPhlAn 3.0, the BowTie2 ouput now includes the size of the profiled metagenome.\n"
+            "   Starting from MetaPhlAn 3.0, the BowTie2 ouput now includes the size of the profiled metagenome and the average read length.\n"
             "   If you want to re-run MetaPhlAn using these file you should provide the metagenome size via --nreads:\n"
             "$ metaphlan metagenome.bowtie2.bz2 --nproc 5 --input_type bowtie2out --nreads 520000 -o profiled_metagenome.txt\n\n"
 
@@ -177,8 +176,9 @@ def read_params(args):
 
     arg('-x', '--index', type=str, default=INDEX,
         help=("Specify the id of the database version to use. "
-              "If \"latest\", MetaPhlAn will get the latest version. If the database\n"
-              "files are not found on the local MetaPhlAn installation they\n"
+              "If \"latest\", MetaPhlAn will get the latest version.\n" "
+              "If an index name is provided, MetaPhlAn will try to use it, if available, and skip the online check.\n"
+              "If the database files are not found on the local MetaPhlAn installation they\n"
               "will be automatically downloaded [default "+INDEX+"]\n"))
 
     bt2ps = ['sensitive', 'very-sensitive', 'sensitive-local', 'very-sensitive-local']
