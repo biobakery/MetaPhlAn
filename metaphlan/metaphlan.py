@@ -1014,8 +1014,15 @@ def main():
     if no_map:
         os.remove( pars['inp'] )
 
-    if ESTIMATE_UNK and pars['input_type'] == 'sam':
+    if not n_metagenome_reads and pars['nreads']:
         n_metagenome_reads = pars['nreads']
+    else:
+            sys.stderr.write(
+                    "Please provide the size of the metagenome using the "
+                    "--nreads parameter when running MetaPhlAn using SAM files as input"
+                    "\nExiting...\n\n" )
+
+    if ESTIMATE_UNK and pars['input_type'] == 'sam':
         if not n_metagenome_reads and not pars['nreads']:
             sys.stderr.write(
                     "Please provide the size of the metagenome using the "
