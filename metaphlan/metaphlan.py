@@ -277,6 +277,7 @@ def read_params(args):
          " * marker_ab_table: normalized marker counts (only when > 0.0 and normalized by metagenome size if --nreads is specified)\n"
          " * marker_counts: non-normalized marker counts [use with extreme caution]\n"
          " * marker_pres_table: list of markers present in the sample (threshold at 1.0 if not differently specified with --pres_th\n"
+         " * clade_specific_strain_tracker: list of markers present for a specific clade, specified with --clade, and all its subclades\n"
          "[default 'rel_ab']" )
     arg( '--nreads', metavar="NUMBER_OF_READS", type=int, default = None, help =
          "The total number of reads in the original metagenome. It is used only when \n"
