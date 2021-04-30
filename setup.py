@@ -13,20 +13,20 @@ if sys.version_info[0] < 3:
 
 setuptools.setup(
     name='MetaPhlAn',
-    version='3.0.7',
+    version='3.0.8',
     author='Francesco Beghini',
     author_email='francesco.beghini@unitn.it',
     url='http://github.com/biobakery/MetaPhlAn/',
     license='LICENSE.txt',
     packages=setuptools.find_packages(),
-    package_data = { 'MetaPhlAn' : [
-        'metaphlan/utils/*'
+    package_data = { 'metaphlan' : [
+        'metaphlan_databases/*.txt',
+        'utils/*',
     ]},
     entry_points={
         'console_scripts': [
             'metaphlan = metaphlan.metaphlan:main',
             'strainphlan = metaphlan.strainphlan:main',
-
             'add_metadata_tree.py = metaphlan.utils.add_metadata_tree:main',
             'extract_markers.py = metaphlan.utils.extract_markers:main',
             'merge_metaphlan_tables.py  = metaphlan.utils.merge_metaphlan_tables:main',
