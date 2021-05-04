@@ -25,7 +25,7 @@ MetaPhlAn relies on ~1.1M unique clade-specific marker genes (the latest marker 
 
 If you use MetaPhlAn, please cite:
 
-[**Integrating taxonomic, functional, and strain-level profiling of diverse microbial communities with bioBakery 3**](https://www.biorxiv.org/content/10.1101/2020.11.19.388223v1) *Francesco Beghini, Lauren J McIver, Aitor Blanco-Miguez, Leonard Dubois, Francesco Asnicar, Sagun Maharjan, Ana Mailyan, Andrew Maltez Thomas, Paolo Manghi, Mireia Valles-Colomer, George Weingart, Yancong Zhang, Moreno Zolfo, Curtis Huttenhower, Eric A Franzosa, Nicola Segata*. bioRxiv preprint (2020)
+[**Integrating taxonomic, functional, and strain-level profiling of diverse microbial communities with bioBakery 3**](https://elifesciences.org/articles/65088) *Francesco Beghini, Lauren J McIver, Aitor Blanco-Míguez, Leonard Dubois, Francesco Asnicar, Sagun Maharjan, Ana Mailyan, Paolo Manghi, Matthias Scholz, Andrew Maltez Thomas, Mireia Valles-Colomer, George Weingart, Yancong Zhang, Moreno Zolfo, Curtis Huttenhower, Eric A Franzosa, Nicola Segata. eLife (2020)
 
 If you use StrainPhlAn, please cite the MetaPhlAn paper and the following StrainPhlAn paper:
 
