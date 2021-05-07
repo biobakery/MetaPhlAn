@@ -4,8 +4,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '3.0'
-__date__ = '1 Sep 2020'
+__version__ = '3.0.8'
+__date__ = '7 May 2021'
 
 
 import sys
@@ -409,7 +409,7 @@ Writes a FASTA file with the sequences of the filtered clade markers
 :param clade_markers_file: the FASTA with the clade markers
 """
 def cleaned_clade_markers_to_fasta(markers, tmp_dir, clade, clade_markers_file):
-    tmp_dir=tmp_dir+clade+"/"
+    tmp_dir=tmp_dir+clade[:30]+"/"
     create_folder(tmp_dir)
 
     clade_markers = {}
@@ -540,7 +540,7 @@ Executes PhyloPhlAn2 to compute phylogeny
 def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, clade, 
     marker_in_n_samples, phylophlan_mode, phylophlan_configuration, mutation_rates, nprocs):    
     info("\tCreating PhyloPhlAn 3.0 database...", init_new_line=True)
-    create_phylophlan_db(tmp_dir, clade)
+    create_phylophlan_db(tmp_dir, clade[:30])
     info("\tDone.", init_new_line=True)
     if not phylophlan_configuration:     
         info("\tGenerating PhyloPhlAn 3.0 configuration file...", init_new_line=True)
