@@ -3,8 +3,8 @@ __author__ = ('Francesco Beghini (francesco.beghini@unitn.it),'
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '3.0.7'
-__date__ = '09 Dec 2020'
+__version__ = '3.0.9'
+__date__ = '17 May 2021'
 
 import sys
 try:
@@ -1017,11 +1017,6 @@ def main():
 
     if not n_metagenome_reads and pars['nreads']:
         n_metagenome_reads = pars['nreads']
-    else:
-            sys.stderr.write(
-                    "Please provide the size of the metagenome using the "
-                    "--nreads parameter when running MetaPhlAn using SAM files as input"
-                    "\nExiting...\n\n" )
 
     if ESTIMATE_UNK and pars['input_type'] == 'sam':
         if not n_metagenome_reads and not pars['nreads']:
