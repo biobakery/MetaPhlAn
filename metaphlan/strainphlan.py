@@ -73,10 +73,12 @@ def read_params():
     p.add_argument('--phylophlan_configuration', type=str, default=None,
                     help="The PhyloPhlAn configuration file")
     p.add_argument('--mutation_rates', action='store_true', default=False,
-                   help=("If specified will produced a mutation rates table for each of the aligned markers and a summary table "
+                   help=("If specified, StrainPhlAn will produce a mutation rates table for each of the aligned markers and a summary table "
                          "for the concatenated MSA. This operation can take long time to finish"))
     p.add_argument('--print_clades_only', action='store_true', default=False,
-                   help=("If specified only print the potential clades and stop without building any tree"))
+                   help=("If specified, StrainPhlAn will only print the potential clades and stop the execution"))
+    p.add_argument('--debug', action='store_true', default=False,
+                   help=("If specified, StrainPhlAn will not remove the temporal folders"))
     
     return p.parse_args()
 
@@ -736,12 +738,13 @@ Executes StrainPhlAn
 :param phylophlan_configuration: the PhyloPhlAn configuration file
 :param mutation_rates: whether get  the mutation rates for the markers
 :param print_clades_only: whether print only the potential clades and stop
+:param debug: wether to save the tmp folders
 :param nprocs: the threads used for execution
 """
 def strainphlan(database, clade_markers, samples, references, secondary_samples, 
     secondary_references, clade, output_dir, trim_sequences, samples_with_n_markers, 
     marker_in_n_samples, secondary_samples_with_n_markers, phylophlan_mode, 
-    phylophlan_configuration, mutation_rates, print_clades_only, nprocs):
+    phylophlan_configuration, mutation_rates, print_clades_only, debug, nprocs):
     if print_clades_only:
         print_clades(database, samples, samples_with_n_markers, marker_in_n_samples)
     else:
@@ -786,9 +789,10 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
             samples_with_n_markers, marker_in_n_samples, secondary_samples_with_n_markers, 
             phylophlan_mode, nprocs)
         info("Done.", init_new_line=True)
-        info("Removing temporary files...", init_new_line=True)
-        rmtree(tmp_dir, ignore_errors=False, onerror=None)
-        info("Done.", init_new_line=True)
+        if not debug:
+            info("Removing temporary files...", init_new_line=True)
+            rmtree(tmp_dir, ignore_errors=False, onerror=None)
+            info("Done.", init_new_line=True)
 
 
 """
@@ -813,6 +817,7 @@ Main function
 :param phylophlan_configuration: the PhyloPhlAn configuration file
 :param mutation_rates: whether get  the mutation rates for the markers
 :param print_clades_only: whether print only the potential clades and stop
+:param debug: wether to save the tmp folders
 :param nprocs: the threads used for execution
 """
 def main():
@@ -824,7 +829,7 @@ def main():
         args.secondary_samples, args.secondary_references,  args.clade, args.output_dir, 
         args.trim_sequences, args.sample_with_n_markers, args.marker_in_n_samples,
         args.secondary_sample_with_n_markers, args.phylophlan_mode, args.phylophlan_configuration, 
-        args.mutation_rates, args.print_clades_only, args.nprocs)
+        args.mutation_rates, args.print_clades_only, args.debug, args.nprocs)
     exec_time = time.time() - t0
     if not args.print_clades_only:
         info("Finish StrainPhlAn " + __version__ + " execution ("+str(round(exec_time, 2))+
