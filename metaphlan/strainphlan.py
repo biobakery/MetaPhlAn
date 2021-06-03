@@ -68,7 +68,7 @@ def read_params():
                     help="Threshold defining the minimun number of markers to keep a sample")
     p.add_argument('--secondary_sample_with_n_markers', type=int, default=20,
                     help="Threshold defining the minimun number of markers to keep a secondary sample")
-    p.add_argument('--phylophlan_mode', choices=PHYLOPHLAN_MODES, default='accurate',
+    p.add_argument('--phylophlan_mode', choices=PHYLOPHLAN_MODES, default='fast',
                     help="The presets for fast or accurate phylogenetic analysis")
     p.add_argument('--phylophlan_configuration', type=str, default=None,
                     help="The PhyloPhlAn configuration file")
