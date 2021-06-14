@@ -2,9 +2,10 @@
 __author__ = ('Francesco Beghini (francesco.beghini@unitn.it),'
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
-              'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '3.0.9'
-__date__ = '17 May 2021'
+              'Francesco Asnicar (f.asnicar@unitn.it), '
+              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
+__version__ = '3.0.10'
+__date__ = '14 Jun 2021'
 
 import sys
 try:
@@ -404,6 +405,7 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
         except IOError as e:
             sys.stderr.write('IOError: "{}"\nUnable to open sam output file.\n'.format(e))
             sys.exit(1)
+        
         for line in p.stdout:
             if samout:
                 sam_file.write(line)
@@ -432,7 +434,7 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
             if not avg_read_length:
                 sys.stderr.write('Fatal error running MetaPhlAn. The average read length was not estimated.\nPlease check your input files.\n')
                 sys.exit(1)
-
+            
             outf.write(lmybytes('#nreads\t{}\n'.format(int(nreads))))
             outf.write(lmybytes('#avg_read_length\t{}'.format(avg_read_length)))
             outf.close()
@@ -1053,6 +1055,17 @@ def main():
 
         if not CAMI_OUTPUT:
             outf.write('#' + '\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
+
+        if ESTIMATE_UNK:
+            mapped_reads = 0
+            cl2pr = tree.clade_profiles( pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None  )
+            for c, m in cl2pr.items():
+                markers_cov = [a  / 1000 for _, a in m]
+                mapped_reads += np.mean(markers_cov) * tree.all_clades[c.split('|')[-1]].glen
+            # If the mapped reads are over-estimated, set the ratio at 1
+            fraction_mapped_reads = min(mapped_reads/float(n_metagenome_reads), 1.0)
+        else:
+            fraction_mapped_reads = 1.0
         
         if pars['t'] == 'reads_map':
             if not MPA2_OUTPUT:
@@ -1073,9 +1086,6 @@ def main():
 
             cl2ab, _, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
-
-            # If the mapped reads are over-estimated, set the ratio at 1
-            fraction_mapped_reads = min(tot_nreads/float(n_metagenome_reads), 1.0) if ESTIMATE_UNK else 1.0
             
             outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid), relab in cl2ab.items() if relab > 0.0]
             has_repr = False
@@ -1129,7 +1139,6 @@ def main():
             cl2ab, rr, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
 
-            fraction_mapped_reads = min(tot_nreads/float(n_metagenome_reads), 1.0) if ESTIMATE_UNK else 1.0
             unmapped_reads = max(n_metagenome_reads - tot_nreads, 0)
 
             outpred = [(taxstr, taxid,round(relab*100.0*fraction_mapped_reads,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
