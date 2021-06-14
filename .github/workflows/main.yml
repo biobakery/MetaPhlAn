@@ -2,7 +2,7 @@
 name: Close Issues
 on:
   issues:
-  issue_comment:
+    types: [opened]
 jobs:
   auto_close_all_issues:
     if: ${{ !github.event.issue.pull_request }}
