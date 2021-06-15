@@ -32,34 +32,40 @@ except ImportError:
     from parallelisation import execute_pool
 
 
+class SAMPLE2MARKERS_DEFAULTS:
+    breadth_threshold = 80
+    min_reads_aligning = 8
+
 """
 Reads and parses the command line arguments of the script.
 
 :returns: the parsed arguments
 """
 def read_params():
-    p = ap.ArgumentParser(description="")
+    p = ap.ArgumentParser(description="", formatter_class=ap.ArgumentDefaultsHelpFormatter)
     p.add_argument('-i', '--input', type=str, 
                    nargs='+', default=[],
                    help="The input samples as SAM or BAM files")
     p.add_argument('--sorted', action='store_true', default=False,
-                   help="Whether the BAM input files are sorted. Default false")
+                   help="Whether the BAM input files are sorted")
     p.add_argument('-f', '--input_format', type=str, default="bz2",
-                   help="The input samples format {bam, sam, bz2}. Default bz2")
+                   help="The input samples format {bam, sam, bz2}")
     p.add_argument('-o', '--output_dir', type=str, default=None,
                    help="The output directory")
-    p.add_argument('-b', '--breadth_threshold', type=int, default=80,
-                   help="The breadth of coverage threshold for the consensus markers. Default 80 (%%)")
-    p.add_argument('--min_reads_aligning', type=int, default=8,
-                   help="The minimum number of reads to cover a marker. Default 8")
-    p.add_argument('--min_read_len', type=int, default=0,
-                   help="The minimum lenght for a read to be considered. Default 0")
-    p.add_argument('--min_base_coverage', type=int, default=1,
-                   help="The minimum depth of coverage for a base to be considered. Default 1")
-    p.add_argument('--min_base_quality', type=int, default=30,
-                   help="The minimum quality for a base to be considered. Default 30")
+    p.add_argument('-b', '--breadth_threshold', type=int, default=SAMPLE2MARKERS_DEFAULTS.breadth_threshold,
+                   help="The breadth of coverage threshold for the consensus markers")
+    p.add_argument('--min_reads_aligning', type=int, default=SAMPLE2MARKERS_DEFAULTS.min_reads_aligning,
+                   help="The minimum number of reads to cover a marker")
+    p.add_argument('--min_read_len', type=int, default=cmseq.CMSEQ_DEFAULTS.minlen,
+                   help="The minimum lenght for a read to be considered")
+    p.add_argument('--min_base_coverage', type=int, default=cmseq.CMSEQ_DEFAULTS.mincov,
+                   help="The minimum depth of coverage for a base to be considered")
+    p.add_argument('--min_base_quality', type=int, default=cmseq.CMSEQ_DEFAULTS.minqual,
+                   help="The minimum quality for a base to be considered. This is performed BEFORE --min_base_coverage")
+    p.add_argument('--dominant_frq_threshold', type=float, default=cmseq.CMSEQ_DEFAULTS.poly_dominant_frq_thrsh,
+                   help="The cutoff for degree of 'allele dominance' for a position to be considered polymorphic")                   
     p.add_argument('--tmp', type=str, default=None,
-                   help="If specified, the directory where to store the temporal files. Default output directory")
+                   help="If specified, the directory where to store the temporal files")
     p.add_argument('--debug', action='store_true', default=False,
                    help=("If specified, StrainPhlAn will not remove the temporal folders"))
     p.add_argument('-n', '--nprocs', type=int, default=1,
@@ -221,16 +227,17 @@ Gets the markers for each sample and writes the Pickle files
 :param min_read_len: the minimum length for a read to be considered
 :param min_base_coverage: the minimum coverage for a base to be considered
 :param min_base_quality: the minimum quality for a base to be considered
+:param dominant_frq_threshold: the cutoff for degree of 'allele dominance' for a position to be considered polymorphic
 :param nprocs: number of threads to use in the execution
 """
-def execute_cmseq(input, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, nprocs):
+def execute_cmseq(input, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, dominant_frq_threshold, nprocs):
     info("Getting consensus markers from samples...", init_new_line=True)
     for i in input:
         info("\tProcessing sample: "+i, init_new_line=True)
         n, _ = os.path.splitext(os.path.basename(i))
         consensus = []
         collection = cmseq.BamFile(i, index=True, minlen=min_read_len, minimumReadsAligning=min_reads_aligning)
-        results = collection.parallel_reference_free_consensus(ncores=nprocs, mincov=min_base_coverage, minqual=min_base_quality, consensus_rule=cmseq.BamContig.majority_rule_polymorphicLoci)
+        results = collection.parallel_reference_free_consensus(ncores=nprocs, mincov=min_base_coverage, minqual=min_base_quality, consensus_rule=cmseq.BamContig.majority_rule_polymorphicLoci, dominant_frq_thrsh=dominant_frq_threshold)
         for c, seq in results:
             breath = get_breath(seq)
             if breath > breath_threshold:
@@ -255,15 +262,16 @@ user-selected output directory
 :param min_read_len: the minimum length for a read to be considered
 :param min_base_coverage: the minimum coverage for a base to be considered
 :param min_base_quality: the minimum quality for a base to be considered
+:param dominant_frq_threshold: the cutoff for degree of 'allele dominance' for a position to be considered polymorphic
 :param tmp: the path where to store the tmp directory
 :param debug: whether to remove the tmp directory
 :param nprocs: number of threads to use in the execution
 """
-def samples_to_markers(input, sorted, input_format, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, tmp, debug, nprocs):  
+def samples_to_markers(input, sorted, input_format, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, dominant_frq_threshold, tmp, debug, nprocs):  
     tmp_dir = tempfile.mkdtemp(dir=output_dir) + "/" if tmp is None else tempfile.mkdtemp(dir=tmp) + "/"
     
     input = convert_inputs(input, sorted, input_format, tmp_dir, nprocs)
-    execute_cmseq(input, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, nprocs)        
+    execute_cmseq(input, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, dominant_frq_threshold, nprocs)        
     
     if not debug:
         shutil.rmtree(tmp_dir, ignore_errors=False, onerror=None)
@@ -281,6 +289,7 @@ Main function
 :param min_read_len: the minimum length for a read to be considered
 :param min_base_coverage: the minimum coverage for a base to be considered
 :param min_base_quality: the minimum quality for a base to be considered
+:param dominant_frq_threshold: the cutoff for degree of 'allele dominance' for a position to be considered polymorphic
 :param tmp: the path where to store the tmp directory
 :param debug: whether to remove the tmp directory
 :param nprocs: number of threads to use in the execution
@@ -293,7 +302,7 @@ def main():
     args = check_params(args)
     samples_to_markers(args.input, args.sorted, args.input_format, args.output_dir, 
         args.breadth_threshold, args.min_reads_aligning, args.min_read_len, args.min_base_coverage, 
-        args.min_base_quality, args.tmp, args.debug, args.nprocs)
+        args.min_base_quality, args.dominant_frq_threshold, args.tmp, args.debug, args.nprocs)
     exec_time = time.time() - t0
     info("Finish samples to markers execution ("+str(round(exec_time, 2))+
         " seconds): Results are stored at \""+args.output_dir+"\"\n",

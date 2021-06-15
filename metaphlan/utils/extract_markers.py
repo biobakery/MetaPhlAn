@@ -36,9 +36,9 @@ Reads and parses the command line arguments of the script.
 :returns: the parsed arguments
 """
 def read_params():
-    p = ap.ArgumentParser(description="")
+    p = ap.ArgumentParser(description="", formatter_class=ap.ArgumentDefaultsHelpFormatter)
     p.add_argument('-d', '--database', type=str, default=DEFAULT_DATABASE,
-                   help="The input MetaPhlAn dtabase")
+                   help="The input MetaPhlAn database")
     p.add_argument('-c', '--clade', type=str, default=None,
                    help="The clades to investigate")
     p.add_argument('-o', '--output_dir', type=str, default=None,

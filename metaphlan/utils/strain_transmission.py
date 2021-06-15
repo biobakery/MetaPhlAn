@@ -22,7 +22,7 @@ Reads and parses the command line arguments of the script.
 :returns: the parsed arguments
 """
 def read_params():
-    p = ap.ArgumentParser(description="")
+    p = ap.ArgumentParser(description="", formatter_class=ap.ArgumentDefaultsHelpFormatter)
     p.add_argument('-t', '--tree', type=str, default=None,
                    help="The input tree file")
     p.add_argument('-m', '--metadata', type=str, default=None,
@@ -32,7 +32,7 @@ def read_params():
     p.add_argument('--save_dist', action='store_true',
                    help="[Optional] Save the PhyPhlAn pairwise distances file")
     p.add_argument('--threshold', type=float, default=DISTRIBUTION_THRESHOLD,
-                   help="[Optional] A custom distribution threshold value. Default: " + str(DISTRIBUTION_THRESHOLD))
+                   help="[Optional] A custom distribution threshold value")
     
     return p.parse_args()
 

@@ -73,7 +73,7 @@ def read_params():
     p.add_argument('--phylophlan_configuration', type=str, default=None,
                     help="The PhyloPhlAn configuration file")
     p.add_argument('--tmp', type=str, default=None,
-                   help="If specified, the directory where to store the temporal files. Default output directory")
+                   help="If specified, the directory where to store the temporal files.")
     p.add_argument('--mutation_rates', action='store_true', default=False,
                    help=("If specified, StrainPhlAn will produce a mutation rates table for each of the aligned markers and a summary table "
                          "for the concatenated MSA. This operation can take long time to finish"))
