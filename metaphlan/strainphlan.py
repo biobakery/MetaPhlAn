@@ -72,6 +72,8 @@ def read_params():
                     help="The presets for fast or accurate phylogenetic analysis")
     p.add_argument('--phylophlan_configuration', type=str, default=None,
                     help="The PhyloPhlAn configuration file")
+    p.add_argument('--tmp', type=str, default=None,
+                   help="If specified, the directory where to store the temporal files. Default output directory")
     p.add_argument('--mutation_rates', action='store_true', default=False,
                    help=("If specified, StrainPhlAn will produce a mutation rates table for each of the aligned markers and a summary table "
                          "for the concatenated MSA. This operation can take long time to finish"))
@@ -101,6 +103,12 @@ def check_params(args):
             init_new_line=True)
     elif not args.print_clades_only and not args.output_dir:
         error('-o (or --output_dir) must be specified', exit=True, 
+            init_new_line=True)
+    elif not os.path.exists(args.output_dir):
+        error('The directory {} does not exist'.format(args.output_dir), exit=True, 
+            init_new_line=True)
+    elif not (args.tmp is None) and not os.path.exists(args.tmp):
+        error('The directory {} does not exist'.format(args.tmp), exit=True, 
             init_new_line=True)
     elif args.database and not os.path.exists(args.database):
         error('The database does not exist', exit=True, 
@@ -736,6 +744,7 @@ Executes StrainPhlAn
     to keep a secondary sample
 :param phylophlan_mode: the precision of the phylogenetic analysis
 :param phylophlan_configuration: the PhyloPhlAn configuration file
+:param tmp: the path where to store the tmp directory
 :param mutation_rates: whether get  the mutation rates for the markers
 :param print_clades_only: whether print only the potential clades and stop
 :param debug: wether to save the tmp folders
@@ -744,12 +753,12 @@ Executes StrainPhlAn
 def strainphlan(database, clade_markers, samples, references, secondary_samples, 
     secondary_references, clade, output_dir, trim_sequences, samples_with_n_markers, 
     marker_in_n_samples, secondary_samples_with_n_markers, phylophlan_mode, 
-    phylophlan_configuration, mutation_rates, print_clades_only, debug, nprocs):
+    phylophlan_configuration, tmp, mutation_rates, print_clades_only, debug, nprocs):
     if print_clades_only:
         print_clades(database, samples, samples_with_n_markers, marker_in_n_samples)
     else:
-        info("Creating temporary directory...", init_new_line=True)
-        tmp_dir = tempfile.mkdtemp(dir=output_dir) + "/"
+        info("Creating temporary directory...", init_new_line=True)       
+        tmp_dir = tempfile.mkdtemp(dir=output_dir) + "/"  if tmp is None else tempfile.mkdtemp(dir=tmp) + "/" 
         info("Done.", init_new_line=True)
         info("Getting markers from main sample files...", init_new_line=True)
         markers_matrix, clade_markers_file = get_markers_matrix(database, clade_markers, 
@@ -815,6 +824,7 @@ Main function
     a secondary sample
 :param phylophlan_mode: the precision of the phylogenetic analysis
 :param phylophlan_configuration: the PhyloPhlAn configuration file
+:param tmp: the path where to store the tmp directory
 :param mutation_rates: whether get  the mutation rates for the markers
 :param print_clades_only: whether print only the potential clades and stop
 :param debug: wether to save the tmp folders
@@ -829,7 +839,7 @@ def main():
         args.secondary_samples, args.secondary_references,  args.clade, args.output_dir, 
         args.trim_sequences, args.sample_with_n_markers, args.marker_in_n_samples,
         args.secondary_sample_with_n_markers, args.phylophlan_mode, args.phylophlan_configuration, 
-        args.mutation_rates, args.print_clades_only, args.debug, args.nprocs)
+        args.tmp, args.mutation_rates, args.print_clades_only, args.debug, args.nprocs)
     exec_time = time.time() - t0
     if not args.print_clades_only:
         info("Finish StrainPhlAn " + __version__ + " execution ("+str(round(exec_time, 2))+

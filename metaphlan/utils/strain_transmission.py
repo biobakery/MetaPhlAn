@@ -1,7 +1,7 @@
 __author__ = ('Aitor Blanco (aitor.blancomiguez@unitn.it), '
              'Mireia Valles-Colomer (mireia.vallescolomer@unitn.it)')
-__version__ = '3.0.8'
-__date__ = '7 May 2021'
+__version__ = '3.0.10'
+__date__ = '15 Jun 2021'
 
 import os, time, sys
 import argparse as ap
@@ -47,6 +47,9 @@ def check_params(args):
             init_new_line=True)
     if not args.output_dir:
         error('-o (or --output_dir) must be specified', exit=True, 
+            init_new_line=True)
+    elif not os.path.exists(args.output_dir):
+        error('The directory {} does not exist'.format(args.output_dir), exit=True, 
             init_new_line=True)
     if not args.metadata:
         error('-m (or --metadata) must be specified', exit=True, 

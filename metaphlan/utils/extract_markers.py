@@ -4,8 +4,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '3.0.8'
-__date__ = '7 May 2021'
+__version__ = '3.0.10'
+__date__ = '15 Jun 2021'
 
 import sys
 try:
@@ -59,6 +59,9 @@ def check_params(args):
     elif not args.output_dir:
         error('-o (or --output_dir) must be specified', exit=True, 
             init_new_line=True)
+    elif not os.path.exists(args.output_dir):
+        error('The directory {} does not exist'.format(args.output_dir), exit=True, 
+            init_new_line=True)
     elif not os.path.exists(args.database):
         error('The database does not exist', exit=True, 
             init_new_line=True)
@@ -89,8 +92,6 @@ Extract the markers of a specific clade in a MetaPhlAn database
 :returns: the output file with the extracted sequences of the marker
 """
 def extract_markers(database, clade, output_dir):
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
     info('\tGenerating DB markers FASTA...', init_new_line=True)
     fasta_markers = generate_markers_fasta(database, output_dir)
     info('\tDone.', init_new_line=True)

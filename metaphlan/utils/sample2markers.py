@@ -4,8 +4,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '3.0.8'
-__date__ = '7 May 2021'
+__version__ = '3.0.10'
+__date__ = '15 Jun 2021'
 
 import sys
 try:
@@ -18,7 +18,7 @@ if sys.version_info[0] < 3:
                     .format(sys.version_info[0], sys.version_info[1], 
                         sys.version_info[2]), exit=True)
 
-import os, time, shutil, pickle
+import os, time, shutil, pickle, tempfile
 import subprocess as sb
 import argparse as ap
 from cmseq import cmseq
@@ -50,6 +50,18 @@ def read_params():
                    help="The output directory")
     p.add_argument('-b', '--breadth_threshold', type=int, default=80,
                    help="The breadth of coverage threshold for the consensus markers. Default 80 (%%)")
+    p.add_argument('--min_reads_aligning', type=int, default=8,
+                   help="The minimum number of reads to cover a marker. Default 8")
+    p.add_argument('--min_read_len', type=int, default=0,
+                   help="The minimum lenght for a read to be considered. Default 0")
+    p.add_argument('--min_base_coverage', type=int, default=1,
+                   help="The minimum depth of coverage for a base to be considered. Default 1")
+    p.add_argument('--min_base_quality', type=int, default=30,
+                   help="The minimum quality for a base to be considered. Default 30")
+    p.add_argument('--tmp', type=str, default=None,
+                   help="If specified, the directory where to store the temporal files. Default output directory")
+    p.add_argument('--debug', action='store_true', default=False,
+                   help=("If specified, StrainPhlAn will not remove the temporal folders"))
     p.add_argument('-n', '--nprocs', type=int, default=1,
                    help="The number of threads to execute the script")
     
@@ -75,6 +87,12 @@ def check_params(args):
     elif args.input_format.lower() != "bam" and args.input_format.lower() != "sam" and args.input_format.lower() != "bz2":
         error('The input format must be SAM, BAM, or compressed in BZ2 format', 
             exit=True, init_new_line=True)
+    elif not os.path.exists(args.output_dir):
+        error('The directory {} does not exist'.format(args.output_dir), exit=True, 
+            init_new_line=True)
+    elif not (args.tmp is None) and not os.path.exists(args.tmp):
+        error('The directory {} does not exist'.format(args.tmp), exit=True, 
+            init_new_line=True)
     else:
         check_input_files(args.input, args.input_format)
     if not args.output_dir.endswith('/'):
@@ -199,16 +217,20 @@ Gets the markers for each sample and writes the Pickle files
 :param input: the samples as sorted BAM files
 :param output_dir: the output directory
 :param breath_threshold: the breath threshold for the consensus markers
+:param min_reads_aligning: the minimum number of reads to cover a marker
+:param min_read_len: the minimum length for a read to be considered
+:param min_base_coverage: the minimum coverage for a base to be considered
+:param min_base_quality: the minimum quality for a base to be considered
 :param nprocs: number of threads to use in the execution
 """
-def execute_cmseq(input, output_dir, breath_threshold, nprocs):
+def execute_cmseq(input, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, nprocs):
     info("Getting consensus markers from samples...", init_new_line=True)
     for i in input:
         info("\tProcessing sample: "+i, init_new_line=True)
         n, _ = os.path.splitext(os.path.basename(i))
         consensus = []
-        collection = cmseq.BamFile(i, index=True, minimumReadsAligning=8)
-        results = collection.parallel_reference_free_consensus(ncores=nprocs, consensus_rule=cmseq.BamContig.majority_rule_polymorphicLoci)
+        collection = cmseq.BamFile(i, index=True, minlen=min_read_len, minimumReadsAligning=min_reads_aligning)
+        results = collection.parallel_reference_free_consensus(ncores=nprocs, mincov=min_base_coverage, minqual=min_base_quality, consensus_rule=cmseq.BamContig.majority_rule_polymorphicLoci)
         for c, seq in results:
             breath = get_breath(seq)
             if breath > breath_threshold:
@@ -229,20 +251,22 @@ user-selected output directory
 :param input_format: format of the sample files [bam or sam]
 :param output_dir: the output directory
 :param breath_threshold: the breath threshold for the consensus markers
+:param min_reads_aligning: the minimum number of reads to cover a marker
+:param min_read_len: the minimum length for a read to be considered
+:param min_base_coverage: the minimum coverage for a base to be considered
+:param min_base_quality: the minimum quality for a base to be considered
+:param tmp: the path where to store the tmp directory
+:param debug: whether to remove the tmp directory
 :param nprocs: number of threads to use in the execution
 """
-def samples_to_markers(input, sorted, input_format, output_dir, breath_threshold, nprocs):
-    tmp_dir = output_dir+'tmp/'
-    try:
-        os.mkdir(tmp_dir)
-    except Exception as e:
-        error('Folder \"'+tmp_dir+'\" already exists!\n'+str(e), exit=True,
-            init_new_line=True)
+def samples_to_markers(input, sorted, input_format, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, tmp, debug, nprocs):  
+    tmp_dir = tempfile.mkdtemp(dir=output_dir) + "/" if tmp is None else tempfile.mkdtemp(dir=tmp) + "/"
     
     input = convert_inputs(input, sorted, input_format, tmp_dir, nprocs)
-    execute_cmseq(input, output_dir, breath_threshold, nprocs)        
+    execute_cmseq(input, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, nprocs)        
     
-    shutil.rmtree(tmp_dir, ignore_errors=False, onerror=None)
+    if not debug:
+        shutil.rmtree(tmp_dir, ignore_errors=False, onerror=None)
 
 
 """
@@ -253,6 +277,12 @@ Main function
 :param input_format: format of the sample files [bam or sam]
 :param output_dir: the output directory
 :param breadth_threshold: the breadth threshold for the consensus markers
+:param min_reads_aligning: the minimum number of reads to cover a marker
+:param min_read_len: the minimum length for a read to be considered
+:param min_base_coverage: the minimum coverage for a base to be considered
+:param min_base_quality: the minimum quality for a base to be considered
+:param tmp: the path where to store the tmp directory
+:param debug: whether to remove the tmp directory
 :param nprocs: number of threads to use in the execution
 """
 def main():
@@ -262,7 +292,8 @@ def main():
     check_dependencies()
     args = check_params(args)
     samples_to_markers(args.input, args.sorted, args.input_format, args.output_dir, 
-        args.breadth_threshold, args.nprocs)
+        args.breadth_threshold, args.min_reads_aligning, args.min_read_len, args.min_base_coverage, 
+        args.min_base_quality, args.tmp, args.debug, args.nprocs)
     exec_time = time.time() - t0
     info("Finish samples to markers execution ("+str(round(exec_time, 2))+
         " seconds): Results are stored at \""+args.output_dir+"\"\n",
