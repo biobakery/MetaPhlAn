@@ -1074,11 +1074,8 @@ def main():
 
         elif pars['t'] == 'rel_ab':
             if CAMI_OUTPUT:
-                outf.write('''@SampleID:{}\n
-                           @Version:0.10.0\n
-                           @Ranks:superkingdom|phylum|class|order|family|genus|species|strain\n
-                           @@TAXID\tRANK\tTAXPATH\tTAXPATHSN\tPERCENTAGE\n'''.format(pars["sample_id"]))
-            if not MPA2_OUTPUT:
+                outf.write('''@SampleID:{}\n@Version:0.10.0\n@Ranks:superkingdom|phylum|class|order|family|genus|species|strain\n@@TAXID\tRANK\tTAXPATH\tTAXPATHSN\tPERCENTAGE\n'''.format(pars["sample_id"]))
+            if not MPA2_OUTPUT and not CAMI_OUTPUT:
                 if not pars['use_group_representative']:
                     outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\tadditional_species\n')
                 else:

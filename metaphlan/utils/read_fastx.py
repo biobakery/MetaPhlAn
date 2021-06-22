@@ -107,7 +107,11 @@ def read_and_write_raw_int(fd, min_len=None):
     #         _ = sys.stdout.write(ignore_spaces(l))
 
     nreads = idx - discarded
-    avg_read_length /= nreads
+    if nreads:
+        avg_read_length /= nreads
+    else:
+        nreads, avg_read_length = 0, 0
+
     return (nreads, avg_read_length)
 
 def read_and_write_raw(fd, opened=False, min_len=None):
