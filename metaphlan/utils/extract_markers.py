@@ -4,8 +4,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '3.0.10'
-__date__ = '15 Jun 2021'
+__version__ = '3.0.11'
+__date__ = '07 Jul 2021'
 
 import sys
 try:
@@ -27,8 +27,12 @@ try:
 except ImportError:
     from external_exec import generate_markers_fasta
 
-DEFAULT_DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
-    "../metaphlan_databases/mpa_v30_CHOCOPhlAn_201901.pkl")
+# get the directory that contains this script
+metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "../metaphlan_databases")
+DEFAULT_DB_FOLDER = os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
+DEFAULT_DB_NAME =  "mpa_v30_CHOCOPhlAn_201901.pkl"
+DEFAULT_DATABASE = os.path.join(DEFAULT_DB_FOLDER, DEFAULT_DB_NAME)
 
 """
 Reads and parses the command line arguments of the script.

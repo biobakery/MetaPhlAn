@@ -4,8 +4,8 @@ __author__ = ('Francesco Beghini (francesco.beghini@unitn.it),'
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
-__version__ = '3.0.10'
-__date__ = '14 Jun 2021'
+__version__ = '3.0.11'
+__date__ = '07 Jul 2021'
 
 import sys
 try:
@@ -62,6 +62,7 @@ except ImportError:
 metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 # get the default database folder
 DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "metaphlan_databases")
+DEFAULT_DB_FOLDER= os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
 INDEX = 'latest'
 tax_units = "kpcofgst"
 
@@ -172,7 +173,7 @@ def read_params(args):
     arg = g.add_argument
     arg('--force', action='store_true', help="Force profiling of the input file by removing the bowtie2out file")
     arg('--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default=DEFAULT_DB_FOLDER,
-        help=("Folder containing the MetaPhlAn database."
+        help=("Folder containing the MetaPhlAn database. You can specify the location by exporting the DEFAULT_DB_FOLDER variable in the shell."
               "[default "+DEFAULT_DB_FOLDER+"]\n"))
 
     arg('-x', '--index', type=str, default=INDEX,
