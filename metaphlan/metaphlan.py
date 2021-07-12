@@ -1057,17 +1057,6 @@ def main():
         if not CAMI_OUTPUT:
             outf.write('#' + '\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
 
-        if ESTIMATE_UNK:
-            mapped_reads = 0
-            cl2pr = tree.clade_profiles( pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None  )
-            for c, m in cl2pr.items():
-                markers_cov = [a  / 1000 for _, a in m]
-                mapped_reads += np.mean(markers_cov) * tree.all_clades[c.split('|')[-1]].glen
-            # If the mapped reads are over-estimated, set the ratio at 1
-            fraction_mapped_reads = min(mapped_reads/float(n_metagenome_reads), 1.0)
-        else:
-            fraction_mapped_reads = 1.0
-        
         if pars['t'] == 'reads_map':
             if not MPA2_OUTPUT:
                outf.write('#read_id\tNCBI_taxlineage_str\tNCBI_taxlineage_ids\n')
@@ -1084,7 +1073,10 @@ def main():
 
             cl2ab, _, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
-            
+
+            # If the mapped reads are over-estimated, set the ratio at 1
+            fraction_mapped_reads = min(tot_nreads/float(n_metagenome_reads), 1.0) if ESTIMATE_UNK else 1.0           
+ 
             outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid), relab in cl2ab.items() if relab > 0.0]
             has_repr = False
             
@@ -1136,6 +1128,8 @@ def main():
         elif pars['t'] == 'rel_ab_w_read_stats':
             cl2ab, rr, tot_nreads = tree.relative_abundances(
                         pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
+
+            fraction_mapped_reads = min(tot_nreads/float(n_metagenome_reads), 1.0) if ESTIMATE_UNK else 1.0
 
             unmapped_reads = max(n_metagenome_reads - tot_nreads, 0)
 
