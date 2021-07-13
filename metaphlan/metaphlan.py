@@ -969,6 +969,10 @@ def compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metage
     # If the mapped reads are over-estimated, set the ratio at 1
     fraction_mapped_reads = min(tot_nreads/float(n_metagenome_reads), 1.0) if ESTIMATE_UNK else 1.0
 
+    # check for a negative fraction
+    if unknown_calculation and fraction_mapped_reads < 0:
+        fraction_mapped_reads = 1.0
+
     return cl2ab, fraction_mapped_reads
 
 def main():
