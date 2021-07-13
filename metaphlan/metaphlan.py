@@ -585,6 +585,10 @@ class TaxClade:
 
         if rat < 0.0:
             pass
+        elif self.stat == 'unknown':
+            wnreads = sorted([(float(n)/(np.absolute(r-self.avg_read_length)+1),(np.absolute(r - self.avg_read_length)+1) ,n) for r,n in rat_nreads], key=lambda x:x[0])
+            den,num = zip(*[v[1:] for v in wnreads])
+            loc_ab = float(sum(num))/float(sum(den)) if any(den) else 0.0
         elif self.stat == 'avg_g' or (not qn and self.stat in ['wavg_g','tavg_g']):
             loc_ab = nrawreads / rat if rat >= 0 else 0.0
         elif self.stat == 'avg_l' or (not qn and self.stat in ['wavg_l','tavg_l']):
@@ -919,6 +923,46 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
 
     return True
 
+def create_tree_and_add_reads(mpa_pkl, ignore_markers, pars, avg_read_length, markers2reads):
+    # Create an instance of the TaxTree and update the stats settings and then add the reads and markers
+    tree = TaxTree( mpa_pkl, ignore_markers )
+    tree.set_min_cu_len( pars['min_cu_len'] )
+    tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'] )
+
+    map_out = []
+    for marker,reads in sorted(markers2reads.items(), key=lambda pars: pars[0]):
+        if marker not in tree.markers2lens:
+            continue
+        tax_seq, ids_seq = tree.add_reads( marker, len(reads),
+                                  add_viruses = pars['add_viruses'],
+                                  ignore_eukaryotes = pars['ignore_eukaryotes'],
+                                  ignore_bacteria = pars['ignore_bacteria'],
+                                  ignore_archaea = pars['ignore_archaea'],
+                                  )
+        if tax_seq:
+            map_out +=["\t".join([r,tax_seq, ids_seq]) for r in sorted(reads)]
+
+    return tree, map_out
+
+def compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK, unknown_calculation=False):
+    # Using the tree compute the relative abundance and then the fraction of mapped reads using the total mapped reads
+
+    # if computing the unknown calculation, set the tree settings to reset to the unknown stat
+    # must be set here and then reset as this is a global setting that will apply to all trees if set
+    if unknown_calculation:
+        tree.set_stat( 'unknown', pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'] )
+
+    cl2ab, _, tot_nreads = tree.relative_abundances(
+            pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
+
+    if unknown_calculation:
+        tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'] )
+
+    # If the mapped reads are over-estimated, set the ratio at 1
+    fraction_mapped_reads = min(tot_nreads/float(n_metagenome_reads), 1.0) if ESTIMATE_UNK else 1.0
+
+    return cl2ab, fraction_mapped_reads
+
 def main():
     ranks2code = { 'k' : 'superkingdom', 'p' : 'phylum', 'c':'class',
                    'o' : 'order', 'f' : 'family', 'g' : 'genus', 's' : 'species'}
@@ -1008,12 +1052,12 @@ def main():
         mpa_pkl = pickle.load( a )
 
     REPORT_MERGED = mpa_pkl.get('merged_taxon',False)
-    tree = TaxTree( mpa_pkl, ignore_markers )
-    tree.set_min_cu_len( pars['min_cu_len'] )
     
     markers2reads, n_metagenome_reads, avg_read_length = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'])
 
-    tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'])
+    # create a tree for the relative abundance and unknown calculations (each use different default computations as unknown includes all the alignments)
+    tree, map_out = create_tree_and_add_reads( mpa_pkl, ignore_markers, pars, avg_read_length, markers2reads)
+    tree_unknown, map_out_unknown = create_tree_and_add_reads( mpa_pkl, ignore_markers, pars, avg_read_length, markers2reads)
 
     if no_map:
         os.remove( pars['inp'] )
@@ -1028,19 +1072,6 @@ def main():
                     "--nreads parameter when running MetaPhlAn using SAM files as input"
                     "\nExiting...\n\n" )
             sys.exit(1)
-
-    map_out = []
-    for marker,reads in sorted(markers2reads.items(), key=lambda pars: pars[0]):
-        if marker not in tree.markers2lens:
-            continue
-        tax_seq, ids_seq = tree.add_reads( marker, len(reads),
-                                  add_viruses = pars['add_viruses'],
-                                  ignore_eukaryotes = pars['ignore_eukaryotes'],
-                                  ignore_bacteria = pars['ignore_bacteria'],
-                                  ignore_archaea = pars['ignore_archaea'],
-                                  )
-        if tax_seq:
-            map_out +=["\t".join([r,tax_seq, ids_seq]) for r in sorted(reads)]
 
     if pars['output'] is None and pars['output_file'] is not None:
         pars['output'] = pars['output_file']
@@ -1071,12 +1102,9 @@ def main():
                 else:
                     outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
 
-            cl2ab, _, tot_nreads = tree.relative_abundances(
-                        pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
+            cl2ab_unknown, fraction_mapped_reads_unknown = compute_relative_abundance_and_fraction_of_mapped_reads(tree_unknown, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK, unknown_calculation=True)
+            cl2ab, fraction_mapped_reads = compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK)
 
-            # If the mapped reads are over-estimated, set the ratio at 1
-            fraction_mapped_reads = min(tot_nreads/float(n_metagenome_reads), 1.0) if ESTIMATE_UNK else 1.0           
- 
             outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid), relab in cl2ab.items() if relab > 0.0]
             has_repr = False
             
@@ -1093,7 +1121,7 @@ def main():
                     if ESTIMATE_UNK:
                         outf.write( "\t".join( [    "UNKNOWN",
                                                     "-1",
-                                                    str(round((1-fraction_mapped_reads)*100,5)),""]) + "\n" )
+                                                    str(round((1-fraction_mapped_reads_unknown)*100,5)),""]) + "\n" )
                                                     
                     for clade, taxid, relab in sorted(  outpred, reverse=True,
                                         key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
@@ -1126,10 +1154,8 @@ def main():
             maybe_generate_biom_file(tree, pars, outpred)
 
         elif pars['t'] == 'rel_ab_w_read_stats':
-            cl2ab, rr, tot_nreads = tree.relative_abundances(
-                        pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
-
-            fraction_mapped_reads = min(tot_nreads/float(n_metagenome_reads), 1.0) if ESTIMATE_UNK else 1.0
+            cl2ab, fraction_mapped_reads = compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK)
+            cl2ab_unknown, fraction_mapped_reads_unknown = compute_relative_abundance_and_fraction_of_mapped_reads(tree_unknown, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK, unknown_calculation=True)
 
             unmapped_reads = max(n_metagenome_reads - tot_nreads, 0)
 
@@ -1145,7 +1171,7 @@ def main():
                 if ESTIMATE_UNK:
                     outf.write( "\t".join( [    "UNKNOWN",
                                                 "-1",
-                                                str(round((1-fraction_mapped_reads)*100,5)),
+                                                str(round((1-fraction_mapped_reads_unknown)*100,5)),
                                                 "-",
                                                 str(unmapped_reads) ]) + "\n" )
                                                 
