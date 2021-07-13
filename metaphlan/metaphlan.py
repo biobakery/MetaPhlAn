@@ -637,8 +637,9 @@ class TaxClade:
         return ret
 
 class TaxTree:
-    def __init__( self, mpa, markers_to_ignore = None ): #, min_cu_len ):
+    def __init__( self, mpa, markers_to_ignore = None, unknown_calculation = None ): #, min_cu_len ):
         self.root = TaxClade( "root", 0)
+        self.unknown_calculation = unknown_calculation
         self.all_clades, self.markers2lens, self.markers2clades, self.taxa2clades, self.markers2exts = {}, {}, {}, {}, {}
         TaxClade.markers2lens = self.markers2lens
         TaxClade.markers2exts = self.markers2exts
@@ -673,7 +674,11 @@ class TaxTree:
             lens = []
             for c in node.children.values():
                 lens.append( add_lens( c ) )
-            node.glen = min(np.mean(lens), np.median(lens))
+            # use a different length for the unknown calculation
+            if self.unknown_calculation:
+                node.glen = np.median(lens)
+            else:
+                node.glen = min(np.mean(lens), np.median(lens))
             return node.glen
         
         add_lens(self.root)
@@ -923,9 +928,9 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
 
     return True
 
-def create_tree_and_add_reads(mpa_pkl, ignore_markers, pars, avg_read_length, markers2reads):
+def create_tree_and_add_reads(mpa_pkl, ignore_markers, pars, avg_read_length, markers2reads, unknown_calculation=False):
     # Create an instance of the TaxTree and update the stats settings and then add the reads and markers
-    tree = TaxTree( mpa_pkl, ignore_markers )
+    tree = TaxTree( mpa_pkl, ignore_markers , unknown_calculation = unknown_calculation)
     tree.set_min_cu_len( pars['min_cu_len'] )
     tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'] )
 
@@ -1057,7 +1062,7 @@ def main():
 
     # create a tree for the relative abundance and unknown calculations (each use different default computations as unknown includes all the alignments)
     tree, map_out = create_tree_and_add_reads( mpa_pkl, ignore_markers, pars, avg_read_length, markers2reads)
-    tree_unknown, map_out_unknown = create_tree_and_add_reads( mpa_pkl, ignore_markers, pars, avg_read_length, markers2reads)
+    tree_unknown, map_out_unknown = create_tree_and_add_reads( mpa_pkl, ignore_markers, pars, avg_read_length, markers2reads, unknown_calculation=True)
 
     if no_map:
         os.remove( pars['inp'] )
