@@ -66,6 +66,9 @@ DEFAULT_DB_FOLDER= os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
 INDEX = 'latest'
 tax_units = "kpcofgst"
 
+# set default parameters
+GENOME_LENGTH_BOOST_FOR_UNKNOWN_ESTIMATE=1.05
+
 def read_params(args):
     p = ap.ArgumentParser( description=
             "DESCRIPTION\n"
@@ -676,7 +679,7 @@ class TaxTree:
                 lens.append( add_lens( c ) )
             # use a different length for the unknown calculation
             if self.unknown_calculation:
-                node.glen = np.median(lens)
+                node.glen = np.median(lens) * GENOME_LENGTH_BOOST_FOR_UNKNOWN_ESTIMATE
             else:
                 node.glen = min(np.mean(lens), np.median(lens))
             return node.glen
