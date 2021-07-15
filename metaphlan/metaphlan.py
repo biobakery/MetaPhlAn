@@ -973,7 +973,7 @@ def compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metage
     if unknown_calculation and fraction_mapped_reads < 0:
         fraction_mapped_reads = 1.0
 
-    return cl2ab, fraction_mapped_reads
+    return cl2ab, fraction_mapped_reads, tot_nreads
 
 def main():
     ranks2code = { 'k' : 'superkingdom', 'p' : 'phylum', 'c':'class',
@@ -1114,8 +1114,10 @@ def main():
                 else:
                     outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
 
-            cl2ab_unknown, fraction_mapped_reads_unknown = compute_relative_abundance_and_fraction_of_mapped_reads(tree_unknown, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK, unknown_calculation=True)
-            cl2ab, fraction_mapped_reads = compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK)
+            cl2ab, fraction_mapped_reads, tot_nreads = compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK)
+
+            # compute the mapped reads fraction again considering all alignments
+            cl2ab_unknown, fraction_mapped_reads, tot_nreads = compute_relative_abundance_and_fraction_of_mapped_reads(tree_unknown, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK, unknown_calculation=True)
 
             outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid), relab in cl2ab.items() if relab > 0.0]
             has_repr = False
@@ -1133,7 +1135,7 @@ def main():
                     if ESTIMATE_UNK:
                         outf.write( "\t".join( [    "UNKNOWN",
                                                     "-1",
-                                                    str(round((1-fraction_mapped_reads_unknown)*100,5)),""]) + "\n" )
+                                                    str(round((1-fraction_mapped_reads)*100,5)),""]) + "\n" )
                                                     
                     for clade, taxid, relab in sorted(  outpred, reverse=True,
                                         key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
@@ -1166,8 +1168,9 @@ def main():
             maybe_generate_biom_file(tree, pars, outpred)
 
         elif pars['t'] == 'rel_ab_w_read_stats':
-            cl2ab, fraction_mapped_reads = compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK)
-            cl2ab_unknown, fraction_mapped_reads_unknown = compute_relative_abundance_and_fraction_of_mapped_reads(tree_unknown, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK, unknown_calculation=True)
+            cl2ab, fraction_mapped_reads, tot_nreads = compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK)
+            # compute the mapped reads fraction again considering all alignments
+            cl2ab_unknown, fraction_mapped_reads, tot_nreads = compute_relative_abundance_and_fraction_of_mapped_reads(tree_unknown, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK, unknown_calculation=True)
 
             unmapped_reads = max(n_metagenome_reads - tot_nreads, 0)
 
@@ -1183,7 +1186,7 @@ def main():
                 if ESTIMATE_UNK:
                     outf.write( "\t".join( [    "UNKNOWN",
                                                 "-1",
-                                                str(round((1-fraction_mapped_reads_unknown)*100,5)),
+                                                str(round((1-fraction_mapped_reads)*100,5)),
                                                 "-",
                                                 str(unmapped_reads) ]) + "\n" )
                                                 
