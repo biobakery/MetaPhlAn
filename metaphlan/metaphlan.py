@@ -518,7 +518,7 @@ class TaxClade:
                     for m,n in self.markers2nreads.items()]
 
     def compute_mapped_reads( self ):
-        if self.name.startswith('k__'):
+        if self.name.startswith('s__'):
             return self.nreads
         for c in self.children.values():
             self.nreads += c.compute_mapped_reads()
@@ -770,7 +770,7 @@ class TaxTree:
                         else:
                             glen = self.all_clades[clade_label].glen
                             tax_id = self.all_clades[clade_label].get_full_taxids()
-                            if 'k__' in clade_label and abundance > 0:
+                            if 's__' in clade_label and abundance > 0:
                                 self.all_clades[clade_label].nreads = int(np.floor(abundance*glen))
 
                             clade_label = self.all_clades[clade_label].get_full_name()
