@@ -115,9 +115,7 @@ def read_and_write_raw_int(fd, min_len=None, prefix_id=""):
 
     nreads = idx - discarded
 
-    if nreads:
-        avg_read_length /= nreads
-    else:
+    if not nreads:
         nreads, avg_read_length = 0, 0
 
     return (nreads, avg_read_length)
@@ -170,7 +168,7 @@ def main():
             nreads += f_nreads
             avg_read_length += f_avg_read_length
 
-        avg_read_length = avg_read_length / len(files)
+    avg_read_length /= nreads
 
     if nreads and avg_read_length:
         sys.stderr.write('{}\t{}'.format(nreads, avg_read_length))
