@@ -17,9 +17,9 @@ except ImportError:
 p2 = float(sys.version_info[0]) < 3.0
 
 
-def ignore_spaces(l, forced=False):
+def clean_read_id(l, forced=False):
     if (l[0] == '@') or (l[0] == '>') or forced:
-        return l.replace(' ', '_')
+        return l.split(' ')[0]
 
     return l
 
@@ -87,7 +87,7 @@ def read_and_write_raw_int(fd, min_len=None, prefix_id=""):
             description, sequence = record
 
         if len(sequence) >= min_len:
-            description = ignore_spaces(description, forced=True)
+            description = clean_read_id(description, forced=True)
             avg_read_length = len(sequence) + avg_read_length
             _ = sys.stdout.write(print_record(description + "__{}{}1".format(prefix_id, '.' if prefix_id else ''), sequence, qual, fmt))
         else:
@@ -103,7 +103,7 @@ def read_and_write_raw_int(fd, min_len=None, prefix_id=""):
 
         if len(sequence) >= min_len:
             avg_read_length = len(sequence) + avg_read_length
-            description = ignore_spaces(description, forced=True)
+            description = clean_read_id(description, forced=True)
             _ = sys.stdout.write(
                     print_record(description + "__{}{}{}".format(prefix_id, '.' if prefix_id else '', idx), sequence, qual, fmt))
         else:
