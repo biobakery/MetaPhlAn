@@ -89,7 +89,7 @@ def read_and_write_raw_int(fd, min_len=None, prefix_id=""):
         if len(sequence) >= min_len:
             description = ignore_spaces(description, forced=True)
             avg_read_length = len(sequence) + avg_read_length
-            _ = sys.stdout.write(print_record(description + "__{}.1".format(prefix_id), sequence, qual, fmt))
+            _ = sys.stdout.write(print_record(description + "__{}{}1".format(prefix_id, '.' if prefix_id else ''), sequence, qual, fmt))
         else:
             discarded = discarded + 1
 
@@ -104,7 +104,8 @@ def read_and_write_raw_int(fd, min_len=None, prefix_id=""):
         if len(sequence) >= min_len:
             avg_read_length = len(sequence) + avg_read_length
             description = ignore_spaces(description, forced=True)
-            _ = sys.stdout.write(print_record(description + "__{}.{}".format(prefix_id, idx), sequence, qual, fmt))
+            _ = sys.stdout.write(
+                    print_record(description + "__{}{}{}".format(prefix_id, '.' if prefix_id else '', idx), sequence, qual, fmt))
         else:
             discarded = discarded + 1
     # else:
