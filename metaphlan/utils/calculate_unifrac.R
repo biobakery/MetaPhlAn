@@ -49,6 +49,11 @@ mpa_table <- mpa_table[,-1]
 mpa_tree <- ape::read.tree(tree_file)
 mpa_tree$tip.label <- gsub(".+\\|s__", "", mpa_tree$tip.label)
 
+removed <- setdiff(rownames(mpa_table), mpa_tree$tip.label)
+if(length(removed)){
+  write(paste0('WARNING: ', length(removed), ' species not present in the tree were removed from the input profile.'), stdout())
+  write(paste(removed, colllapse='\n'), stdout())
+}
 filt_tree <- ape::keep.tip(mpa_tree, intersect(rownames(mpa_table),mpa_tree$tip.label))
 filt_mpa_table <- mpa_table[filt_tree$tip.label,] / 100.0
 
