@@ -191,7 +191,7 @@ Adds secondary samples to the marker matrix
 :returns: the filtered markers matrix with the secondary samples
 """
 def add_secondary_samples(secondary_samples, cleaned_markers_matrix, 
-    secondary_samples_with_n_markers, nprocs):
+    secondary_samples_with_n_markers, sample_with_n_markers_after_filt, nprocs):
     clade_markers = list(cleaned_markers_matrix[0].keys())[1:]
     markers_matrix = execute_pool(((get_matrix_for_sample, s, clade_markers) for s in secondary_samples), 
         nprocs)
@@ -215,7 +215,7 @@ Adds secondary references to the marker matrix
 :returns: the filtered markers matrix with the secondary references
 """
 def add_secondary_references(secondary_references, cleaned_markers_matrix, 
-    secondary_samples_with_n_markers, clade_markers_file, tmp_dir, nprocs):
+    secondary_samples_with_n_markers, sample_with_n_markers_after_filt, clade_markers_file, tmp_dir, nprocs):
     clade_markers = list(cleaned_markers_matrix[0])[1:]
     markers_matrix = execute_pool(((process_reference, s, tmp_dir+"blastn/", 
         clade_markers_file, clade_markers) for s in secondary_references), 
@@ -241,17 +241,17 @@ Adds secondary samples and references to the marker matrix
 :returns: the filtered markers matrix with the secondary samples and references
 """
 def add_secondary_samples_and_references(secondary_samples, secondary_references, 
-    cleaned_markers_matrix, secondary_samples_with_n_markers, clade_markers_file, 
-    tmp_dir, nprocs):    
+    cleaned_markers_matrix, secondary_samples_with_n_markers, sample_with_n_markers_after_filt, 
+    clade_markers_file, tmp_dir, nprocs):    
     if len(secondary_samples) > 0:
         info("Getting markers from secondary sample files...", init_new_line=True)
         cleaned_markers_matrix = add_secondary_samples(secondary_samples, cleaned_markers_matrix, 
-        secondary_samples_with_n_markers, nprocs)
+        secondary_samples_with_n_markers, sample_with_n_markers_after_filt, nprocs)
         info("Done.", init_new_line=True)     
     if len(secondary_references) > 0:
         info("Getting markers from secondary reference files...", init_new_line=True)
         cleaned_markers_matrix = add_secondary_references(secondary_references, cleaned_markers_matrix, 
-        secondary_samples_with_n_markers, clade_markers_file, tmp_dir, nprocs)
+        secondary_samples_with_n_markers, sample_with_n_markers_after_filt, clade_markers_file, tmp_dir, nprocs)
         info("Done.", init_new_line=True) 
     return cleaned_markers_matrix
 
