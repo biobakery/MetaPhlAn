@@ -135,7 +135,7 @@ Executes PhyloPhlAn
 :param mutation_rates: whether get  the mutation rates for the markers
 :param nproc: the number of threads to run phylophlan
 """
-def execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, output_dir, 
+def execute_phylophlan(samples_markers_dir, conf_file, min_entries, min_markers, tmp_dir, output_dir, 
     clade, phylogeny_conf, mutation_rates, nprocs):
     accuracy = " --"+phylogeny_conf
 
@@ -146,7 +146,8 @@ def execute_phylophlan(samples_markers_dir, conf_file, min_entries, tmp_dir, out
         "params" : "-d "+clade[:30]+" --data_folder "+tmp_dir+
             " --databases_folder "+tmp_dir+" -t n -f "+conf_file+
             " --diversity low"+accuracy+" --genome_extension fna"+
-            " --force_nucleotides --min_num_entries "+str(min_entries),
+            " --force_nucleotides --min_num_entries "+str(min_entries)+
+            " --min_num_markers "+str(min_markers),
         "input" : "-i",
         "output_path" : "--output_folder",
         "output" : "-o",

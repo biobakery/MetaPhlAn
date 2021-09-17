@@ -191,7 +191,7 @@ Adds secondary samples to the marker matrix
 :returns: the filtered markers matrix with the secondary samples
 """
 def add_secondary_samples(secondary_samples, cleaned_markers_matrix, 
-    secondary_samples_with_n_markers, sample_with_n_markers_after_filt, nprocs):
+    secondary_samples_with_n_markers, nprocs):
     clade_markers = list(cleaned_markers_matrix[0].keys())[1:]
     markers_matrix = execute_pool(((get_matrix_for_sample, s, clade_markers) for s in secondary_samples), 
         nprocs)
@@ -215,7 +215,7 @@ Adds secondary references to the marker matrix
 :returns: the filtered markers matrix with the secondary references
 """
 def add_secondary_references(secondary_references, cleaned_markers_matrix, 
-    secondary_samples_with_n_markers, sample_with_n_markers_after_filt, clade_markers_file, tmp_dir, nprocs):
+    secondary_samples_with_n_markers, clade_markers_file, tmp_dir, nprocs):
     clade_markers = list(cleaned_markers_matrix[0])[1:]
     markers_matrix = execute_pool(((process_reference, s, tmp_dir+"blastn/", 
         clade_markers_file, clade_markers) for s in secondary_references), 
@@ -241,17 +241,17 @@ Adds secondary samples and references to the marker matrix
 :returns: the filtered markers matrix with the secondary samples and references
 """
 def add_secondary_samples_and_references(secondary_samples, secondary_references, 
-    cleaned_markers_matrix, secondary_samples_with_n_markers, sample_with_n_markers_after_filt, 
-    clade_markers_file, tmp_dir, nprocs):    
+    cleaned_markers_matrix, secondary_samples_with_n_markers, clade_markers_file, 
+    tmp_dir, nprocs):    
     if len(secondary_samples) > 0:
         info("Getting markers from secondary sample files...", init_new_line=True)
         cleaned_markers_matrix = add_secondary_samples(secondary_samples, cleaned_markers_matrix, 
-        secondary_samples_with_n_markers, sample_with_n_markers_after_filt, nprocs)
+        secondary_samples_with_n_markers, nprocs)
         info("Done.", init_new_line=True)     
     if len(secondary_references) > 0:
         info("Getting markers from secondary reference files...", init_new_line=True)
         cleaned_markers_matrix = add_secondary_references(secondary_references, cleaned_markers_matrix, 
-        secondary_samples_with_n_markers, sample_with_n_markers_after_filt, clade_markers_file, tmp_dir, nprocs)
+        secondary_samples_with_n_markers, clade_markers_file, tmp_dir, nprocs)
         info("Done.", init_new_line=True) 
     return cleaned_markers_matrix
 
@@ -352,7 +352,7 @@ def clean_markers_matrix(markers_matrix, samples_with_n_markers, sample_with_n_m
         else:
             return []
 
-    return cleaned_markers_matrix
+    return cleaned_markers_matrix, (total_markers * (sample_with_n_markers_after_filt / 100))
 
 
 """
@@ -555,7 +555,7 @@ Executes PhyloPhlAn2 to compute phylogeny
 :param nproc: the number of threads to run phylophlan
 """
 def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, clade, 
-    marker_in_n_samples, phylophlan_mode, phylophlan_configuration, mutation_rates, nprocs):    
+    marker_in_n_samples, min_markers, phylophlan_mode, phylophlan_configuration, mutation_rates, nprocs):    
     info("\tCreating PhyloPhlAn 3.0 database...", init_new_line=True)
     create_phylophlan_db(tmp_dir, clade[:30])
     info("\tDone.", init_new_line=True)
@@ -566,7 +566,7 @@ def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, cla
         info("\tDone.", init_new_line=True)   
     info("\tProcessing samples...", init_new_line=True)
     min_entries = int(marker_in_n_samples*num_samples/100)
-    execute_phylophlan(samples_markers_dir, phylophlan_configuration, min_entries,
+    execute_phylophlan(samples_markers_dir, phylophlan_configuration, min_entries, min_markers
         tmp_dir, output_dir, clade, phylophlan_mode, mutation_rates, nprocs)
     if mutation_rates:
         move(output_dir+"mutation_rates.tsv",output_dir+clade+".mutation")
@@ -717,7 +717,7 @@ def print_clades(database, samples, samples_with_n_markers, sample_with_n_marker
                 species_markers_matrix[species][sample_id][r['marker']] = 1
         sample_id += 1  
     for species in species_markers_matrix:    
-        cleaned_markers_matrix = clean_markers_matrix(species_markers_matrix[species], samples_with_n_markers, sample_with_n_markers_after_filt, marker_in_n_samples, False)
+        cleaned_markers_matrix, _ = clean_markers_matrix(species_markers_matrix[species], samples_with_n_markers, sample_with_n_markers_after_filt, marker_in_n_samples, False)
         if len(cleaned_markers_matrix) >= 4:
             species2samples[species] = len(cleaned_markers_matrix)
     info('Done.',init_new_line=True)
@@ -776,12 +776,12 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
             markers_matrix, references, nprocs)
         info("Done.", init_new_line=True)    
         info("Removing bad markers / samples...", init_new_line=True)
-        cleaned_markers_matrix = clean_markers_matrix(markers_matrix, samples_with_n_markers, 
+        cleaned_markers_matrix, min_markers = clean_markers_matrix(markers_matrix, samples_with_n_markers, 
             sample_with_n_markers_after_filt, marker_in_n_samples)
         info("Done.", init_new_line=True)
         cleaned_markers_matrix = add_secondary_samples_and_references(secondary_samples, 
             secondary_references, cleaned_markers_matrix, secondary_samples_with_n_markers, 
-            sample_with_n_markers_after_filt, clade_markers_file, tmp_dir, nprocs)
+            clade_markers_file, tmp_dir, nprocs)
         info("Writing samples as markers' FASTA files...", init_new_line=True)
         samples_as_markers_dir = matrix_markers_to_fasta(cleaned_markers_matrix, clade,
             samples+secondary_samples, references+secondary_references, trim_sequences, 
@@ -796,7 +796,7 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
         info("Done.", init_new_line=True)   
         info("Executing PhyloPhlAn 3.0...", init_new_line=True)
         compute_phylogeny(samples_as_markers_dir, len(cleaned_markers_matrix), tmp_dir, 
-            output_dir, clade, marker_in_n_samples, phylophlan_mode, phylophlan_configuration,
+            output_dir, clade, marker_in_n_samples, min_markers, phylophlan_mode, phylophlan_configuration,
             mutation_rates, nprocs)
         info("Done.", init_new_line=True)     
         info("Writing information file...", init_new_line=True)
