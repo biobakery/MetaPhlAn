@@ -32,12 +32,14 @@ def merge( aaastrIn, ostm ):
             names = headers[-1].split('#')[1].strip().split('\t')
             index_col = [0,1]
 
-        mpaVersion = list(filter(re.compile('#mpa_v[0-9]{2,}_CHOCOPhlAn_[0-9]{0,}').match, headers))
+        mpaVersion = list(filter(re.compile('#mpa_v[0-9]{2,}_CHOCOPhlAn\w*/{0,3}_[0-9]{0,}').match, headers))
         if len(mpaVersion):
             listmpaVersion.add(mpaVersion[0])
-
+        else:
+            print('merge_metaphlan_tables found tables without a header including the database version. Exiting.\n')
+            return
         if len(listmpaVersion) > 1:
-            print('merge_metaphlan_tables found tables made with different versions of the MetaPhlAn2 database.\nPlease re-run MetaPhlAn2 with the same database.\n')
+            print('merge_metaphlan_tables found tables made with different versions of the MetaPhlAn database.\nPlease re-run MetaPhlAn with the same database.\n')
             return
         
         iIn = pd.read_csv(f, 
