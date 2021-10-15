@@ -566,7 +566,7 @@ def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, cla
         info("\tDone.", init_new_line=True)   
     info("\tProcessing samples...", init_new_line=True)
     min_entries = int(marker_in_n_samples*num_samples/100)
-    execute_phylophlan(samples_markers_dir, phylophlan_configuration, min_entries, min_markers,
+    execute_phylophlan(samples_markers_dir, phylophlan_configuration, min_entries, int(round(min_markers,0)),
         tmp_dir, output_dir, clade, phylophlan_mode, mutation_rates, nprocs)
     if mutation_rates:
         move(output_dir+"mutation_rates.tsv",output_dir+clade+".mutation")
