@@ -18,7 +18,7 @@ if sys.version_info[0] < 3:
                     .format(sys.version_info[0], sys.version_info[1], 
                         sys.version_info[2]), exit=True)
 
-import os, pickle, time, bz2, numpy, collections, tempfile
+import os, pickle, time, bz2, numpy, collections, tempfile, shutil
 import argparse as ap
 from shutil import copyfile, rmtree, move
 from Bio import SeqIO
@@ -413,7 +413,7 @@ def sample_markers_to_fasta(sample_path, filtered_samples, tmp_dir, filtered_cla
             for r in sample:
                 if r['marker'] in filtered_clade_markers:
                     marker_name = parse_marker_name(r['marker'])
-                    seq = SeqRecord(Seq(r['sequence'][trim_sequences:-trim_sequences].replace("*","N").replace("-","N").strip('N')), id=marker_name, description=marker_name)
+                    seq = SeqRecord(Seq(r['sequence'][trim_sequences:-trim_sequences].replace("*","-")), id=marker_name, description=marker_name)
                     SeqIO.write(seq, marker_fna, 'fasta')
 
 
@@ -424,8 +424,9 @@ Writes a FASTA file with the sequences of the filtered clade markers
 :param tmp_dir: the output temporal directory
 :param clade: the threads used for execution
 :param clade_markers_file: the FASTA with the clade markers
+:param trim_sequences: the number of bases to remove when trimming markers
 """
-def cleaned_clade_markers_to_fasta(markers, tmp_dir, clade, clade_markers_file):
+def cleaned_clade_markers_to_fasta(markers, tmp_dir, clade, clade_markers_file, trim_sequences):
     tmp_dir=tmp_dir+clade[:30]+"/"
     create_folder(tmp_dir)
 
@@ -436,7 +437,7 @@ def cleaned_clade_markers_to_fasta(markers, tmp_dir, clade, clade_markers_file):
     for m in list(markers[0])[1:]:
         marker_name = parse_marker_name(m)
         with open(tmp_dir+marker_name+'.fna', 'w') as marker_fna:
-            seq = SeqRecord(clade_markers.get(m), id=marker_name, description=marker_name)
+            seq = SeqRecord(clade_markers.get(m)[trim_sequences:-trim_sequences], id=marker_name, description=marker_name)
             SeqIO.write(seq, marker_fna, 'fasta')
 
 
@@ -543,6 +544,7 @@ def get_phylophlan_configuration():
 """
 Executes PhyloPhlAn2 to compute phylogeny
 
+:param samples_list: the list of the primary and secondary metagenomic samples
 :param samples_markers_dir: the temporal samples markers directory
 :param num_samples: the number of filtered samples
 :param tmp_dir: the temporal output directory
@@ -554,7 +556,7 @@ Executes PhyloPhlAn2 to compute phylogeny
 :param mutation_rates: whether get  the mutation rates for the markers
 :param nproc: the number of threads to run phylophlan
 """
-def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, clade, 
+def compute_phylogeny(samples_list, samples_markers_dir, num_samples, tmp_dir, output_dir, clade, 
     marker_in_n_samples, min_markers, phylophlan_mode, phylophlan_configuration, mutation_rates, nprocs):    
     info("\tCreating PhyloPhlAn 3.0 database...", init_new_line=True)
     create_phylophlan_db(tmp_dir, clade[:30])
@@ -564,6 +566,7 @@ def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, cla
         conf = get_phylophlan_configuration()
         phylophlan_configuration = generate_phylophlan_config_file(tmp_dir, conf)
         info("\tDone.", init_new_line=True)   
+    fake_phylophlan_inputs(output_dir, samples_list, tmp_dir, samples_markers_dir, clade)
     info("\tProcessing samples...", init_new_line=True)
     min_entries = int(marker_in_n_samples*num_samples/100)
     execute_phylophlan(samples_markers_dir, phylophlan_configuration, min_entries, int(round(min_markers,0)),
@@ -572,6 +575,31 @@ def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, cla
         move(output_dir+"mutation_rates.tsv",output_dir+clade+".mutation")
         move(output_dir+"mutation_rates",output_dir+clade+"_mutation_rates")
     info("\tDone.", init_new_line=True)
+
+
+"""
+Fakes the PhyloPhlAn inputs for the reconstructed markers
+
+:param output_dir: the output_directory
+:param samples_list: the list of the primary and secondary metagenomic samples
+:param tmp_dir: the temporal output directory
+:param samples_markers_dir: the temporal samples markers directory
+:param clade: the clade
+"""
+def fake_phylophlan_inputs(output_dir, samples_list, tmp_dir, samples_markers_dir, clade):
+    samples = [s.split('/')[-1].replace('.pkl','') for s in samples_list]
+    os.mkdir(os.path.join(tmp_dir, 'markers_dna'))
+    os.mkdir(os.path.join(tmp_dir, 'map_dna'))
+    os.mkdir(os.path.join(tmp_dir, 'clean_dna'))
+    for sample in os.listdir(samples_markers_dir):
+        if sample.replace('.fna','') in samples:
+            open(os.path.join(tmp_dir, 'map_dna', sample.replace('.fna','.b6o.bkp')), 'a').close()
+            open(os.path.join(tmp_dir, 'map_dna', sample.replace('.fna','.b6o.bz2')), 'a').close()
+            shutil.copy(os.path.join(samples_markers_dir, sample), os.path.join(tmp_dir, 'clean_dna', sample))
+            with bz2.open(os.path.join(tmp_dir, 'markers_dna', '{}.bz2'.format(sample)), 'wt') as write_file:
+                with open(os.path.join(samples_markers_dir, sample), 'r') as read_file:
+                    for line in read_file:
+                        write_file.write(line)
 
 
 """
@@ -788,14 +816,14 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
             tmp_dir, nprocs)
         info("Done.", init_new_line=True)
         info("Writing filtered clade markers as FASTA file...", init_new_line=True)
-        cleaned_clade_markers_to_fasta(cleaned_markers_matrix, tmp_dir, clade, clade_markers_file)
+        cleaned_clade_markers_to_fasta(cleaned_markers_matrix, tmp_dir, clade, clade_markers_file, trim_sequences)
         info("Done.", init_new_line=True)
         info("Calculating polymorphic rates...", init_new_line=True)
         num_markers_for_clade = calculate_polimorfic_rates(samples+secondary_samples, clade_markers_file, 
             clade, output_dir)
         info("Done.", init_new_line=True)   
         info("Executing PhyloPhlAn 3.0...", init_new_line=True)
-        compute_phylogeny(samples_as_markers_dir, len(cleaned_markers_matrix), tmp_dir, 
+        compute_phylogeny(samples+secondary_samples, samples_as_markers_dir, len(cleaned_markers_matrix), tmp_dir, 
             output_dir, clade, marker_in_n_samples, min_markers, phylophlan_mode, phylophlan_configuration,
             mutation_rates, nprocs)
         info("Done.", init_new_line=True)     
