@@ -18,7 +18,7 @@ if sys.version_info[0] < 3:
                     .format(sys.version_info[0], sys.version_info[1], 
                         sys.version_info[2]), exit=True)
 
-import os, pickle, time, bz2, numpy, collections, tempfile
+import os, pickle, time, bz2, numpy, collections, tempfile, shutil
 import argparse as ap
 from shutil import copyfile, rmtree, move
 from Bio import SeqIO
@@ -68,10 +68,12 @@ def read_params():
                     help="The number of bases to remove from both ends when trimming markers")
     p.add_argument('--marker_in_n_samples', type=int, default=80,
                     help="Theshold defining the minimum percentage of samples to keep a marker")
-    p.add_argument('--sample_with_n_markers', type=int, default=20,
-                    help="Threshold defining the minimun number of markers to keep a sample")
-    p.add_argument('--secondary_sample_with_n_markers', type=int, default=20,
-                    help="Threshold defining the minimun number of markers to keep a secondary sample")
+    p.add_argument('--sample_with_n_markers', type=int, default=80,
+                    help="Threshold defining the minimun percentage of markers to keep a sample")
+    p.add_argument('--secondary_sample_with_n_markers', type=int, default=80,
+                    help="Threshold defining the minimun percentage of markers to keep a secondary sample")
+    p.add_argument('--sample_with_n_markers_after_filt', type=int, default=50,
+                    help="Threshold defining the minimun percentage of markers to keep a sample after filtering the markers [only for dev]")
     p.add_argument('--phylophlan_mode', choices=PHYLOPHLAN_MODES, default='fast',
                     help="The presets for fast or accurate phylogenetic analysis")
     p.add_argument('--phylophlan_configuration', type=str, default=None,
@@ -144,6 +146,8 @@ def check_params(args):
             init_new_line=True)
     if not args.print_clades_only and not args.output_dir.endswith('/'):
         args.output_dir += '/'
+    if args.sample_with_n_markers < 50:
+        args.sample_with_n_markers_after_filt = int(round(args.sample_with_n_markers * 2/3, 0))
 
     return args
 
@@ -194,7 +198,7 @@ def add_secondary_samples(secondary_samples, cleaned_markers_matrix,
     markers_matrix = execute_pool(((get_matrix_for_sample, s, clade_markers) for s in secondary_samples), 
         nprocs)
     for m in markers_matrix:
-        if sum(list(m.values())[1:]) >= secondary_samples_with_n_markers:
+        if (sum(list(m.values())[1:]) * 100) / len(list(m.values())[1:]) >= secondary_samples_with_n_markers:
             cleaned_markers_matrix.append(m)  
 
     return cleaned_markers_matrix
@@ -219,7 +223,7 @@ def add_secondary_references(secondary_references, cleaned_markers_matrix,
         clade_markers_file, clade_markers) for s in secondary_references), 
         nprocs)
     for m in markers_matrix:
-        if sum(list(m.values())[1:]) >= secondary_samples_with_n_markers:
+        if (sum(list(m.values())[1:]) * 100) / len(list(m.values())[1:]) >= secondary_samples_with_n_markers:
             cleaned_markers_matrix.append(m)    
 
     return cleaned_markers_matrix 
@@ -289,14 +293,15 @@ a threhold, if not, removes the marker.
     samples to keep a marker
 :returns: the filtered markers matrix
 """
-def clean_markers_matrix(markers_matrix, samples_with_n_markers, 
+def clean_markers_matrix(markers_matrix, samples_with_n_markers, sample_with_n_markers_after_filt,
     marker_in_n_samples, messages = True):    
     # Checks if the percentage of markers of a sample sample reachs a threshold, 
-    # if not, removes the sample    
+    # if not, removes the sample  
+    total_markers =  len(list(markers_matrix[0])[1:]) 
     cleaned_markers_matrix = []
     to_remove = []
     for m in markers_matrix:
-        if sum(list(m.values())[1:]) < samples_with_n_markers:
+        if (sum(list(m.values())[1:]) * 100) / total_markers < samples_with_n_markers:
             to_remove.append(m)
         else:
             cleaned_markers_matrix.append({'sample': m['sample']})    
@@ -309,7 +314,7 @@ def clean_markers_matrix(markers_matrix, samples_with_n_markers,
             error("Phylogeny can not be inferred. Too many samples were discarded", 
                 exit=True, init_new_line=True) 
         else:
-            return []
+            return [], (total_markers * (sample_with_n_markers_after_filt / 100))
 
     # Checks if the percentage of samples that contain a marker reachs a threhold,
     # if not, removes the marker
@@ -325,18 +330,18 @@ def clean_markers_matrix(markers_matrix, samples_with_n_markers,
                 counter += 1
 
     # Checks how many markers were deleted
-    if len(list(cleaned_markers_matrix[0].values())[1:]) < samples_with_n_markers:        
+    if (len(list(cleaned_markers_matrix[0].values())[1:]) * 100) / total_markers < samples_with_n_markers:        
         if messages:
             error("Phylogeny can not be inferred. Too many markers were discarded", 
                 exit=True, init_new_line=True) 
         else:
-            return []
+            return [], (total_markers * (sample_with_n_markers_after_filt / 100))
 
     # Checks again if the percentage of markers of a sample sample is at least 1, 
     # if not, removes the sample  
     to_remove = []
     for m in cleaned_markers_matrix:
-        if sum(list(m.values())[1:]) < 1:
+        if (sum(list(m.values())[1:]) * 100) / total_markers < sample_with_n_markers_after_filt:
             to_remove.append(m)
     for r in to_remove:
         cleaned_markers_matrix.remove(r)
@@ -347,9 +352,9 @@ def clean_markers_matrix(markers_matrix, samples_with_n_markers,
             error("Phylogeny can not be inferred. No enough markers were kept for the samples", 
                 exit=True, init_new_line=True)
         else:
-            return []
+            return [], (total_markers * (sample_with_n_markers_after_filt / 100))
 
-    return cleaned_markers_matrix
+    return cleaned_markers_matrix, (total_markers * (sample_with_n_markers_after_filt / 100))
 
 
 """
@@ -410,7 +415,7 @@ def sample_markers_to_fasta(sample_path, filtered_samples, tmp_dir, filtered_cla
             for r in sample:
                 if r['marker'] in filtered_clade_markers:
                     marker_name = parse_marker_name(r['marker'])
-                    seq = SeqRecord(Seq(r['sequence'][trim_sequences:-trim_sequences].replace("*","N").replace("-","N").strip('N')), id=marker_name, description=marker_name)
+                    seq = SeqRecord(Seq(r['sequence'][trim_sequences:-trim_sequences].replace("*","-")), id=marker_name, description=marker_name)
                     SeqIO.write(seq, marker_fna, 'fasta')
 
 
@@ -421,8 +426,9 @@ Writes a FASTA file with the sequences of the filtered clade markers
 :param tmp_dir: the output temporal directory
 :param clade: the threads used for execution
 :param clade_markers_file: the FASTA with the clade markers
+:param trim_sequences: the number of bases to remove when trimming markers
 """
-def cleaned_clade_markers_to_fasta(markers, tmp_dir, clade, clade_markers_file):
+def cleaned_clade_markers_to_fasta(markers, tmp_dir, clade, clade_markers_file, trim_sequences):
     tmp_dir=tmp_dir+clade[:30]+"/"
     create_folder(tmp_dir)
 
@@ -433,7 +439,7 @@ def cleaned_clade_markers_to_fasta(markers, tmp_dir, clade, clade_markers_file):
     for m in list(markers[0])[1:]:
         marker_name = parse_marker_name(m)
         with open(tmp_dir+marker_name+'.fna', 'w') as marker_fna:
-            seq = SeqRecord(clade_markers.get(m), id=marker_name, description=marker_name)
+            seq = SeqRecord(clade_markers.get(m)[trim_sequences:-trim_sequences], id=marker_name, description=marker_name)
             SeqIO.write(seq, marker_fna, 'fasta')
 
 
@@ -540,6 +546,7 @@ def get_phylophlan_configuration():
 """
 Executes PhyloPhlAn2 to compute phylogeny
 
+:param samples_list: the list of the primary and secondary metagenomic samples
 :param samples_markers_dir: the temporal samples markers directory
 :param num_samples: the number of filtered samples
 :param tmp_dir: the temporal output directory
@@ -551,8 +558,8 @@ Executes PhyloPhlAn2 to compute phylogeny
 :param mutation_rates: whether get  the mutation rates for the markers
 :param nproc: the number of threads to run phylophlan
 """
-def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, clade, 
-    marker_in_n_samples, phylophlan_mode, phylophlan_configuration, mutation_rates, nprocs):    
+def compute_phylogeny(samples_list, samples_markers_dir, num_samples, tmp_dir, output_dir, clade, 
+    marker_in_n_samples, min_markers, phylophlan_mode, phylophlan_configuration, mutation_rates, nprocs):    
     info("\tCreating PhyloPhlAn 3.0 database...", init_new_line=True)
     create_phylophlan_db(tmp_dir, clade[:30])
     info("\tDone.", init_new_line=True)
@@ -561,14 +568,40 @@ def compute_phylogeny(samples_markers_dir, num_samples, tmp_dir, output_dir, cla
         conf = get_phylophlan_configuration()
         phylophlan_configuration = generate_phylophlan_config_file(tmp_dir, conf)
         info("\tDone.", init_new_line=True)   
+    fake_phylophlan_inputs(output_dir, samples_list, tmp_dir, samples_markers_dir, clade)
     info("\tProcessing samples...", init_new_line=True)
     min_entries = int(marker_in_n_samples*num_samples/100)
-    execute_phylophlan(samples_markers_dir, phylophlan_configuration, min_entries,
+    execute_phylophlan(samples_markers_dir, phylophlan_configuration, min_entries, int(round(min_markers,0)),
         tmp_dir, output_dir, clade, phylophlan_mode, mutation_rates, nprocs)
     if mutation_rates:
         move(output_dir+"mutation_rates.tsv",output_dir+clade+".mutation")
         move(output_dir+"mutation_rates",output_dir+clade+"_mutation_rates")
     info("\tDone.", init_new_line=True)
+
+
+"""
+Fakes the PhyloPhlAn inputs for the reconstructed markers
+
+:param output_dir: the output_directory
+:param samples_list: the list of the primary and secondary metagenomic samples
+:param tmp_dir: the temporal output directory
+:param samples_markers_dir: the temporal samples markers directory
+:param clade: the clade
+"""
+def fake_phylophlan_inputs(output_dir, samples_list, tmp_dir, samples_markers_dir, clade):
+    samples = [s.split('/')[-1].replace('.pkl','') for s in samples_list]
+    os.mkdir(os.path.join(tmp_dir, 'markers_dna'))
+    os.mkdir(os.path.join(tmp_dir, 'map_dna'))
+    os.mkdir(os.path.join(tmp_dir, 'clean_dna'))
+    for sample in os.listdir(samples_markers_dir):
+        if sample.replace('.fna','') in samples:
+            open(os.path.join(tmp_dir, 'map_dna', sample.replace('.fna','.b6o.bkp')), 'a').close()
+            open(os.path.join(tmp_dir, 'map_dna', sample.replace('.fna','.b6o.bz2')), 'a').close()
+            shutil.copy(os.path.join(samples_markers_dir, sample), os.path.join(tmp_dir, 'clean_dna', sample))
+            with bz2.open(os.path.join(tmp_dir, 'markers_dna', '{}.bz2'.format(sample)), 'wt') as write_file:
+                with open(os.path.join(samples_markers_dir, sample), 'r') as read_file:
+                    for line in read_file:
+                        write_file.write(line)
 
 
 """
@@ -654,8 +687,8 @@ def write_info(cleaned_markers_matrix, num_markers_for_clade, clade, output_dir,
             "\nNumber of available markers for the clade: " + 
             str(num_markers_for_clade)+"\nFiltering parameters: " +
             "\n\tNumber of bases to remove when trimming markers: "+ str(trim_sequences) +
-            "\n\tMinimun number of markers to keep a main sample: "+ str(samples_with_n_markers) +
-            "\n\tMinimun number of markers to keep a secondary sample: " + 
+            "\n\tMinimun percentage of markers to keep a main sample: "+ str(samples_with_n_markers) +
+            "\n\tMinimun percentage of markers to keep a secondary sample: " + 
             str(secondary_samples_with_n_markers) +
             "\n\tMinimum percentage of samples to keep a marker: "+ str(marker_in_n_samples) +
             "\nNumber of markers selected after filtering: "+str(len(cleaned_markers_matrix[0].keys())-1) +
@@ -678,7 +711,7 @@ Prints the clades detected in the reconstructed markers
 :param marker_in_n_samples: threshold defining the minimum percentage of samples
     to keep a marker
 """
-def print_clades(database, samples, samples_with_n_markers, marker_in_n_samples):
+def print_clades(database, samples, samples_with_n_markers, sample_with_n_markers_after_filt, marker_in_n_samples):
     sample_id = 0
     markers2species = dict()
     species2markers = dict()
@@ -714,7 +747,7 @@ def print_clades(database, samples, samples_with_n_markers, marker_in_n_samples)
                 species_markers_matrix[species][sample_id][r['marker']] = 1
         sample_id += 1  
     for species in species_markers_matrix:    
-        cleaned_markers_matrix = clean_markers_matrix(species_markers_matrix[species], samples_with_n_markers, marker_in_n_samples, False)
+        cleaned_markers_matrix, _ = clean_markers_matrix(species_markers_matrix[species], samples_with_n_markers, sample_with_n_markers_after_filt, marker_in_n_samples, False)
         if len(cleaned_markers_matrix) >= 4:
             species2samples[species] = len(cleaned_markers_matrix)
     info('Done.',init_new_line=True)
@@ -756,10 +789,10 @@ Executes StrainPhlAn
 """
 def strainphlan(database, clade_markers, samples, references, secondary_samples, 
     secondary_references, clade, output_dir, trim_sequences, samples_with_n_markers, 
-    marker_in_n_samples, secondary_samples_with_n_markers, phylophlan_mode, 
+    marker_in_n_samples, secondary_samples_with_n_markers, sample_with_n_markers_after_filt, phylophlan_mode, 
     phylophlan_configuration, tmp, mutation_rates, print_clades_only, debug, nprocs):
     if print_clades_only:
-        print_clades(database, samples, samples_with_n_markers, marker_in_n_samples)
+        print_clades(database, samples, samples_with_n_markers, sample_with_n_markers_after_filt, marker_in_n_samples)
     else:
         info("Creating temporary directory...", init_new_line=True)       
         tmp_dir = tempfile.mkdtemp(dir=output_dir) + "/"  if tmp is None else tempfile.mkdtemp(dir=tmp) + "/" 
@@ -773,8 +806,8 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
             markers_matrix, references, nprocs)
         info("Done.", init_new_line=True)    
         info("Removing bad markers / samples...", init_new_line=True)
-        cleaned_markers_matrix = clean_markers_matrix(markers_matrix, samples_with_n_markers, 
-            marker_in_n_samples)
+        cleaned_markers_matrix, min_markers = clean_markers_matrix(markers_matrix, samples_with_n_markers, 
+            sample_with_n_markers_after_filt, marker_in_n_samples)
         info("Done.", init_new_line=True)
         cleaned_markers_matrix = add_secondary_samples_and_references(secondary_samples, 
             secondary_references, cleaned_markers_matrix, secondary_samples_with_n_markers, 
@@ -785,15 +818,15 @@ def strainphlan(database, clade_markers, samples, references, secondary_samples,
             tmp_dir, nprocs)
         info("Done.", init_new_line=True)
         info("Writing filtered clade markers as FASTA file...", init_new_line=True)
-        cleaned_clade_markers_to_fasta(cleaned_markers_matrix, tmp_dir, clade, clade_markers_file)
+        cleaned_clade_markers_to_fasta(cleaned_markers_matrix, tmp_dir, clade, clade_markers_file, trim_sequences)
         info("Done.", init_new_line=True)
         info("Calculating polymorphic rates...", init_new_line=True)
         num_markers_for_clade = calculate_polimorfic_rates(samples+secondary_samples, clade_markers_file, 
             clade, output_dir)
         info("Done.", init_new_line=True)   
         info("Executing PhyloPhlAn 3.0...", init_new_line=True)
-        compute_phylogeny(samples_as_markers_dir, len(cleaned_markers_matrix), tmp_dir, 
-            output_dir, clade, marker_in_n_samples, phylophlan_mode, phylophlan_configuration,
+        compute_phylogeny(samples+secondary_samples, samples_as_markers_dir, len(cleaned_markers_matrix), tmp_dir, 
+            output_dir, clade, marker_in_n_samples, min_markers, phylophlan_mode, phylophlan_configuration,
             mutation_rates, nprocs)
         info("Done.", init_new_line=True)     
         info("Writing information file...", init_new_line=True)
@@ -842,7 +875,7 @@ def main():
     strainphlan(args.database, args.clade_markers, args.samples, args.references, 
         args.secondary_samples, args.secondary_references,  args.clade, args.output_dir, 
         args.trim_sequences, args.sample_with_n_markers, args.marker_in_n_samples,
-        args.secondary_sample_with_n_markers, args.phylophlan_mode, args.phylophlan_configuration, 
+        args.secondary_sample_with_n_markers, args.sample_with_n_markers_after_filt, args.phylophlan_mode, args.phylophlan_configuration, 
         args.tmp, args.mutation_rates, args.print_clades_only, args.debug, args.nprocs)
     exec_time = time.time() - t0
     if not args.print_clades_only:
