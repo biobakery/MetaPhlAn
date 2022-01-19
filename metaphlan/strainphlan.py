@@ -146,6 +146,8 @@ def check_params(args):
             init_new_line=True)
     if not args.print_clades_only and not args.output_dir.endswith('/'):
         args.output_dir += '/'
+    if args.sample_with_n_markers < 50:
+        args.sample_with_n_markers_after_filt = int(round(args.sample_with_n_markers * 2/3, 0))
 
     return args
 
