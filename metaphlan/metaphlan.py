@@ -1053,6 +1053,13 @@ def main():
                              .format(pars['bowtie2db']))
             sys.exit(1)
 
+        # check for an incomplete build
+        if bow and not (abs(os.path.getsize(".".join([str(pars['bowtie2db']), "1.bt2"])) - os.path.getsize(".".join([str(pars['bowtie2db']), "rev.1.bt2"]))) <= 1000):
+            sys.stderr.write("Partial MetaPhlAn BowTie2 database found at {}. "
+                             "Please remove and rebuild the database.\nExiting..."
+                             .format(pars['bowtie2db']))
+            sys.exit(1)
+
         if bow:
             run_bowtie2(pars['inp'], pars['bowtie2out'], pars['bowtie2db'],
                                 pars['bt2_ps'], pars['nproc'], file_format=pars['input_type'],
