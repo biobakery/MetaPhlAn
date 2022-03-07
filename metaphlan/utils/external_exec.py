@@ -6,7 +6,7 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
 __version__ = '3.0.8'
 __date__ = '7 May 2021'
 
-import os, sys, re, shutil
+import os, sys, re, shutil, tempfile
 import subprocess as sb
 try:
     from .util_fun import info, error
@@ -245,7 +245,9 @@ Generates a FASTA file with the markers form a MetaPhlAn database
 :param output_dir: the output directory
 """
 def generate_markers_fasta(database, output_dir):
-    db_markers_faa = output_dir+"db_markers.fna"
+    
+    file_out, db_markers_faa = tempfile.mkstemp(dir=output_dir,prefix="db_markers_temp_",suffix=".fna")
+    os.close(file_out)
     bowtie_database, _ = os.path.splitext(database)
     params = {
         "program_name" : "bowtie2-inspect",
