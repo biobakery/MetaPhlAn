@@ -14,8 +14,8 @@ if sys.version_info[0] < 3:
 setuptools.setup(
     name='MetaPhlAn',
     version='4.beta.1',
-    author='Francesco Beghini',
-    author_email='francesco.beghini@unitn.it',
+    author='Aitor Blanco-Miguez',
+    author_email='aitor.blancomiguez@unitn.it',
     url='http://github.com/biobakery/MetaPhlAn/',
     license='LICENSE.txt',
     packages=setuptools.find_packages(),
