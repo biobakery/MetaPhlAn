@@ -4,8 +4,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '3.0.14'
-__date__ = '19 Jan 2022'
+__version__ = '4.beta.1'
+__date__ = '7 Jun 2022'
 
 import sys
 try:
@@ -31,7 +31,7 @@ except ImportError:
 metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "../metaphlan_databases")
 DEFAULT_DB_FOLDER = os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
-DEFAULT_DB_NAME =  "mpa_v30_CHOCOPhlAn_201901.pkl"
+DEFAULT_DB_NAME =  "mpa_vJan21_CHOCOPhlAnSGB_202103.pkl"
 DEFAULT_DATABASE = os.path.join(DEFAULT_DB_FOLDER, DEFAULT_DB_NAME)
 
 """

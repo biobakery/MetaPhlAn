@@ -3,8 +3,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '3.0'
-__date__ = '21 Feb 2020'
+__version__ = '4.beta.1'
+__date__ = '7 Jun 2022'
 
 try:
     from .util_fun import error

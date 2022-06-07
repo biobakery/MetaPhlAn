@@ -3,8 +3,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '3.0.8'
-__date__ = '7 May 2021'
+__version__ = '4.beta.1'
+__date__ = '7 Jun 2022'
 
 import os, sys, re, shutil, tempfile
 import subprocess as sb

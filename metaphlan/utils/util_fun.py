@@ -3,8 +3,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '3.0'
-__date__ = '21 Feb 2020'
+__version__ = '4.beta.1'
+__date__ = '7 Jun 2022'
 
 
 import os, sys, re, pickletools, pickle, time, bz2, gzip
@@ -44,7 +44,7 @@ def error(message, init_new_line=False, exit=False, exit_value=1):
     sys.stderr.flush()
 
     if exit:
-        sys.stderr.write('{}: Stop StrainPhlAn 3.0 execution.\n'.format(time.ctime(int(time.time()))))
+        sys.stderr.write('{}: Stop StrainPhlAn execution.\n'.format(time.ctime(int(time.time()))))
         sys.exit(exit_value)
 
 
