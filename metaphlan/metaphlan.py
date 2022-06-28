@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it), '
+              'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
@@ -31,10 +32,16 @@ import pickle
 import subprocess as subp
 import tempfile as tf
 
+from Bio.Seq import Seq
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+from collections import Counter
 try:
+    import pandas as pd
     import numpy as np
-except ImportError:
-    sys.stderr.write("Error! numpy python library not detected!!\n")
+    import pysam
+except Exception as e:
+    sys.stderr.write("Error! python library not detected\n{}\n".format(e))
     sys.exit(1)
 
 #**********************************************************************************************
@@ -299,6 +306,13 @@ def read_params(args):
     arg( '--min_ab', metavar="", default=0.1, type=float, help =
          "The minimum percentage abundance for the clade in the clade_specific_strain_tracker analysis\n"  )
 
+    g = p.add_argument_group('Viral Sequence Clusters Analisys')
+    arg = g.add_argument
+    arg("--profile_vsc", action="store_true",help="Add this parameter to profile Viruses with VSCs approach.")
+    arg("--vsc_out", help="Path to the VSCs breadth-of-coverage output file", default="mp3_viruses.csv")
+    arg("--vsc_breadth", help="Minimum Breadth of Coverage for a Viral Group to be reported.\n"
+        "Default is 0.75 (at least 75 percent breadth to report)", default=0.75,type=float)
+
     g = p.add_argument_group('Output arguments')
     arg = g.add_argument
     arg( '-o', '--output_file',  metavar="output file", type=str, default=None, help =
@@ -362,8 +376,121 @@ def set_mapping_arguments(index, bowtie2_db):
 
     return (mpa_pkl, bowtie2db)
 
+
+def set_vsc_parameters(index, bowtie2_db):
+
+    if os.path.isfile(os.path.join(bowtie2_db, "{}_VSG.fna".format(index))):
+        vsc_fna = os.path.join(bowtie2_db, "{}_VSG.fna".format(index))
+
+    if os.path.isfile(os.path.join(bowtie2_db, "{}_VINFO.csv".format(index))):
+        vsc_vinfo = os.path.join(bowtie2_db, "{}_VINFO.csv".format(index))
+
+    return(vsc_fna, vsc_vinfo)
+
+def vsc_bowtie2(profile_vsc_folder, nproc, file_format="fasta",
+                exe=None,bt2build_exe=None, min_alignment_len=None, read_min_len=0):
+
+    try:
+        subp.check_call([exe if exe else 'bowtie2', "-h"], stdout=DEVNULL)
+        subp.check_call([bt2build_exe if bt2build_exe else 'bowtie2-build', "-h"], stdout=DEVNULL)
+    except Exception as e:
+        sys.stderr.write('OSError: "{}"\nFatal error running BowTie2 and bowtie2-build. Is BowTie2 in the system path?\n'.format(e))
+        sys.exit(1)
+
+    # checking files
+    markerfile= profile_vsc_folder+'/v_mks.fa' 
+    readsfile= profile_vsc_folder+'/v_reads.fq' 
+    vscBamFile= profile_vsc_folder+'/v_align.bam'
+
+    if not os.path.exists(markerfile) or not os.path.exists(readsfile):
+        
+        sys.stderr.write('Error:\nThere was an error in the VSCs file lookup.\n \
+            It may be that there are not enough reads to profile (not enough depth).\n \
+            Passing without reporting any virus.\n')
+        return []
+
+    if os.stat(markerfile).st_size == 0:
+        sys.stderr.write('Warning:\nNo reads aligning to VSC markers in this file.\n')        
+        #return an empty list. MetaPhlAn will continue as normal, without VSCs
+        return []
+
+    #build the db
+
+    bt2build_call = bt2build_exe if bt2build_exe else 'bowtie2-build'
+    dbpath = profile_vsc_folder+'/v_mks'
+    subp.check_call( [bt2build_call, markerfile, dbpath, '-q','--threads', str(nproc)] )
+
+
+    if not all([os.path.exists(".".join([str(dbpath), p]))
+                            for p in ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]]):
+        sys.stderr.write('Error:\nThere was an error in running bowtie2-map and not all files were generated. Stopping.\n')
+        sys.exit(1)
+
+    try:
+
+        bt2_call = exe if exe else 'bowtie2'
+        bt2_command = [bt2_call,'--very-sensitive','--quiet','-p',str(nproc),'-x',dbpath,'--no-unal','-U',readsfile]
+        stv_command = ['samtools','view','-bS','-','-@',str(nproc)]
+        sts_command = ['samtools','sort','-','-@',str(nproc),'-o',vscBamFile]
+        sti_command = ['samtools','index',vscBamFile]
+
+        p3 = subp.Popen(sts_command, stdin=subp.PIPE)
+        p2 = subp.Popen(stv_command, stdin=subp.PIPE, stdout=p3.stdin)
+        p1 = subp.Popen(bt2_command, stdout=p2.stdin)
+
+        p1.communicate() 
+        p2.communicate()
+        p3.communicate()
+
+        #index
+        subp.check_call(sti_command)
+
+    except Exception as e:
+        sys.stderr.write('Error: "{}"\nFatal error running BowTie2 for Viruses\n'.format(e))
+        sys.exit(1)
+
+    if not os.path.exists(vscBamFile):
+        sys.stderr.write('Error:\nUnable to create BAM FILE for viruses\n')
+        sys.exit(1)
+
+    try:
+        bamHandle = pysam.AlignmentFile(vscBamFile, "rb")
+    except Exception as e:
+        sys.stderr.write('Error: "{}"\nCheck PySam is correctly working\n'.format(e))
+        sys.exit(1)
+
+    VSC_report=[]
+
+    for c, length in zip(bamHandle.references,bamHandle.lengths):
+        coverage_positions = {}
+
+        for pileupcolumn in bamHandle.pileup(c):
+
+            tCoverage = 0
+            for pileupread in pileupcolumn.pileups:
+
+                if not pileupread.is_del and not pileupread.is_refskip \
+                        and pileupread.alignment.query_qualities[pileupread.query_position] >= 20 \
+                        and pileupread.alignment.query_sequence[pileupread.query_position].upper() in ('A','T','C','G'):
+                        tCoverage +=1
+
+            if tCoverage >= 1:
+                coverage_positions[pileupcolumn.pos] = tCoverage
+        
+        breadth = float(len(coverage_positions.keys()))/float(length)
+        
+        if breadth > 0:
+            cvals=list(coverage_positions.values())
+            VSC_report.append({'M-Group/Cluster':c.split('|')[2].split('-')[0], 'genomeName':c, 'len':length, 'breadth_of_coverage':breadth, 'depth_of_coverage_mean': np.mean(cvals), 'depth_of_coverage_median': np.median(cvals)})
+
+    if bamHandle:
+        bamHandle.close()
+
+    return VSC_report
+
+
 def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, file_format="fasta",
-                exe=None, samout=None, min_alignment_len=None, read_min_len=0):
+                exe=None, samout=None, min_alignment_len=None, read_min_len=0, profile_vsc_folder=False):
     # checking read_fastx.py
     read_fastx = "read_fastx.py"
 
@@ -405,6 +532,11 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
         p = subp.Popen(bowtie2_cmd, stdout=subp.PIPE, stdin=readin.stdout)
         readin.stdout.close()
         lmybytes, outf = (mybytes, bz2.BZ2File(outfmt6_out, "w")) if outfmt6_out.endswith(".bz2") else (str, open(outfmt6_out, "w"))
+
+        if profile_vsc_folder:
+            CREAD=[]
+            list_of_viral_markers = open(profile_vsc_folder+'/viralmk.txt','w')
+
         try:
             if samout:
                 if samout[-4:] == '.bz2':
@@ -425,7 +557,27 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
                         if mapq_filter(o[2], int(o[4]), min_mapq_val) :  # filter low mapq reads
                             if ((min_alignment_len is None) or
                                     (max([int(x.strip('M')) for x in re.findall(r'(\d*M)', o[5]) if x]) >= min_alignment_len)):
+                                                                # Profile viral markers in a different way
+                                if profile_vsc_folder and o[2].startswith('VDB|'):
+
+                                    mCluster = o[2]
+                                    mGroup = o[2].split('|')[2].split('-')[0]
+
+                                    list_of_viral_markers.write(mGroup+'\t'+mCluster+'\n')
+
+                                    if (hex(int(o[1]) & 0x10) == '0x0'): #front read
+                                        rr=SeqRecord(Seq(o[9]),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
+                                    else:
+                                        rr=SeqRecord(Seq(o[9]).reverse_complement(),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
+
+                                    CREAD.append(rr)
+
+                                # normal route for non-viral markers
                                 outf.write(lmybytes("\t".join([ o[0], o[2].split('/')[0] ]) + "\n"))
+
+        if profile_vsc_folder and os.path.isdir(profile_vsc_folder):
+            SeqIO.write(CREAD,profile_vsc_folder+'/v_reads.fq','fastq')
+            list_of_viral_markers.close()
 
         if samout:  
             sam_file.close()
@@ -810,7 +962,8 @@ class TaxTree:
         return ret_d, ret_r, tot_reads
 
 def mapq_filter(marker_name, mapq_value, min_mapq_val):
-    if 'GeneID:' in marker_name:
+    ##if 'GeneID:' in marker_name:
+    if 'GeneID:' in marker_name or 'VDB' in marker_name:
         return True
     else:
         if mapq_value > min_mapq_val:
@@ -958,6 +1111,32 @@ def main():
         sys.stderr.write('The database is installed\n')
         return
 
+    #if we are to profile viral clusters:
+
+    if pars['profile_vsc']:
+        #TODO: comply to other input types
+        if pars['input_type'] != 'fastq':
+            sys.stderr.write("The Viral Sequence Clusters mode requires fastq input!\n")
+            sys.exit(1)
+        tmpvirdir=tf.TemporaryDirectory(dir=pars['tmp_dir'])
+        viralTempFolder=tmpvirdir.name
+        
+        # Uncomment to preserve tmp dir
+        #tmpvirdir=tf.mkdtemp(dir=pars['tmp_dir'])
+        #viralTempFolder=tmpvirdir
+        #print("VF: ",viralTempFolder)
+
+        vsc_fna, vsc_vinfo = set_vsc_parameters(pars['index'], pars['bowtie2db'])
+
+        # implies SGBs (uses the same database with SGBs, so this is needed to avoid
+        # the need to specify --sgb when using --profile_vscs)
+        SGB_ANALYSIS = True
+
+
+    else:
+        viralTempFolder = None
+
+
     # set correct map_pkl and bowtie2db variables
     pars['mpa_pkl'], pars['bowtie2db'] = set_mapping_arguments(pars['index'], pars['bowtie2db'])
 
@@ -1033,7 +1212,9 @@ def main():
             run_bowtie2(pars['inp'], pars['bowtie2out'], pars['bowtie2db'],
                                 pars['bt2_ps'], pars['nproc'], file_format=pars['input_type'],
                                 exe=pars['bowtie2_exe'], samout=pars['samout'],
-                                min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'], min_mapq_val=pars['min_mapq_val'])
+
+                                min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'], min_mapq_val=pars['min_mapq_val'],profile_vsc_folder=viralTempFolder)
+
             pars['input_type'] = 'bowtie2out'
         pars['inp'] = pars['bowtie2out'] # !!!
     with bz2.BZ2File( pars['mpa_pkl'], 'r' ) as a:
@@ -1044,6 +1225,56 @@ def main():
     tree.set_min_cu_len( pars['min_cu_len'] )
 
     markers2reads, n_metagenome_reads, avg_read_length = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'])
+
+    if pars['profile_vsc']:
+        
+        try:
+            VSCs_markers = SeqIO.index(vsc_fna, "fasta")
+        except Exception as e:
+            sys.stderr.write('Error: "{}"\nCould not access to {}.\n'.format(e,vsc_fna))
+            sys.exit(1)
+
+        with open(viralTempFolder+'/viralmk.txt') as viral_markers_to_remap:
+
+            allViralMarkers = {}
+            for vmarker in viral_markers_to_remap:
+                group,marker = vmarker.strip().split()
+                if group not in allViralMarkers:
+                    allViralMarkers[group] = [marker]
+                else:
+                    allViralMarkers[group].append(marker)
+
+            selectedMakrers=[]
+            for grp,v in allViralMarkers.items():
+
+                cv=Counter(v)
+                if (len(cv) > 1):
+                    normalized_occurrencies=sorted([(mk,mk_occurrencies,len(VSCs_markers[mk].seq)) for (mk,mk_occurrencies) in cv.items()],key=lambda x: x[1]/x[2],reverse=True)
+                    topMarker= VSCs_markers[normalized_occurrencies[0][0]] #name of the viralGenome
+                else:
+                    topMarker=VSCs_markers[v[0]] # the only hitted viralGenome is the winning one
+
+                selectedMakrers.append(topMarker)
+
+
+            SeqIO.write( selectedMakrers,viralTempFolder+'/v_mks.fa','fasta' )
+
+            VSC_report = vsc_bowtie2(viralTempFolder, pars['nproc'], file_format=pars['input_type'],
+                        exe=pars['bowtie2_exe'], bt2build_exe=pars['bowtie2_build']) 
+
+
+
+            with open(pars['vsc_out'],'w') as outf:
+
+                outf.write('#{}\n'.format(pars['index']))
+                outf.write('#{}\n'.format(' '.join(sys.argv)))
+                outf.write('#SampleID\t{}\n'.format(pars['sample_id']))
+                vsc_out_df = pd.DataFrame.from_dict(VSC_report).query('breadth_of_coverage >= {}'.format(pars['vsc_breadth']))
+                vsc_info_df = pd.read_table(vsc_vinfo, sep='\t')
+                vsc_out_df = vsc_out_df.merge(vsc_info_df, on='M-Group/Cluster').sort_values(by='breadth_of_coverage', ascending=False).set_index('M-Group/Cluster')
+
+                vsc_out_df.to_csv(outf,sep='\t',na_rep='-')
+
 
     tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'])
 
