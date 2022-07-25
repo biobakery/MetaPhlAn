@@ -1,3 +1,9 @@
+=== Version 3.1
+* 433 low-quality species were removed from the MetaPhlAn 3.1 marker database and 2,680 species were added (for a new total of 15,766; a 17% increase).
+* Marker genes for a subset of existing bioBakery 3 species were also revised.
+* Most existing bioBakery 3 species pangenomes were updated with revised or expanded gene content.
+* MetaPhlAn 3.1 software has been updated to work with revised marker database.
+
 === Version 3.0
 * New MetaPhlAn marker genes extracted with a newer version of ChocoPhlAn based on UniRef
 * Estimation of metagenome composed by unknown microbes with parameter `--unknown_estimation`

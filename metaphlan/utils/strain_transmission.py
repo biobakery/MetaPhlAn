@@ -1,7 +1,7 @@
 __author__ = ('Aitor Blanco (aitor.blancomiguez@unitn.it), '
              'Mireia Valles-Colomer (mireia.vallescolomer@unitn.it)')
-__version__ = '3.0.14'
-__date__ = '19 Jan 2022'
+__version__ = '3.1.0'
+__date__ = '25 Jul 2022'
 
 import os, time, sys
 import argparse as ap

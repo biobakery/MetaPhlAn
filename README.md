@@ -1,20 +1,16 @@
 # MetaPhlAn: Metagenomic Phylogenetic Analysis
 [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/metaphlan/README.html) [![PyPI - Downloads](https://img.shields.io/pypi/dm/metaphlan?label=MetaPhlAn%20on%20PyPi)](https://pypi.org/project/MetaPhlAn/) [![MetaPhlAn on DockerHub](https://img.shields.io/docker/pulls/biobakery/metaphlan?label=MetaPhlAn%20on%20DockerHub)](https://hub.docker.com/r/biobakery/metaphlan) [![Build MetaPhlAn package](https://github.com/biobakery/MetaPhlAn/workflows/Build%20MetaPhlAn%20package/badge.svg?branch=3.0)](https://github.com/biobakery/MetaPhlAn/actions?query=workflow%3A%22Build+MetaPhlAn+package%22)
-## What's new in version 3
-* New MetaPhlAn marker genes extracted with a newer version of ChocoPhlAn based on UniRef
-* Estimation of metagenome composed by unknown microbes with parameter `--unknown_estimation`
-* Automatic retrieval and installation of the latest MetaPhlAn database  with parameter `--index latest`
-* Virus profiling with `--add_viruses`
-* Calculation of metagenome size for improved estimation of reads mapped to a given clade
-* Inclusion of NCBI taxonomy ID in the ouput file
-* CAMI (Taxonomic) Profiling Output Format included
-* Removal of reads with low MAPQ values
+## What's new in version 3.1
+* 433 low-quality species were removed from the MetaPhlAn 3.1 marker database and 2,680 species were added (for a new total of 15,766; a 17% increase).
+* Marker genes for a subset of existing bioBakery 3 species were also revised.
+* Most existing bioBakery 3 species pangenomes were updated with revised or expanded gene content.
+* MetaPhlAn 3.1 software has been updated to work with revised marker database.
 -------------
 
 ## Description
 MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea and Eukaryotes) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.
 
-MetaPhlAn relies on ~1.1M unique clade-specific marker genes (the latest marker information file `mpa_v30_CHOCOPhlAn_201901_marker_info.txt.bz2` can be found  [here](https://www.dropbox.com/sh/7qze7m7g9fe2xjg/AAAlyQITZuUCtBUJxpxhIroIa/mpa_v30_CHOCOPhlAn_201901_marker_info.txt.bz2?dl=1)) identified from ~100,000 reference genomes (~99,500 bacterial and archaeal and ~500 eukaryotic), allowing:
+MetaPhlAn relies on ~1.1M unique clade-specific marker genes (the latest marker information file `mpa_v31_CHOCOPhlAn_201901_marker_info.txt.bz2` can be found  [here](http://cmprod1.cibio.unitn.it/biobakery3/metaphlan_databases/mpa_v31_CHOCOPhlAn_201901_marker_info.txt.bz2)) identified from ~100,000 reference genomes (~99,500 bacterial and archaeal and ~500 eukaryotic), allowing:
 
 * unambiguous taxonomic assignments;
 * accurate estimation of organismal relative abundance;

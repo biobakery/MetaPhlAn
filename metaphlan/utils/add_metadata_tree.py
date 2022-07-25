@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
-__version__ = '3.0'
-__date__    = '21 Feb 2020'
+__version__ = '3.1.0'
+__date__    = '25 Jul 2021'
 
 import argparse as ap
 import pandas
