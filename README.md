@@ -48,7 +48,7 @@ In addition to the information on this page, you can refer to the following addi
 
 * The [MetaPhlAn tutorial](https://github.com/biobakery/MetaPhlAn/wiki).
 
-* The [StrainPhlAn tutorial](https://github.com/biobakery/MetaPhlAn/wiki/StrainPhlAn-3.0).
+* The [StrainPhlAn tutorial](https://github.com/biobakery/MetaPhlAn/wiki/StrainPhlAn-3).
 
 * The [MetaPhlAn](https://github.com/biobakery/biobakery/wiki/metaphlan3) and [StrainPhlAn](https://github.com/biobakery/biobakery/wiki/strainphlan3) wikis on bioBakery.
 
