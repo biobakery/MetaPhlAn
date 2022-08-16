@@ -284,14 +284,13 @@ def strain_transmission(tree, metadata, distr_threshold, sgb_id, save_dist, outp
         os.remove(os.path.join(output_dir, distances_file))
 
 
-    if sgb_id is None:
         nodes = get_nodes(pairwise_distances)
         training_nodes, metadata_samples = get_training_nodes(nodes, metadata)    
         training_distances = get_training_distances(training_nodes, pairwise_distances)
+    if sgb_id is None:
         threshold = get_threshold(training_distances, distr_threshold)
     else:
-        _, metadata_samples = get_metadata_info(metadata)
-        threshold = get_precomputed_threshold(sgb_id)
+        threshold = get_threshold(training_distances, get_precomputed_threshold(sgb_id))
 
     transmission_events = get_transmission_events(pairwise_distances, metadata_samples, threshold)
     write_transmission_events(transmission_events, threshold, output_dir, metadata_samples)
