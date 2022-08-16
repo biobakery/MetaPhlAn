@@ -280,15 +280,14 @@ def strain_transmission(tree, metadata, distr_threshold, sgb_id, save_dist, outp
     distances_file = tree+".dist"
     tree_pairwisedist(tree, normalise, matrix, os.path.join(output_dir, distances_file))
     pairwise_distances = parse_distances(os.path.join(output_dir, distances_file)) 
-    if  not save_dist:
+    if not save_dist:
         os.remove(os.path.join(output_dir, distances_file))
 
-
-        nodes = get_nodes(pairwise_distances)
-        training_nodes, metadata_samples = get_training_nodes(nodes, metadata)    
-        training_distances = get_training_distances(training_nodes, pairwise_distances)
+    nodes = get_nodes(pairwise_distances)
+    training_nodes, metadata_samples = get_training_nodes(nodes, metadata)    
+    training_distances = get_training_distances(training_nodes, pairwise_distances)
     if sgb_id is None:
-        threshold = get_threshold(training_distances, distr_threshold)
+	threshold = get_threshold(training_distances, distr_threshold)
     else:
         threshold = get_threshold(training_distances, get_precomputed_threshold(sgb_id))
 
