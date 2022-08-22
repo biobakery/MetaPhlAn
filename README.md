@@ -22,7 +22,7 @@ MetaPhlAn 4 relies on ~5.1M unique clade-specific marker genes identified from ~
 
 If you use MetaPhlAn, please cite:
 
-[**Integrating taxonomic, functional, and strain-level profiling of diverse microbial communities with bioBakery 3**](https://elifesciences.org/articles/65088) *Francesco Beghini, Lauren J McIver, Aitor Blanco-Míguez, Leonard Dubois, Francesco Asnicar, Sagun Maharjan, Ana Mailyan, Paolo Manghi, Matthias Scholz, Andrew Maltez Thomas, Mireia Valles-Colomer, George Weingart, Yancong Zhang, Moreno Zolfo, Curtis Huttenhower, Eric A Franzosa, Nicola Segata*. eLife (2021)
+**Extending and improving metagenomic taxonomic profiling with uncharacterized species with MetaPhlAn 4.** Aitor Blanco-Miguez, Francesco Beghini, Fabio Cumbo, Lauren J. McIver, Kelsey N. Thompson, Moreno Zolfo, Paolo Manghi, Leonard Dubois, Kun D. Huang, Andrew Maltez Thomas, Gianmarco Piccinno, Elisa Piperni, Michal Punčochář, Mireia Valles-Colomer, Adrian Tett, Francesca Giordano, Richard Davies, Jonathan Wolf, Sarah E. Berry, Tim D. Spector, Eric A. Franzosa, Edoardo Pasolli, Francesco Asnicar, Curtis Huttenhower, Nicola Segata. Preprint (2022)
 
 If you use StrainPhlAn, please cite the MetaPhlAn paper and the following StrainPhlAn paper:
 
@@ -35,9 +35,9 @@ If you use StrainPhlAn, please cite the MetaPhlAn paper and the following Strain
 
 In addition to the information on this page, you can refer to the following additional resources.
 
-* The [MetaPhlAn tutorial](https://github.com/biobakery/MetaPhlAn/wiki/MetaPhlAn-4).
+* The [MetaPhlAn documentation](https://github.com/biobakery/MetaPhlAn/wiki/MetaPhlAn-4).
 
-* The [StrainPhlAn tutorial](https://github.com/biobakery/MetaPhlAn/wiki/StrainPhlAn-4).
+* The [StrainPhlAn documentation](https://github.com/biobakery/MetaPhlAn/wiki/StrainPhlAn-4).
 
 * Related tools including [PanPhlAn](https://github.com/segatalab/panphlan) (and its [tutorial](https://github.com/segatalab/panphlan/wiki/Home)), [GraPhlAn](https://github.com/segatalab/graphlan) (and it [tutorial](https://github.com/biobakery/biobakery/wiki/graphlan)), [PhyloPhlAn 3](https://github.com/biobakery/phylophlan) (and its [tutorial](https://github.com/biobakery/biobakery/wiki/phylophlan)), [HUMAnN](https://github.com/biobakery/humann/) (and its [tutorial](https://github.com/biobakery/biobakery/wiki/humann2)).
 
