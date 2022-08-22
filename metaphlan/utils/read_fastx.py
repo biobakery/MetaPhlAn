@@ -61,6 +61,7 @@ def read_and_write_raw_int(fd, min_len=None, prefix_id=""):
     avg_read_length = 0
     nreads = 0
     discarded = 0
+    idx = 1
     #if min_len:
     r = []
 
