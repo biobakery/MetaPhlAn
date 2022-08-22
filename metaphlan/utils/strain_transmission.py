@@ -32,16 +32,16 @@ def read_params():
                    help="The input tree file")
     p.add_argument('-m', '--metadata', type=str, default=None,
                    help="The input metadata")
-    p.add_argument('-p', '--precomputed_thresholds_file', type=str, default=PRECOMPUTED_FILE,
-                   help="The file containing the pre-computed thresholds")
     p.add_argument('-o', '--output_dir', type=str, default=None,
                    help="The output directory")
     p.add_argument('--sgb_id', type=str, default=None,
                    help="[Optional] If specified, it will use the precomputed transmisison threshold for the specific SGB from the VallesColomerM_2022 study")
-    p.add_argument('--save_dist', action='store_true',
-                   help="[Optional] Save the PhyPhlAn pairwise distances file")
     p.add_argument('--threshold', type=float, default=DISTRIBUTION_THRESHOLD,
                    help="[Optional] A custom distribution threshold value")
+    p.add_argument('--precomputed_thresholds_file', type=str, default=PRECOMPUTED_FILE,
+                   help="[Optional] The file containing the pre-computed thresholds")
+    p.add_argument('--save_dist', action='store_true',
+                   help="[Optional] Save the PhyPhlAn pairwise distances file")
     
     return p.parse_args()
 
@@ -290,7 +290,7 @@ def strain_transmission(tree, metadata, distr_threshold, sgb_id, precomputed_thr
     training_nodes, metadata_samples = get_training_nodes(nodes, metadata)    
     training_distances = get_training_distances(training_nodes, pairwise_distances)
     if sgb_id is None:
-	threshold = get_threshold(training_distances, distr_threshold)
+        threshold = get_threshold(training_distances, distr_threshold)
     else:
         threshold = get_threshold(training_distances, get_precomputed_threshold(sgb_id, precomputed_thresholds_file))
 
