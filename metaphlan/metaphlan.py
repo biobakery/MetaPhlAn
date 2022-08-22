@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-__author__ = ('Francesco Beghini (francesco.beghini@unitn.it),'
+__author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
+              'Francesco Beghini (francesco.beghini@unitn.it), '
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
-              'Francesco Asnicar (f.asnicar@unitn.it), '
-              'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
-__version__ = '3.1.0'
-__date__ = '25 Jul 2022'
+              'Francesco Asnicar (f.asnicar@unitn.it)')
+__version__ = '4.beta.3'
+__date__ = '22 Aug 2022'
 
 import sys
 try:
@@ -17,7 +17,6 @@ if float(sys.version_info[0]) < 3.0:
     sys.stderr.write("MetaPhlAn requires Python 3, your current Python version is {}.{}.{}\n"
                     .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
     sys.exit(1)
-    
 import os
 import stat
 import re
@@ -28,7 +27,6 @@ from glob import glob
 from subprocess import DEVNULL
 import argparse as ap
 import bz2
-import json
 import pickle
 import subprocess as subp
 import tempfile as tf
@@ -57,17 +55,17 @@ try:
 except ImportError:
     sys.stderr.write("Warning! Biom python library not detected!"
                      "\n Exporting to biom format will not work!\n")
+import json
 
 # get the directory that contains this script
 metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 # get the default database folder
 DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "metaphlan_databases")
 DEFAULT_DB_FOLDER= os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
+#Wether to execute a SGB-based analysis
+SGB_ANALYSIS = True
 INDEX = 'latest'
 tax_units = "kpcofgst"
-
-# set default parameters
-GENOME_LENGTH_BOOST_FOR_UNKNOWN_ESTIMATE=1.05
 
 def read_params(args):
     p = ap.ArgumentParser( description=
@@ -181,7 +179,7 @@ def read_params(args):
 
     arg('-x', '--index', type=str, default=INDEX,
         help=("Specify the id of the database version to use. "
-              "If \"latest\", MetaPhlAn will get the latest version.\n" 
+              "If \"latest\", MetaPhlAn will get the latest version.\n"
               "If an index name is provided, MetaPhlAn will try to use it, if available, and skip the online check.\n"
               "If the database files are not found on the local MetaPhlAn installation they\n"
               "will be automatically downloaded [default "+INDEX+"]\n"))
@@ -227,6 +225,7 @@ def read_params(args):
          "'f' : families only\n"
          "'g' : genera only\n"
          "'s' : species only\n"
+         "'t' : SGBs only\n"
          "[default 'a']" )
     arg( '--min_cu_len', metavar="", default="2000", type=int, help =
          "minimum total nucleotide length for the markers in a clade for\n"
@@ -237,16 +236,20 @@ def read_params(args):
          "length smaller than this threshold will be discarded.\n"
          "[default None]\n"   )
     arg( '--add_viruses', action='store_true', help=
-         "Allow the profiling of viral organisms" )
+         "Together with --mpa3, allow the profiling of viral organisms" )
     arg( '--ignore_eukaryotes', action='store_true', help=
          "Do not profile eukaryotic organisms" )
     arg( '--ignore_bacteria', action='store_true', help=
          "Do not profile bacterial organisms" )
     arg( '--ignore_archaea', action='store_true', help=
          "Do not profile archeal organisms" )
+    arg( '--ignore_ksgbs', action='store_true', help=
+         "Do not profile known SGBs (together with --sgb option)" )
+    arg( '--ignore_usgbs', action='store_true', help=
+         "Do not profile unknown SGBs (together with --sgb option)" )
     arg( '--stat_q', metavar="", type = float, default=0.2, help =
          "Quantile value for the robust average\n"
-         "[default 0.2]"   )
+         "[default 0.2]" )
     arg( '--perc_nonzero', metavar="", type = float, default=0.33, help =
          "Percentage of markers with a non zero relative abundance for misidentify a species\n"
          "[default 0.33]"   )
@@ -313,7 +316,8 @@ def read_params(args):
 
     arg( '--legacy-output', action='store_true', help="Old MetaPhlAn2 two columns output\n")
     arg( '--CAMI_format_output', action='store_true', help="Report the profiling using the CAMI output format\n")
-    arg( '--unknown_estimation', action='store_true', help="Scale relative abundances to the number of reads mapping to known clades in order to estimate unknowness\n")
+    arg( '--unclassified_estimation', action='store_true', help="Scale relative abundances to the number of reads mapping to identified clades in order to estimate unclassified taxa\n")
+    arg( '--mpa3', action='store_true', help="Perform the analysis using the MetaPhlAn 3 algorithm\n")
 
     #*************************************************************
     #* Parameters related to biom file generation                *
@@ -348,11 +352,12 @@ def read_params(args):
 def set_mapping_arguments(index, bowtie2_db):
     mpa_pkl = 'mpa_pkl'
     bowtie2db = 'bowtie2db'
+    bt2_ext = 'bt2l' if SGB_ANALYSIS else 'bt2'
 
     if os.path.isfile(os.path.join(bowtie2_db, "{}.pkl".format(index))):
         mpa_pkl = os.path.join(bowtie2_db, "{}.pkl".format(index))
 
-    if glob(os.path.join(bowtie2_db, "{}*.bt2".format(index))):
+    if glob(os.path.join(bowtie2_db, "{}*.{}".format(index, bt2_ext))):
         bowtie2db = os.path.join(bowtie2_db, "{}".format(index))
 
     return (mpa_pkl, bowtie2db)
@@ -409,7 +414,6 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
         except IOError as e:
             sys.stderr.write('IOError: "{}"\nUnable to open sam output file.\n'.format(e))
             sys.exit(1)
-        
         for line in p.stdout:
             if samout:
                 sam_file.write(line)
@@ -438,7 +442,6 @@ def run_bowtie2(fna_in, outfmt6_out, bowtie2_db, preset, nproc, min_mapq_val, fi
             if not avg_read_length:
                 sys.stderr.write('Fatal error running MetaPhlAn. The average read length was not estimated.\nPlease check your input files.\n')
                 sys.exit(1)
-            
             outf.write(lmybytes('#nreads\t{}\n'.format(int(nreads))))
             outf.write(lmybytes('#avg_read_length\t{}'.format(avg_read_length)))
             outf.close()
@@ -517,8 +520,9 @@ class TaxClade:
         return [(m,float(n)*1000.0/(np.absolute(self.markers2lens[m] - self.avg_read_length) +1) )
                     for m,n in self.markers2nreads.items()]
 
-    def compute_mapped_reads( self ):
-        if self.name.startswith('s__'):
+    def compute_mapped_reads( self ):        
+        tax_level = 't__' if SGB_ANALYSIS else 's__'
+        if self.name.startswith(tax_level):
             return self.nreads
         for c in self.children.values():
             self.nreads += c.compute_mapped_reads()
@@ -579,7 +583,7 @@ class TaxClade:
         quant = int(self.quantile*len(rat_nreads))
         ql,qr,qn = (quant,-quant,quant) if quant else (None,None,0)
 
-        if self.name[0] == 't' and (len(self.father.children) > 1 or "_sp" in self.father.name or "k__Viruses" in self.get_full_name()):
+        if not SGB_ANALYSIS and self.name[0] == 't' and (len(self.father.children) > 1 or "_sp" in self.father.name or "k__Viruses" in self.get_full_name()):
             non_zeros = float(len([n for r,n in rat_nreads if n > 0]))
             nreads = float(len(rat_nreads))
             if nreads == 0.0 or non_zeros / nreads < 0.7:
@@ -588,10 +592,6 @@ class TaxClade:
 
         if rat < 0.0:
             pass
-        elif self.stat == 'unknown':
-            wnreads = sorted([(float(n)/(np.absolute(r-self.avg_read_length)+1),(np.absolute(r - self.avg_read_length)+1) ,n) for r,n in rat_nreads], key=lambda x:x[0])
-            den,num = zip(*[v[1:] for v in wnreads])
-            loc_ab = float(sum(num))/float(sum(den)) if any(den) else 0.0
         elif self.stat == 'avg_g' or (not qn and self.stat in ['wavg_g','tavg_g']):
             loc_ab = nrawreads / rat if rat >= 0 else 0.0
         elif self.stat == 'avg_l' or (not qn and self.stat in ['wavg_l','tavg_l']):
@@ -640,9 +640,8 @@ class TaxClade:
         return ret
 
 class TaxTree:
-    def __init__( self, mpa, markers_to_ignore = None, unknown_calculation = None ): #, min_cu_len ):
+    def __init__( self, mpa, markers_to_ignore = None ): #, min_cu_len ):
         self.root = TaxClade( "root", 0)
-        self.unknown_calculation = unknown_calculation
         self.all_clades, self.markers2lens, self.markers2clades, self.taxa2clades, self.markers2exts = {}, {}, {}, {}, {}
         TaxClade.markers2lens = self.markers2lens
         TaxClade.markers2exts = self.markers2exts
@@ -661,13 +660,17 @@ class TaxTree:
             father = self.root
             for i in range(len(clade)):
                 clade_lev = clade[i]
-                clade_taxid = taxids[i] if i < 7 and taxids is not None else None
+                if SGB_ANALYSIS:
+                    clade_taxid = taxids[i] if i < 8 and taxids is not None else None
+                else:
+                    clade_taxid = taxids[i] if i < 7 and taxids is not None else None
                 if not clade_lev in father.children:
                     father.add_child(clade_lev, tax_id=clade_taxid)
                     self.all_clades[clade_lev] = father.children[clade_lev]
+                if SGB_ANALYSIS: father = father.children[clade_lev]
                 if clade_lev[0] == "t":
                     self.taxa2clades[clade_lev[3:]] = father
-                father = father.children[clade_lev]
+                if not SGB_ANALYSIS: father = father.children[clade_lev]
                 if clade_lev[0] == "t":
                     father.glen = lenc
 
@@ -677,11 +680,7 @@ class TaxTree:
             lens = []
             for c in node.children.values():
                 lens.append( add_lens( c ) )
-            # use a different length for the unknown calculation
-            if self.unknown_calculation:
-                node.glen = np.median(lens) * GENOME_LENGTH_BOOST_FOR_UNKNOWN_ESTIMATE
-            else:
-                node.glen = min(np.mean(lens), np.median(lens))
+            node.glen = min(np.mean(lens), np.median(lens))
             return node.glen
         
         add_lens(self.root)
@@ -708,18 +707,27 @@ class TaxTree:
     def add_reads(  self, marker, n,
                     add_viruses = False,
                     ignore_eukaryotes = False,
-                    ignore_bacteria = False, ignore_archaea = False  ):
+                    ignore_bacteria = False, ignore_archaea = False, 
+                    ignore_ksgbs = False, ignore_usgbs = False  ):
         clade = self.markers2clades[marker]
         cl = self.all_clades[clade]
-        if ignore_eukaryotes or ignore_bacteria or ignore_archaea or not add_viruses:
+        if ignore_bacteria or ignore_archaea or ignore_eukaryotes:
             cn = cl.get_full_name()
-            if not add_viruses and cn.startswith("k__Vir"):
-                return (None, None)
-            if ignore_eukaryotes and cn.startswith("k__Eukaryota"):
-                return (None, None)
             if ignore_archaea and cn.startswith("k__Archaea"):
                 return (None, None)
             if ignore_bacteria and cn.startswith("k__Bacteria"):
+                return (None, None)
+            if ignore_eukaryotes and cn.startswith("k__Eukaryota"):
+                return (None, None)
+        if not SGB_ANALYSIS and not add_viruses:
+            cn = cl.get_full_name()
+            if not add_viruses and cn.startswith("k__Vir"):
+                return (None, None)
+        if SGB_ANALYSIS and (ignore_ksgbs or ignore_usgbs):
+            cn = cl.get_full_name()
+            if ignore_ksgbs and not '_SGB' in cn.split('|')[-2]:
+                return (None, None)
+            if ignore_usgbs and '_SGB' in cn.split('|')[-2]:
                 return (None, None)
         # while len(cl.children) == 1:
             # cl = list(cl.children.values())[0]
@@ -756,7 +764,7 @@ class TaxTree:
 
         for tax_label, clade in clade2abundance_n.items():
             for clade_label, tax_id, abundance in sorted(clade.get_all_abundances(), key=lambda pars:pars[0]):
-                if clade_label[:3] != 't__':
+                if SGB_ANALYSIS or clade_label[:3] != 't__':
                     if not tax_lev:
                         if clade_label not in self.all_clades:
                             to = tax_units.index(clade_label[0])
@@ -770,7 +778,8 @@ class TaxTree:
                         else:
                             glen = self.all_clades[clade_label].glen
                             tax_id = self.all_clades[clade_label].get_full_taxids()
-                            if 's__' in clade_label and abundance > 0:
+                            tax_level = 't__' if SGB_ANALYSIS else 's__' 
+                            if tax_level in clade_label and abundance > 0:
                                 self.all_clades[clade_label].nreads = int(np.floor(abundance*glen))
 
                             clade_label = self.all_clades[clade_label].get_full_name()
@@ -797,7 +806,7 @@ class TaxTree:
         ret_r = dict([( tax, (abundance, clade2est_nreads[tax] )) for tax, abundance in clade2abundance.items() if tax in clade2est_nreads])
 
         if tax_lev:
-            ret_d[("UNKNOWN", '-1')] = 1.0 - sum(ret_d.values())  
+            ret_d[("UNCLASSIFIED", '-1')] = 1.0 - sum(ret_d.values())  
         return ret_d, ret_r, tot_reads
 
 def mapq_filter(marker_name, mapq_value, min_mapq_val):
@@ -826,7 +835,7 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
             if r.startswith('#') and 'nreads' in r:
                 n_metagenome_reads = int(c)
             if r.startswith('#') and 'avg_read_length' in r:
-                avg_read_length = float(c)            
+                avg_read_length = float(c)
             else:
                 reads2markers[r] = c
     elif input_type == 'sam':
@@ -931,55 +940,16 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
 
     return True
 
-def create_tree_and_add_reads(mpa_pkl, ignore_markers, pars, avg_read_length, markers2reads, unknown_calculation=False):
-    # Create an instance of the TaxTree and update the stats settings and then add the reads and markers
-    tree = TaxTree( mpa_pkl, ignore_markers , unknown_calculation = unknown_calculation)
-    tree.set_min_cu_len( pars['min_cu_len'] )
-    tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'] )
-
-    map_out = []
-    for marker,reads in sorted(markers2reads.items(), key=lambda pars: pars[0]):
-        if marker not in tree.markers2lens:
-            continue
-        tax_seq, ids_seq = tree.add_reads( marker, len(reads),
-                                  add_viruses = pars['add_viruses'],
-                                  ignore_eukaryotes = pars['ignore_eukaryotes'],
-                                  ignore_bacteria = pars['ignore_bacteria'],
-                                  ignore_archaea = pars['ignore_archaea'],
-                                  )
-        if tax_seq:
-            map_out +=["\t".join([r,tax_seq, ids_seq]) for r in sorted(reads)]
-
-    return tree, map_out
-
-def compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK, unknown_calculation=False):
-    # Using the tree compute the relative abundance and then the fraction of mapped reads using the total mapped reads
-
-    # if computing the unknown calculation, set the tree settings to reset to the unknown stat
-    # must be set here and then reset as this is a global setting that will apply to all trees if set
-    if unknown_calculation:
-        tree.set_stat( 'unknown', pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'] )
-
-    cl2ab, rr, tot_nreads = tree.relative_abundances(
-            pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
-
-    if unknown_calculation:
-        tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'] )
-
-    # If the mapped reads are over-estimated, set the ratio at 1
-    fraction_mapped_reads = min(tot_nreads/float(n_metagenome_reads), 1.0) if ESTIMATE_UNK else 1.0
-
-    # check for a negative fraction
-    if unknown_calculation and fraction_mapped_reads < 0:
-        fraction_mapped_reads = 1.0
-
-    return cl2ab, fraction_mapped_reads, tot_nreads, rr
-
 def main():
     ranks2code = { 'k' : 'superkingdom', 'p' : 'phylum', 'c':'class',
                    'o' : 'order', 'f' : 'family', 'g' : 'genus', 's' : 'species'}
     pars = read_params(sys.argv)
-    ESTIMATE_UNK = pars['unknown_estimation']
+
+    #Set SGB- / species- analysis
+    global SGB_ANALYSIS
+    SGB_ANALYSIS = not pars['mpa3']
+
+    ESTIMATE_UNK = pars['unclassified_estimation']
 
     # check if the database is installed, if not then install
     pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'])
@@ -1046,15 +1016,14 @@ def main():
                 if os.path.exists(pars['bowtie2out']):
                     os.remove( pars['bowtie2out'] )
 
+        bt2_ext = 'bt2l' if SGB_ANALYSIS else 'bt2'            
         if bow and not all([os.path.exists(".".join([str(pars['bowtie2db']), p]))
-                            for p in ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]]):
+                            for p in ["1." + bt2_ext, "2." + bt2_ext, "3." + bt2_ext, "4." + bt2_ext, "rev.1." + bt2_ext, "rev.2." + bt2_ext]]):
             sys.stderr.write("No MetaPhlAn BowTie2 database found (--index "
                              "option)!\nExpecting location {}\nExiting..."
                              .format(pars['bowtie2db']))
             sys.exit(1)
-
-        # check for an incomplete build
-        if bow and not (abs(os.path.getsize(".".join([str(pars['bowtie2db']), "1.bt2"])) - os.path.getsize(".".join([str(pars['bowtie2db']), "rev.1.bt2"]))) <= 1000):
+        if bow and not (abs(os.path.getsize(".".join([str(pars['bowtie2db']), "1." + bt2_ext])) - os.path.getsize(".".join([str(pars['bowtie2db']), "rev.1." + bt2_ext]))) <= 1000):
             sys.stderr.write("Partial MetaPhlAn BowTie2 database found at {}. "
                              "Please remove and rebuild the database.\nExiting..."
                              .format(pars['bowtie2db']))
@@ -1071,19 +1040,19 @@ def main():
         mpa_pkl = pickle.load( a )
 
     REPORT_MERGED = mpa_pkl.get('merged_taxon',False)
-    
+    tree = TaxTree( mpa_pkl, ignore_markers )
+    tree.set_min_cu_len( pars['min_cu_len'] )
+
     markers2reads, n_metagenome_reads, avg_read_length = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'])
 
-    # create a tree for the relative abundance and unknown calculations (each use different default computations as unknown includes all the alignments)
-    tree, map_out = create_tree_and_add_reads( mpa_pkl, ignore_markers, pars, avg_read_length, markers2reads)
-    tree_unknown, map_out_unknown = create_tree_and_add_reads( mpa_pkl, ignore_markers, pars, avg_read_length, markers2reads, unknown_calculation=True)
+    tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'])
 
     if no_map:
         os.remove( pars['inp'] )
 
     if not n_metagenome_reads and pars['nreads']:
         n_metagenome_reads = pars['nreads']
-
+    
     if ESTIMATE_UNK and pars['input_type'] == 'sam':
         if not n_metagenome_reads and not pars['nreads']:
             sys.stderr.write(
@@ -1091,6 +1060,21 @@ def main():
                     "--nreads parameter when running MetaPhlAn using SAM files as input"
                     "\nExiting...\n\n" )
             sys.exit(1)
+
+    map_out = []
+    for marker,reads in sorted(markers2reads.items(), key=lambda pars: pars[0]):
+        if marker not in tree.markers2lens:
+            continue
+        tax_seq, ids_seq = tree.add_reads( marker, len(reads),
+                                  add_viruses = pars['add_viruses'],
+                                  ignore_eukaryotes = pars['ignore_eukaryotes'],
+                                  ignore_bacteria = pars['ignore_bacteria'],
+                                  ignore_archaea = pars['ignore_archaea'],
+                                  ignore_ksgbs = pars['ignore_ksgbs'],
+                                  ignore_usgbs = pars['ignore_usgbs']
+                                  )
+        if tax_seq:
+            map_out +=["\t".join([r,tax_seq, ids_seq]) for r in sorted(reads)]
 
     if pars['output'] is None and pars['output_file'] is not None:
         pars['output'] = pars['output_file']
@@ -1107,6 +1091,20 @@ def main():
         if not CAMI_OUTPUT:
             outf.write('#' + '\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
 
+        if ESTIMATE_UNK:
+            mapped_reads = 0
+            cl2pr = tree.clade_profiles( pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None  )
+            cl2ab, _, _ = tree.relative_abundances( pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
+            confident_taxa = [taxstr for (taxstr, _),relab in cl2ab.items() if relab > 0.0]
+            for c, m in cl2pr.items():
+                if c in confident_taxa:
+                    markers_cov = [a  / 1000 for _, a in m if a > 0]
+                    mapped_reads += np.mean(markers_cov) * tree.all_clades[c.split('|')[-1]].glen
+            # If the mapped reads are over-estimated, set the ratio at 1
+            fraction_mapped_reads = min(mapped_reads/float(n_metagenome_reads), 1.0)
+        else:
+            fraction_mapped_reads = 1.0
+      
         if pars['t'] == 'reads_map':
             if not MPA2_OUTPUT:
                outf.write('#read_id\tNCBI_taxlineage_str\tNCBI_taxlineage_ids\n')
@@ -1121,11 +1119,9 @@ def main():
                 else:
                     outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
 
-            cl2ab, fraction_mapped_reads, tot_nreads, rr = compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK)
-
-            # compute the mapped reads fraction again considering all alignments
-            cl2ab_unknown, fraction_mapped_reads, tot_nreads, rr_unknown = compute_relative_abundance_and_fraction_of_mapped_reads(tree_unknown, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK, unknown_calculation=True)
-
+            cl2ab, _, tot_nreads = tree.relative_abundances(
+                        pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
+            
             outpred = [(taxstr, taxid,round(relab*100.0,5)) for (taxstr, taxid), relab in cl2ab.items() if relab > 0.0]
             has_repr = False
             
@@ -1140,7 +1136,7 @@ def main():
                             outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(relab*fraction_mapped_reads) ] ) + '\n' )
                 else:
                     if ESTIMATE_UNK:
-                        outf.write( "\t".join( [    "UNKNOWN",
+                        outf.write( "\t".join( [    "UNCLASSIFIED",
                                                     "-1",
                                                     str(round((1-fraction_mapped_reads)*100,5)),""]) + "\n" )
                                                     
@@ -1148,10 +1144,10 @@ def main():
                                         key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
                         add_repr = ''
                         if REPORT_MERGED and (clade, taxid) in mpa_pkl['merged_taxon']:
-                            if pars['use_group_representative']:
+                            if pars['use_group_representative'] and not SGB_ANALYSIS:
                                 if '_group' in clade:
                                     clade, taxid, _ = sorted(mpa_pkl['merged_taxon'][(clade, taxid)], key=lambda x:x[2], reverse=True)[0]
-                            else:
+                            elif not pars['use_group_representative']:
                                 add_repr = '{}'.format(','.join( [ n[0] for n in mpa_pkl['merged_taxon'][(clade, taxid)]] ))
                                 has_repr = True
                         if not MPA2_OUTPUT:
@@ -1169,15 +1165,15 @@ def main():
                                     )
             else:
                 if not MPA2_OUTPUT:
-                    outf.write( "UNKNOWN\t-1\t100.0\t\n" )
+                    outf.write( "UNCLASSIFIED\t-1\t100.0\t\n" )
                 else:
-                    outf.write( "UNKNOWN\t100.0\n" )
+                    outf.write( "UNCLASSIFIED\t100.0\n" )
+                sys.stderr.write("WARNING: MetaPhlAn did not detect any microbial taxa in the sample.\n")
             maybe_generate_biom_file(tree, pars, outpred)
 
         elif pars['t'] == 'rel_ab_w_read_stats':
-            cl2ab, fraction_mapped_reads, tot_nreads, rr = compute_relative_abundance_and_fraction_of_mapped_reads(tree, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK)
-            # compute the mapped reads fraction again considering all alignments
-            cl2ab_unknown, fraction_mapped_reads, tot_nreads, rr_unknown = compute_relative_abundance_and_fraction_of_mapped_reads(tree_unknown, pars, n_metagenome_reads, avg_read_length, ESTIMATE_UNK, unknown_calculation=True)
+            cl2ab, rr, tot_nreads = tree.relative_abundances(
+                        pars['tax_lev']+"__" if pars['tax_lev'] != 'a' else None )
 
             unmapped_reads = max(n_metagenome_reads - tot_nreads, 0)
 
@@ -1191,7 +1187,7 @@ def main():
                                             "coverage",
                                             "estimated_number_of_reads_from_the_clade" ]) +"\n" )
                 if ESTIMATE_UNK:
-                    outf.write( "\t".join( [    "UNKNOWN",
+                    outf.write( "\t".join( [    "UNCLASSIFIED",
                                                 "-1",
                                                 str(round((1-fraction_mapped_reads)*100,5)),
                                                 "-",
@@ -1264,3 +1260,4 @@ if __name__ == '__main__':
     t0 = time.time()
     main()
     sys.stderr.write('Elapsed time to run MetaPhlAn: {} s\n'.format( (time.time()-t0) ) )
+

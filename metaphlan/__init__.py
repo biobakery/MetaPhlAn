@@ -8,7 +8,7 @@ import sys
 import tarfile
 import time
 import zipfile
-from glob import glob
+from glob import glob, iglob
 import urllib.request
 
 def remove_prefix(text):
@@ -69,10 +69,6 @@ class ReportHook():
             status += "        \r"
             sys.stderr.write(status)
 
-# set the location of the database download url
-DROPBOX_DATABASE_DOWNLOAD = "https://www.dropbox.com/sh/7qze7m7g9fe2xjg/AADHWzATSQcI0CNFD0sk7MAga"
-ZENODO_DATABASE_DOWNLOAD = "https://zenodo.org/record/3957592"
-
 def download(url, download_file, force=False):
     """
     Download a file from a url
@@ -109,13 +105,9 @@ def download_unpack_tar(download_file_name, folder, bowtie2_build, nproc, use_ze
     tar_file = os.path.join(folder, download_file_name + ".tar")
     md5_file = os.path.join(folder, download_file_name + ".md5")
 
-    #Download the list of all the files in the Dropbox folder
-    if not use_zenodo:
-        url_tar_file = "http://cmprod1.cibio.unitn.it/biobakery3/metaphlan_databases/{}.tar".format(download_file_name)
-        url_md5_file = "http://cmprod1.cibio.unitn.it/biobakery3/metaphlan_databases/{}.md5".format(download_file_name)
-    else:
-        url_tar_file = "https://zenodo.org/record/3957592/files/{}.tar?download=1".format(download_file_name)
-        url_md5_file = "https://zenodo.org/record/3957592/files/{}.md5?download=1".format(download_file_name)
+    #Download the list of all the files in the FPT    
+    url_tar_file = "http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/{}.tar".format(download_file_name)
+    url_md5_file = "http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/{}.md5".format(download_file_name)
 
     # download tar and MD5 checksum
     download(url_tar_file, tar_file)
@@ -160,19 +152,29 @@ def download_unpack_tar(download_file_name, folder, bowtie2_build, nproc, use_ze
         sys.stderr.write("Warning: Unable to extract {}.\n".format(tar_file))
 
     # uncompress sequences
-    bz2_file = os.path.join(folder, download_file_name + ".fna.bz2")
+    for bz2_file in iglob(os.path.join(folder, download_file_name + "_*.fna.bz2")):
+        fna_file = bz2_file[:-4]
+
+        if not os.path.isfile(fna_file):
+            sys.stderr.write('\n\nDecompressing {} into {}\n'.format(bz2_file, fna_file))
+
+            with open(fna_file, 'wb') as fna_h, \
+                bz2.BZ2File(bz2_file, 'rb') as bz2_h:
+                for data in iter(lambda: bz2_h.read(100 * 1024), b''):
+                    fna_h.write(data)
+        os.remove(bz2_file)
+
+    # join fasta files
+    sys.stderr.write('\n\nJoining FASTA databases\n')
+    with open(os.path.join(folder, download_file_name + ".fna"), 'w') as fna_h:
+        for fna_file in iglob(os.path.join(folder, download_file_name + "_*.fna")):
+            with open(fna_file, 'r') as fna_r:
+                for line in fna_r:
+                    fna_h.write(line)
     fna_file = os.path.join(folder, download_file_name + ".fna")
 
-    if not os.path.isfile(fna_file):
-        sys.stderr.write('\n\nDecompressing {} into {}\n'.format(bz2_file, fna_file))
-
-        with open(fna_file, 'wb') as fna_h, \
-            bz2.BZ2File(bz2_file, 'rb') as bz2_h:
-            for data in iter(lambda: bz2_h.read(100 * 1024), b''):
-                fna_h.write(data)
-
     # build bowtie2 indexes
-    if not glob(os.path.join(folder, download_file_name + "*.bt2")):
+    if not glob(os.path.join(folder, download_file_name + "*.bt2l")):
         bt2_base = os.path.join(folder, download_file_name)
         bt2_cmd = [bowtie2_build, '--quiet']
 
@@ -193,14 +195,19 @@ def download_unpack_tar(download_file_name, folder, bowtie2_build, nproc, use_ze
             sys.exit(1)
 
     try:
-        for bt2 in glob(os.path.join(folder, download_file_name + "*.bt2")):
+        for bt2 in glob(os.path.join(folder, download_file_name + "*.bt2l")):
             os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
     except PermissionError as e:
-        sys.stderr.write('Cannot change permission for {}. Make sure the files are readable.'.format(os.path.join(folder, download_file_name + "*.bt2")))
+        sys.stderr.write('Cannot change permission for {}. Make sure the files are readable.'.format(os.path.join(folder, download_file_name + "*.bt2l")))
 
-    sys.stderr.write('Removing uncompress database {}\n'.format(fna_file))
+    sys.stderr.write('Removing uncompressed databases\n')
     os.remove(fna_file)
 
+    # remove all the individual FASTA files but ViralDB
+    for fna_file in iglob(os.path.join(folder, download_file_name + "_*.fna")):
+        if not fna_file.endswith('_VSG.fna'):
+            os.remove(fna_file)
+    
 def download_unpack_zip(url,download_file_name,folder,software_name):
     """
     Download the url to the file and decompress into the folder
@@ -259,8 +266,9 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
     
     use_zenodo = False
     try:
-        if urllib.request.urlopen("http://cmprod1.cibio.unitn.it/biobakery3/metaphlan_databases/mpa_latest").getcode() != 200:
-            use_zenodo = True
+        if urllib.request.urlopen("http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/mpa_latest").getcode() != 200:
+            # use_zenodo = True
+            pass
     except:
         print('WARNING: It seems that you do not have Internet access.')
         if os.path.exists(os.path.join(bowtie2_db,'mpa_latest')):
@@ -269,16 +277,13 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
                 latest_db_version = [line.strip() for line in mpa_latest if not line.startswith('#')]
         else:
             print("""ERROR: Cannot find a local database. Please run MetaPhlAn using option "-x <database_name>".
-            You can download the MetaPhlAn database from \n {} \n {} \n {} 
-                  """.format('http://cmprod1.cibio.unitn.it/biobakery3/metaphlan_databases',ZENODO_DATABASE_DOWNLOAD, DROPBOX_DATABASE_DOWNLOAD))
+            You can download the MetaPhlAn database from \n {} 
+                  """.format('http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases'))
             sys.exit()
 
     #try downloading from the segatalab website. If fails, use zenodo
     if index == 'latest':
-        if not use_zenodo:
-            mpa_latest = 'http://cmprod1.cibio.unitn.it/biobakery3/metaphlan_databases/mpa_latest'
-        else:
-            mpa_latest = 'https://zenodo.org/record/3957592/files/mpa_latest?download=1'
+        mpa_latest = 'http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/mpa_latest'
 
         index = resolve_latest_database(bowtie2_db, mpa_latest, force_redownload_latest)
     

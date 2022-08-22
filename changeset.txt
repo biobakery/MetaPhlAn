@@ -1,3 +1,11 @@
+=== Version 4
+* Adoption of the species-level genome bins system (SGBs).
+* New MetaPhlAn marker genes extracted identified from ~1M microbial genomes.
+* Ability to profile 21,978 known (kSGBs) and 4,992 unknown (uSGBs) microbial species.
+* Better representation of, not only the human gut microbiome but also many other animal and ecological environments.
+* Estimation of metagenome composed by microbes not included in the database with parameter --unclassified_estimation.
+* Compatibility with MetaPhlAn 3 databases with parameter --mpa3
+
 === Version 3.1
 * 433 low-quality species were removed from the MetaPhlAn 3.1 marker database and 2,680 species were added (for a new total of 15,766; a 17% increase).
 * Marker genes for a subset of existing bioBakery 3 species were also revised.

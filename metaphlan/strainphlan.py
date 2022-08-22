@@ -4,8 +4,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '3.1.0'
-__date__ = '25 Jul 2022'
+__version__ = '4.beta.3'
+__date__ = '22 Aug 2022'
 
 
 import sys
@@ -29,7 +29,7 @@ from Bio.Seq import Seq
 metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "metaphlan_databases")
 DEFAULT_DB_FOLDER = os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
-DEFAULT_DB_NAME =  "mpa_v31_CHOCOPhlAn_201901.pkl"
+DEFAULT_DB_NAME =  "mpa_vJan21_CHOCOPhlAnSGB_202103.pkl"
 DEFAULT_DATABASE = os.path.join(DEFAULT_DB_FOLDER, DEFAULT_DB_NAME)
 PHYLOPHLAN_MODES = ['accurate', 'fast']
 
@@ -371,7 +371,7 @@ For each sample, writes the FASTA files with the sequences of the filtered marke
 """
 def matrix_markers_to_fasta(cleaned_markers_matrix, clade, samples, references, 
     trim_sequences, tmp_dir, nprocs):     
-    tmp_dir=tmp_dir+clade+".StrainPhlAn3/"    
+    tmp_dir=tmp_dir+clade+".StrainPhlAn4/"    
     create_folder(tmp_dir)
 
     filtered_samples = []
@@ -560,11 +560,11 @@ Executes PhyloPhlAn2 to compute phylogeny
 """
 def compute_phylogeny(samples_list, samples_markers_dir, num_samples, tmp_dir, output_dir, clade, 
     marker_in_n_samples, min_markers, phylophlan_mode, phylophlan_configuration, mutation_rates, nprocs):    
-    info("\tCreating PhyloPhlAn 3.0 database...", init_new_line=True)
+    info("\tCreating PhyloPhlAn database...", init_new_line=True)
     create_phylophlan_db(tmp_dir, clade[:30])
     info("\tDone.", init_new_line=True)
     if not phylophlan_configuration:     
-        info("\tGenerating PhyloPhlAn 3.0 configuration file...", init_new_line=True)
+        info("\tGenerating PhyloPhlAn configuration file...", init_new_line=True)
         conf = get_phylophlan_configuration()
         phylophlan_configuration = generate_phylophlan_config_file(tmp_dir, conf)
         info("\tDone.", init_new_line=True)   
@@ -888,3 +888,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

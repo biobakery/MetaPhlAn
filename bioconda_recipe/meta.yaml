@@ -1,5 +1,5 @@
 {% set name = "metaphlan" %}
-{% set version = "3.1" %}
+{% set version = "4.beta" %}
 
 package:
   name: {{ name }}
@@ -60,6 +60,7 @@ test:
     - plot_tree_graphlan.py -h
     - sample2markers.py -h
     - strain_transmission.py -h
+    - sgb_to_gtdb_profile.py -h
 
 about:
   home: https://github.com/biobakery/metaphlan

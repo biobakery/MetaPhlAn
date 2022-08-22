@@ -13,9 +13,9 @@ if sys.version_info[0] < 3:
 
 setuptools.setup(
     name='MetaPhlAn',
-    version='3.1.0',
-    author='Francesco Beghini',
-    author_email='francesco.beghini@unitn.it',
+    version='4.beta.3',
+    author='Aitor Blanco-Miguez',
+    author_email='aitor.blancomiguez@unitn.it',
     url='http://github.com/biobakery/MetaPhlAn/',
     license='LICENSE.txt',
     packages=setuptools.find_packages(),
@@ -34,6 +34,7 @@ setuptools.setup(
             'read_fastx.py = metaphlan.utils.read_fastx:main',
             'sample2markers.py = metaphlan.utils.sample2markers:main',
             'strain_transmission.py = metaphlan.utils.strain_transmission:main',
+            'sgb_to_gtdb_profile.py = metaphlan.utils.sgb_to_gtdb_profile:main',
         ]
     },
     description='MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea and Eukaryotes) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.',
