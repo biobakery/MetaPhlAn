@@ -31,11 +31,7 @@ except ImportError:
 metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "../metaphlan_databases")
 DEFAULT_DB_FOLDER = os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
-<<<<<<< HEAD
-DEFAULT_DB_NAME =  "mpa_v31_CHOCOPhlAn_201901.pkl"
-=======
 DEFAULT_DB_NAME =  "mpa_vJan21_CHOCOPhlAnSGB_202103.pkl"
->>>>>>> 4beta
 DEFAULT_DATABASE = os.path.join(DEFAULT_DB_FOLDER, DEFAULT_DB_NAME)
 
 """
