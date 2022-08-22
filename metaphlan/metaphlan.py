@@ -4,8 +4,8 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '4.beta.1'
-__date__ = '7 Jun 2022'
+__version__ = '4.beta.3'
+__date__ = '22 Aug 2022'
 
 import sys
 try:

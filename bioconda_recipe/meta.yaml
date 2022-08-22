@@ -40,6 +40,14 @@ requirements:
     - pysam
     - raxml >=8.2.10
     - samtools >=1.9
+    - r-base
+    - r-essentials
+    - r-optparse
+    - r-rbiom
+    - r-ape
+    - r-compositions
+    - r-biocmanager
+    - bioconductor-microbiome
 
 test:
   commands:
@@ -52,6 +60,7 @@ test:
     - plot_tree_graphlan.py -h
     - sample2markers.py -h
     - strain_transmission.py -h
+    - sgb_to_gtdb_profile.py -h
 
 about:
   home: https://github.com/biobakery/metaphlan

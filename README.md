@@ -2,7 +2,7 @@
 ## What's new in version 4
 * Adoption of the species-level genome bins system (SGBs, http://segatalab.cibio.unitn.it/data/Pasolli_et_al.html)
 * New MetaPhlAn marker genes extracted identified from ~1M microbial genomes
-* Ability to profile 21,978 known (kSGBs) and 4,992 unknown (uSGBs) microbial species.
+* Ability to profile 21,978 known (kSGBs) and 4,992 unknown (uSGBs) microbial species
 * Better representation of, not only the human gut microbiome but also many other animal and ecological environments
 * Estimation of metagenome composed by microbes not included in the database with parameter `--unclassified_estimation`
 * Compatibility with MetaPhlAn 3 databases with parameter `--mpa3`

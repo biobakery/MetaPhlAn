@@ -1,7 +1,7 @@
 __author__ = ('Aitor Blanco (aitor.blancomiguez@unitn.it), '
              'Mireia Valles-Colomer (mireia.vallescolomer@unitn.it)')
-__version__ = '4.beta.1'
-__date__ = '7 Jun 2022'
+__version__ = '4.beta.3'
+__date__ = '22 Aug 2022'
 
 import os, time, sys
 import argparse as ap
@@ -14,7 +14,12 @@ except ImportError:
     from pyphlan import PpaTree, dist_matrix
 
 
-DISTRIBUTION_THRESHOLD = 0.01
+DISTRIBUTION_THRESHOLD = 0.03
+metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_UTILS_FOLDER = os.path.join(metaphlan_script_install_folder)
+DEFAULT_UTILS_FOLDER = os.environ.get('METAPHLAN_DB_DIR', DEFAULT_UTILS_FOLDER)
+PRECOMPUTED_FILE = os.path.join(DEFAULT_UTILS_FOLDER, 'VallesColomerM_2022_Nov19_thresholds.tsv')
+
 
 """
 Reads and parses the command line arguments of the script.
@@ -27,8 +32,12 @@ def read_params():
                    help="The input tree file")
     p.add_argument('-m', '--metadata', type=str, default=None,
                    help="The input metadata")
+    p.add_argument('-p', '--precomputed_thresholds_file', type=str, default=PRECOMPUTED_FILE,
+                   help="The file containing the pre-computed thresholds")
     p.add_argument('-o', '--output_dir', type=str, default=None,
                    help="The output directory")
+    p.add_argument('--sgb_id', type=str, default=None,
+                   help="[Optional] If specified, it will use the precomputed transmisison threshold for the specific SGB from the VallesColomerM_2022 study")
     p.add_argument('--save_dist', action='store_true',
                    help="[Optional] Save the PhyPhlAn pairwise distances file")
     p.add_argument('--threshold', type=float, default=DISTRIBUTION_THRESHOLD,
@@ -240,29 +249,50 @@ def write_transmission_events(transmission_events, threshold, output_dir, metada
             report.write(event['1']+" <-> "+event['2']+"\n") 
 
 """
+Gets the precomputed threshold from VallesColomerM_2022 study
+
+:param sgb_id: the SGB id
+:returns: the transmission threshold
+"""
+def get_precomputed_threshold(sgb_id, precomputed_thresholds_file):
+    sgb2thres = dict()
+    with open(precomputed_thresholds_file, 'r') as rf:
+        rf.readline()
+        for line in rf:
+            line = line.strip().split('\t')
+            sgb2thres[line[0]] = line[1]
+    if sgb_id not in sgb2thres:
+        error('The SGB specified "{}" has not been precomputed'.format(sgb_id), exit=True, init_new_line=True)
+    else:
+        return float(sgb2thres[sgb_id])
+
+"""
 Identifies transmission events in phylogenetic trees
 
 :param tree: the input Newick tree
 :param metadata: the metadata file
 :param distr_threshold: the distribution threshold
+:param sgb_id: the SGB id
+:param precomputed_thresholds_file: the file containing the precomputed thresholds
 :param save_dist: whether to save the pairwise distances file
 :param output_dir: the output directory to store the results
 """
-def strain_transmission(tree, metadata, distr_threshold, save_dist, output_dir):
+def strain_transmission(tree, metadata, distr_threshold, sgb_id, precomputed_thresholds_file, save_dist, output_dir):
     normalise = True
     matrix = False
     distances_file = tree+".dist"
     tree_pairwisedist(tree, normalise, matrix, os.path.join(output_dir, distances_file))
     pairwise_distances = parse_distances(os.path.join(output_dir, distances_file)) 
-    if  not save_dist:
+    if not save_dist:
         os.remove(os.path.join(output_dir, distances_file))
 
     nodes = get_nodes(pairwise_distances)
-    
     training_nodes, metadata_samples = get_training_nodes(nodes, metadata)    
     training_distances = get_training_distances(training_nodes, pairwise_distances)
-
-    threshold = get_threshold(training_distances, distr_threshold)
+    if sgb_id is None:
+	threshold = get_threshold(training_distances, distr_threshold)
+    else:
+        threshold = get_threshold(training_distances, get_precomputed_threshold(sgb_id, precomputed_thresholds_file))
 
     transmission_events = get_transmission_events(pairwise_distances, metadata_samples, threshold)
     write_transmission_events(transmission_events, threshold, output_dir, metadata_samples)
@@ -274,6 +304,8 @@ Main call
 :param tree: the input Newick tree
 :param metadata: the metadata file
 :param threshold: the distribution threshold
+:param sgb_id: the SGB id
+:param precomputed_thresholds_file: the file containing the precomputed thresholds
 :param save_dist: whether to save the pairwise distances file
 :param output_dir: the output directory to store the results
 """
@@ -283,7 +315,7 @@ def main():
     info("Start execution")
     check_params(args)
 
-    strain_transmission(args.tree, args.metadata, args.threshold, args.save_dist, args.output_dir)
+    strain_transmission(args.tree, args.metadata, args.threshold, args.sgb_id, args.precomputed_thresholds_file, args.save_dist, args.output_dir)
 
     exec_time = time.time() - t0
     info("Finish execution ("+str(round(exec_time, 2))+" seconds)\n", 
@@ -291,3 +323,4 @@ def main():
 	
 if __name__ == "__main__":
 	main()
+
