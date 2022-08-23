@@ -1,3 +1,7 @@
+__author__ = 'Aitor Blanco (aitor.blancomiguez@unitn.it'
+__version__ = '4.0.0'
+__date__ = '22 Aug 2022'
+
 import os, time, sys
 import argparse as ap
 
@@ -6,7 +10,7 @@ try:
 except ImportError:
     from util_fun import openw, info, error
 
-GTDB_ASSIGNMENT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Jan21_SGB2GTDB.tsv")
+GTDB_ASSIGNMENT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpa_vJan21_CHOCOPhlAnSGB_202103_SGB2GTDB.tsv")
 
 def read_params():
     p = ap.ArgumentParser(description="", formatter_class=ap.ArgumentDefaultsHelpFormatter)
