@@ -238,14 +238,17 @@ def download_unpack_zip(url,download_file_name,folder,software_name):
         except EnvironmentError:
             print("WARNING: Unable to remove the temp download: " + download_file)
 
-def resolve_latest_database(bowtie2_db,mpa_latest_url, force=False):
-    if os.path.exists(os.path.join(bowtie2_db,'mpa_latest')):
+def resolve_latest_database(bowtie2_db,mpa_latest_url, force=False, offline=False):
+    if not offline and os.path.exists(os.path.join(bowtie2_db,'mpa_latest')):
         ctime_latest_db = int(os.path.getctime(os.path.join(bowtie2_db,'mpa_latest')))
         if int(time.time()) - ctime_latest_db > 31536000:         #1 year in epoch
             os.rename(os.path.join(bowtie2_db,'mpa_latest'),os.path.join(bowtie2_db,'mpa_previous'))
             download(mpa_latest_url, os.path.join(bowtie2_db,'mpa_latest'), force=True)
 
     if not os.path.exists(os.path.join(bowtie2_db,'mpa_latest') or force):
+        if offline:
+            print("Database cannot be downloaded with the --offline option activated")
+            sys.exit()        
         download(mpa_latest_url, os.path.join(bowtie2_db,'mpa_latest'))
 
     with open(os.path.join(bowtie2_db,'mpa_latest')) as mpa_latest:
@@ -253,7 +256,7 @@ def resolve_latest_database(bowtie2_db,mpa_latest_url, force=False):
     
     return ''.join(latest_db_version)
 
-def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_redownload_latest):
+def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_redownload_latest, offline):
     # Create the folder if it does not already exist
     if not os.path.isdir(bowtie2_db):
         try:
@@ -266,7 +269,7 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
     
     use_zenodo = False
     try:
-        if urllib.request.urlopen("http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/mpa_latest").getcode() != 200:
+        if not offline and urllib.request.urlopen("http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/mpa_latest").getcode() != 200:
             # use_zenodo = True
             pass
     except:
@@ -284,10 +287,9 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
     #try downloading from the segatalab website. If fails, use zenodo
     if index == 'latest':
         mpa_latest = 'http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/mpa_latest'
-
-        index = resolve_latest_database(bowtie2_db, mpa_latest, force_redownload_latest)
+        index = resolve_latest_database(bowtie2_db, mpa_latest, force_redownload_latest, offline)
     
-    if os.path.exists(os.path.join(bowtie2_db,'mpa_previous')):
+    if not offline and os.path.exists(os.path.join(bowtie2_db,'mpa_previous')):
         with open(os.path.join(bowtie2_db,'mpa_previous')) as mpa_previous:
             previous_db_version = ''.join([line.strip() for line in mpa_previous if not line.startswith('#')])
     
@@ -302,7 +304,9 @@ def check_and_install_database(index, bowtie2_db, bowtie2_build, nproc, force_re
                 
     if len(glob(os.path.join(bowtie2_db, "*{}*".format(index)))) >= 7:
         return index
-
+    if offline:
+        print("Database cannot be downloaded with the --offline option activated")
+        sys.exit()
     # download the tar archive and decompress
     sys.stderr.write("\nDownloading MetaPhlAn database\nPlease note due to "
                      "the size this might take a few minutes\n")

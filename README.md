@@ -7,6 +7,8 @@
 * Better representation of, not only the human gut microbiome but also many other animal and ecological environments
 * Estimation of metagenome composed by microbes not included in the database with parameter `--unclassified_estimation`
 * Compatibility with MetaPhlAn 3 databases with parameter `--mpa3`
+
+Full [changeset](https://github.com/biobakery/MetaPhlAn/blob/master/changeset.txt)
 -------------
 
 ## Description

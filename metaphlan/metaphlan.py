@@ -4,8 +4,8 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '4.0.0'
-__date__ = '22 Aug 2022'
+__version__ = '4.0.1'
+__date__ = '24 Aug 2022'
 
 import sys
 try:
@@ -337,6 +337,8 @@ def read_params(args):
         help="The number of CPUs to use for parallelizing the mapping [default 4]")
     arg('--install', action='store_true',
         help="Only checks if the MetaPhlAn DB is installed and installs it if not. All other parameters are ignored.")
+    arg('--offline', action='store_true',
+        help="If used, MetaPhlAn will not check for new database updates.")
     arg('--force_download', action='store_true',
         help="Force the re-download of the latest MetaPhlAn database.")
     arg('--read_min_len', type=int, default=70,
@@ -952,7 +954,7 @@ def main():
     ESTIMATE_UNK = pars['unclassified_estimation']
 
     # check if the database is installed, if not then install
-    pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'])
+    pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'], pars['offline'])
 
     if pars['install']:
         sys.stderr.write('The database is installed\n')
@@ -1129,7 +1131,7 @@ def main():
                 if CAMI_OUTPUT:
                     for clade, taxid, relab in sorted(  outpred, reverse=True,
                                         key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):
-                        if taxid:
+                        if taxid and clade.split('|')[-1][0] != 't':
                             rank = ranks2code[clade.split('|')[-1][0]]
                             leaf_taxid = taxid.split('|')[-1]
                             taxpathsh = '|'.join([remove_prefix(name) if '_unclassified' not in name else '' for name in clade.split('|')])

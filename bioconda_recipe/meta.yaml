@@ -28,7 +28,7 @@ requirements:
     - dendropy
     - numpy
     - cmseq
-    - phylophlan
+    - phylophlan >=3.0.3
     - biom-format
     - matplotlib-base
     - biopython

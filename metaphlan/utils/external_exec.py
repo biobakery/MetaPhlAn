@@ -3,8 +3,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.0.0'
-__date__ = '22 Aug 2022'
+__version__ = '4.0.1'
+__date__ = '24 Aug 2022'
 
 import os, sys, re, shutil, tempfile
 import subprocess as sb
@@ -147,7 +147,7 @@ def execute_phylophlan(samples_markers_dir, conf_file, min_entries, min_markers,
             " --databases_folder "+tmp_dir+" -t n -f "+conf_file+
             " --diversity low"+accuracy+" --genome_extension fna"+
             " --force_nucleotides --min_num_entries "+str(min_entries)+
-            " --min_num_markers "+str(min_markers),
+            " --convert_N2gap --min_num_markers "+str(min_markers),
         "input" : "-i",
         "output_path" : "--output_folder",
         "output" : "-o",
