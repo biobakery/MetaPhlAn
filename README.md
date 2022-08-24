@@ -8,7 +8,8 @@
 * Estimation of metagenome composed by microbes not included in the database with parameter `--unclassified_estimation`
 * Compatibility with MetaPhlAn 3 databases with parameter `--mpa3`
 
-Full [changeset](https://github.com/biobakery/MetaPhlAn/blob/master/changeset.txt)
+Complete changeset [here](https://github.com/biobakery/MetaPhlAn/blob/master/changeset.txt).
+
 -------------
 
 ## Description
