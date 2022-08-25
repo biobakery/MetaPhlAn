@@ -1,24 +1,40 @@
-=== Version 4.0.1
-* The new --offline parameter stops MetaPhlAn from automatically checking for updates
-* Fixes "KeyError: 't'" error when running MetaPhlAn with the --CAMI_format_output parameter
+## Version 4.0.1 (Aug 25th, 2022)
+### New features
+* The new `--offline` parameter stops MetaPhlAn from automatically checking for updates
+### Changed features
 * Improved StrainPhlAn's gaps management with the newest version of PhyloPhlAn (version 3.0.3)
-* Improved set of colors for the plot_tree_graphlan.py script
+* Improved set of colors for the `plot_tree_graphlan.py script`
+### Fixes
+* Fixes `KeyError: 't'` error when running MetaPhlAn with the `--CAMI_format_output` parameter
 
-=== Version 4.0.0
+<br/>
+
+## Version 4.0.0 (Aug 22nd, 2022)
+### Database updates
 * Adoption of the species-level genome bins system (SGBs)
 * New MetaPhlAn marker genes extracted identified from ~1M microbial genomes
 * Ability to profile 21,978 known (kSGBs) and 4,992 unknown (uSGBs) microbial species
 * Better representation of, not only the human gut microbiome but also many other animal and ecological environments
-* Estimation of metagenome composed by microbes not included in the database with parameter --unclassified_estimation
-* Compatibility with MetaPhlAn 3 databases with parameter --mpa3
+### New features
+* Compatibility with MetaPhlAn 3 databases with parameter `--mpa3`
+### Changed features
+* Estimation of metagenome composed by microbes not included in the database with parameter `--unclassified_estimation`
 
-=== Version 3.1
+<br/>
+
+
+## Version 3.1.0 (Jul 25th, 2022)
+### Database updates
 * 433 low-quality species were removed from the MetaPhlAn 3.1 marker database and 2,680 species were added (for a new total of 15,766; a 17% increase)
 * Marker genes for a subset of existing bioBakery 3 species were also revised
 * Most existing bioBakery 3 species pangenomes were updated with revised or expanded gene content
+### Changed features
 * MetaPhlAn 3.1 software has been updated to work with revised marker database
 
-=== Version 3.0
+<br/>
+
+
+## Version 3.0
 * New MetaPhlAn marker genes extracted with a newer version of ChocoPhlAn based on UniRef 
 * Estimation of metagenome composed by unknown microbes with parameter `--unknown_estimation`
 * Automatic retrieval and installation of the latest MetaPhlAn database  with parameter `--index latest`
@@ -27,16 +43,13 @@
 * Inclusion of NCBI taxonomy ID in the ouput file
 * CAMI (Taxonomic) Profiling Output Format included
 * Removal of reads with low MAPQ values
-
-=== Version 2.2.0
+## Version 2.2.0
 - added option "marker_counts" (by Nicola)
-
-=== Version 2.1.0
+## Version 2.1.0
 - added min_alignment_len option to filter out short alignments in local mode. For long reads (>150) it is now recommended to use local mapping together with "--min_alignment_len 100" to filter out very short alignments. (by Tin)
 - added "--samout" option to store the mapping file in SAM format (the SAM will be compressed if the extension of the specified output file ends with ".bz2") (by Tin)
 - fix: MetaPhlAn2 now ingores about ~300 markers that were a-specific (thanks to Eric)
-
-=== Version 2.0.0
+## Version 2.0.0
 - fix: Biom >= 2.0.0 has the clade IDs second and the sample ids third'
 - added extract_markers.py
 - fix: #5; revamp biom generation; set clade IDs as enumeration
