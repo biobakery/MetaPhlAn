@@ -1,0 +1,13 @@
+Package: BMS
+Type: Package
+Title: Bayesian Model Averaging Library
+Version: 0.3.3
+Date: 2013-11-21
+Author: Martin Feldkircher and Stefan Zeugner
+Maintainer: Stefan Zeugner <bms@zeugner.eu>
+Depends: R (>= 2.5), methods
+Description: Bayesian Model Averaging for linear models with a wide choice of (customizable) priors. Built-in priors include coefficient priors (fixed, flexible and hyper-g priors), 5 kinds of model priors, moreover model sampling by enumeration or various MCMC approaches. Post-processing functions allow for inferring posterior inclusion and model probabilities, various moments, coefficient and predictive densities. Plotting functions available for posterior model size, MCMC convergence, predictive and coefficient densities, best models representation, BMA comparison.
+License: Artistic-2.0
+URL: http://bms.zeugner.eu
+Packaged: 2013-11-22 09:10:26 UTC; root
+Built: R 4.0.3; ; 2021-04-12 15:45:41 UTC; unix

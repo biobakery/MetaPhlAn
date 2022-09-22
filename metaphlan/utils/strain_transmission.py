@@ -1,7 +1,7 @@
 __author__ = ('Aitor Blanco (aitor.blancomiguez@unitn.it), '
              'Mireia Valles-Colomer (mireia.vallescolomer@unitn.it)')
-__version__ = '4.0.1'
-__date__ = '24 Aug 2022'
+__version__ = '4.0.2'
+__date__ = '22 Sep 2022'
 
 import os, time, sys
 import argparse as ap
@@ -18,7 +18,7 @@ DISTRIBUTION_THRESHOLD = 0.03
 metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_UTILS_FOLDER = os.path.join(metaphlan_script_install_folder)
 DEFAULT_UTILS_FOLDER = os.environ.get('METAPHLAN_DB_DIR', DEFAULT_UTILS_FOLDER)
-PRECOMPUTED_FILE = os.path.join(DEFAULT_UTILS_FOLDER, 'VallesColomerM_2022_Nov19_thresholds.tsv')
+PRECOMPUTED_FILE = os.path.join(DEFAULT_UTILS_FOLDER, 'VallesColomerM_2022_Jan21_thresholds.tsv')
 
 
 """

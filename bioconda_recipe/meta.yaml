@@ -1,9 +1,9 @@
 {% set name = "metaphlan" %}
-{% set version = "4.0" %}
+{% set version = "4.0.2" %}
 
 package:
-  name: {{ name }}
-  version: {{ version }}
+  name: metaphlan
+  version: 4.0.2
 
 source:
   # url: https://github.com/biobakery/MetaPhlAn/archive/{{version}}.tar.gz
@@ -40,7 +40,7 @@ requirements:
     - pysam
     - raxml >=8.2.10
     - samtools >=1.9
-    - r-base
+    - r-base >=4
     - r-essentials
     - r-optparse
     - r-rbiom
@@ -48,11 +48,11 @@ requirements:
     - r-compositions
     - r-biocmanager
     - bioconductor-microbiome
-
+    - hclust2
 test:
   commands:
     - metaphlan -v
-    - strainphlan -h
+    - strainphlan -v
     - extract_markers.py -h
     - merge_metaphlan_tables.py -h
     - read_fastx.py -h
@@ -61,6 +61,10 @@ test:
     - sample2markers.py -h
     - strain_transmission.py -h
     - sgb_to_gtdb_profile.py -h
+    - metaphlan2krona.py -h    
+    - hclust2.py -h
+    - run_treeshrink.py -h
+    - treeshrink.py -h
 
 about:
   home: https://github.com/biobakery/metaphlan

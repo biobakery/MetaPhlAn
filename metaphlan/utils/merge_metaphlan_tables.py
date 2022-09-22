@@ -8,7 +8,7 @@ import pandas as pd
 from itertools import takewhile
 
 
-def merge(aaastrIn, ostm):
+def merge(aaastrIn, ostm, gtdb):
     """
     Outputs the table join of the given pre-split string collection.
 
@@ -26,7 +26,7 @@ def merge(aaastrIn, ostm):
         headers = [x.strip() for x in takewhile(lambda x: x.startswith('#'), open(f))]
         listmpaVersion.add(headers[0])
 
-        if len(headers) == 4:
+        if (not gtdb and len(headers) in [4, 5]) or (gtdb and len(headers) == 2):
             names = headers[-1].split('#')[1].strip().split('\t')
         else:
             print('merge_metaphlan_tables: wrong header format for "{}", please check your profiles.\n'.format(f))
@@ -36,8 +36,8 @@ def merge(aaastrIn, ostm):
             print('merge_metaphlan_tables: profiles from differrent versions of MetaPhlAn, please profile your '
                   'samples using the same MetaPhlAn version.\n')
             return
-
-        iIn = pd.read_csv(f, sep='\t', skiprows=len(headers), names=names, usecols=range(3), index_col=0)
+            
+        iIn = pd.read_csv(f, sep='\t', skiprows=len(headers), names=names, usecols=range(3 if not gtdb else 2), index_col=0)
         profiles_list.append(pd.Series(data=iIn['relative_abundance'], index=iIn.index,
                                        name=os.path.splitext(os.path.basename(f))[0].replace('_profile', '')))
 
@@ -52,6 +52,7 @@ argp.add_argument("aistms", metavar="input.txt", nargs="*", help="One or more ta
 argp.add_argument("-l", help="Name of file containing the paths to the files to combine")
 argp.add_argument('-o', metavar="output.txt", help="Name of output file in which joined tables are saved")
 argp.add_argument('--overwrite', default=False, action='store_true', help="Overwrite output file if exists")
+argp.add_argument('--gtdb_profiles', action='store_true', default=False, help=("To specify when running the script with GTDB-based profiles"))
 
 argp.usage = (argp.format_usage() + "\nPlease make sure to supply file paths to the files to combine.\n\n" +
               "If combining 3 files (Table1.txt, Table2.txt, and Table3.txt) the call should be:\n" +
@@ -74,7 +75,7 @@ def main( ):
         print('merge_metaphlan_tables: output file "{}" exists, specify the --overwrite param to ovrewrite it!'.format(args.o))
         return
 
-    merge(args.aistms, open(args.o, 'w') if args.o else sys.stdout)
+    merge(args.aistms, open(args.o, 'w') if args.o else sys.stdout, args.gtdb_profiles)
 
 
 if __name__ == '__main__':

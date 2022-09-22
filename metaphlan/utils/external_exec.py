@@ -3,8 +3,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.0.1'
-__date__ = '24 Aug 2022'
+__version__ = '4.0.2'
+__date__ = '22 Sep 2022'
 
 import os, sys, re, shutil, tempfile
 import subprocess as sb
@@ -156,7 +156,33 @@ def execute_phylophlan(samples_markers_dir, conf_file, min_entries, min_markers,
     }
     execute(compose_command(params=params, input_file=samples_markers_dir, output_path=output_dir,
         output_file=".", nproc=nprocs))
-        
+ 
+ 
+"""
+Executes TreeShrink
+
+:param input_tree: the input tree
+:param output_tree: the output tree
+:param q_value: the q threshold
+"""
+def execute_treeshrink(input_tree, output_dir, tmp=None, centroid=False, q_value=0.05, m_value='all-genes'):
+    advanced_string = ''
+    if tmp != None:
+        advanced_string += '-p {} '.format(tmp) 
+    if centroid:
+        advanced_string += '-c '
+    if not os.path.exists('{}/treeshrink'.format(output_dir)):
+        os.mkdir('{}/treeshrink'.format(output_dir))
+    params = {
+        "program_name" : "treeshrink.py",
+        "params" : "{}-q {} -m {} -f".format(advanced_string, q_value, m_value),
+        "input" : "-t",
+        "output_path": '-o',
+        "output" : "-O",
+        "command_line" : "#program_name# #input# #output_path# #output# #params#"
+    }
+    execute(compose_command(params=params, input_file=input_tree, output_path='{}/treeshrink'.format(output_dir), output_file=input_tree.split('/')[-1].replace('.StrainPhlAn4.tre','.TreeShrink')))
+               
 
 #ToDo: Parametrize this function: default output_dir, remove the compressed file...
 """

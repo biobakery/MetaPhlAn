@@ -4,8 +4,8 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '4.0.1'
-__date__ = '24 Aug 2022'
+__version__ = '4.0.2'
+__date__ = '22 Sep 2022'
 
 import sys
 try:
@@ -21,6 +21,7 @@ import os
 import stat
 import re
 import time
+import random
 from collections import defaultdict as defdict
 from distutils.version import LooseVersion
 from glob import glob
@@ -335,6 +336,10 @@ def read_params(args):
     arg = g.add_argument
     arg('--nproc', metavar="N", type=int, default=4,
         help="The number of CPUs to use for parallelizing the mapping [default 4]")
+    arg('--subsampling', type=int, default=None,
+        help="Specify the number of reads to be considered from the input metagenomes [default None]")
+    arg('--subsampling_seed', type=str, default='1992',
+        help="Random seed to use in the selection of the subsampled reads. Choose \"random\r for a random behaviour")
     arg('--install', action='store_true',
         help="Only checks if the MetaPhlAn DB is installed and installs it if not. All other parameters are ignored.")
     arg('--offline', action='store_true',
@@ -819,7 +824,14 @@ def mapq_filter(marker_name, mapq_value, min_mapq_val):
             return True
     return False
 
-def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=None):
+
+def separate_reads2markers(reads2markers):
+    if not SGB_ANALYSIS:
+        return reads2markers, {}
+    else:
+        return {r: m for r, m in reads2markers.items() if ('SGB' in m or 'EUK' in m) and not 'VDB' in m}, {r: m for r, m in reads2markers.items() if 'VDB' in m and not ('SGB' in m or 'EUK' in m)}
+
+def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=None, subsampling=None, subsampling_seed='1992'):
     if not mapping_f:
         ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, sys.stdin
     else:
@@ -851,7 +863,31 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
             ):
                     reads2markers[o[0]] = o[2].split('/')[0]
     inpf.close()
-    markers2reads = defdict(set)
+    
+    if subsampling != None:
+        if subsampling >= n_metagenome_reads:
+            sys.stderr.write("WARNING: The specified subsampling ({}) is higher than the original number of reads ({}).".format(subsampling, n_metagenome_reads))
+        elif subsampling < 10000:
+            sys.stderr.write("WARNING: The specified subsampling ({}) is below the recommended minimum of 10,000 reads.".format(subsampling))
+        else:
+            reads2markers =  dict(sorted(reads2markers.items()))
+            if subsampling_seed.lower() != 'random':
+                random.seed(int(subsampling_seed))
+            reads2filtmarkers = {}
+            sgb_reads2markers, viral_reads2markers = separate_reads2markers(reads2markers)            
+            n_sgb_mapped_reads = int((len(sgb_reads2markers) * subsampling) / n_metagenome_reads)
+            reads2filtmarkers = { r:sgb_reads2markers[r] for r in random.sample(list(sgb_reads2markers.keys()), n_sgb_mapped_reads) }     
+            if SGB_ANALYSIS:       
+                n_viral_mapped_reads = int((len(viral_reads2markers) * subsampling) / n_metagenome_reads)
+                reads2filtmarkers.update({ r:viral_reads2markers[r] for r in random.sample(list(viral_reads2markers.keys()), n_viral_mapped_reads) })            
+            reads2markers = reads2filtmarkers
+            sgb_reads2markers.clear()
+            viral_reads2markers.clear()
+            n_metagenome_reads = subsampling
+    elif n_metagenome_reads < 10000:
+        sys.stderr.write("WARNING: The number of reads in the sample ({}) is below the recommended minimum of 10,000 reads.".format(subsampling))
+        
+    markers2reads = defdict(set)   
     for r, m in reads2markers.items():
         markers2reads[m].add(r)
 
@@ -952,6 +988,11 @@ def main():
     SGB_ANALYSIS = not pars['mpa3']
 
     ESTIMATE_UNK = pars['unclassified_estimation']
+    
+    if not (pars['subsampling_seed'].lower() == 'random' or pars['subsampling_seed'].isdigit()):
+        sys.stderr.write("Error: The --subsampling_seed parameter is not accepted. It should contain an integer number or \"random\". Exiting...\n\n")
+        sys.exit(1)
+    
 
     # check if the database is installed, if not then install
     pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'], pars['offline'])
@@ -1045,7 +1086,7 @@ def main():
     tree = TaxTree( mpa_pkl, ignore_markers )
     tree.set_min_cu_len( pars['min_cu_len'] )
 
-    markers2reads, n_metagenome_reads, avg_read_length = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'])
+    markers2reads, n_metagenome_reads, avg_read_length = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'], pars['subsampling'], pars['subsampling_seed'])
 
     tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'])
 
@@ -1089,6 +1130,7 @@ def main():
         if not MPA2_OUTPUT:
             outf.write('#{}\n'.format(pars['index']))
             outf.write('#{}\n'.format(' '.join(sys.argv)))
+            outf.write('#{} reads processed\n'.format(n_metagenome_reads))
 
         if not CAMI_OUTPUT:
             outf.write('#' + '\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')

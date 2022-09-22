@@ -1,0 +1,13 @@
+citHeader("To cite package BMS in scientific work use:")
+
+citEntry(entry="Article",
+  title="Benchmark Priors Revisited: On Adaptive Shrinkage and the Supermodel Effect in Bayesian Model Averaging",
+  author=personList(as.person("Martin Feldkircher"),
+                    as.person("Stefan Zeugner")),
+  journal="IMF Working Papers",
+  year="2009",
+  textVersion="Feldkircher, M. and S. Zeugner (2009): Benchmark Priors Revisited: On Adaptive Shrinkage and the Supermodel Effect in Bayesian Model Averaging; IMF Working Paper 09-202"
+  )
+
+
+citFooter("In case of coding etc. please incorporate a reference to the website <http://bms.zeugner.eu> in a visible manner (e.g. the source code)")

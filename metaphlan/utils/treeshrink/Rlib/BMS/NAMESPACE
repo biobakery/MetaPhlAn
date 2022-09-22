@@ -1,0 +1,4 @@
+exportPattern("^[[:alpha:]]+")
+
+S3method("[", topmod)
+S3method("[", bma)

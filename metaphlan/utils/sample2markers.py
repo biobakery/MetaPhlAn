@@ -4,8 +4,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.0.1'
-__date__ = '24 Aug 2022'
+__version__ = '4.0.2'
+__date__ = '22 Sep 2022'
 
 import sys
 try:
@@ -18,7 +18,7 @@ if sys.version_info[0] < 3:
                     .format(sys.version_info[0], sys.version_info[1], 
                         sys.version_info[2]), exit=True)
 
-import os, time, shutil, pickle, tempfile
+import os, time, shutil, pickle, tempfile, bz2
 import subprocess as sb
 import argparse as ap
 from cmseq import cmseq
@@ -31,6 +31,11 @@ except ImportError:
     from util_fun import info, optimized_dump, get_breath
     from parallelisation import execute_pool
 
+metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, '..', "metaphlan_databases")
+DEFAULT_DB_FOLDER = os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
+DEFAULT_DB_NAME =  "mpa_vJan21_CHOCOPhlAnSGB_202103.pkl"
+DEFAULT_DATABASE = os.path.join(DEFAULT_DB_FOLDER, DEFAULT_DB_NAME)
 
 class SAMPLE2MARKERS_DEFAULTS:
     breadth_threshold = 80
@@ -52,6 +57,8 @@ def read_params():
                    help="The input samples format {bam, sam, bz2}")
     p.add_argument('-o', '--output_dir', type=str, default=None,
                    help="The output directory")
+    p.add_argument('-d', '--database', type=str, default=DEFAULT_DATABASE,
+                   help="The input MetaPhlAn " + __version__ + " database")
     p.add_argument('-b', '--breadth_threshold', type=int, default=SAMPLE2MARKERS_DEFAULTS.breadth_threshold,
                    help="The breadth of coverage threshold for the consensus markers")
     p.add_argument('--min_reads_aligning', type=int, default=SAMPLE2MARKERS_DEFAULTS.min_reads_aligning,
@@ -63,11 +70,13 @@ def read_params():
     p.add_argument('--min_base_quality', type=int, default=cmseq.CMSEQ_DEFAULTS.minqual,
                    help="The minimum quality for a base to be considered. This is performed BEFORE --min_base_coverage")
     p.add_argument('--dominant_frq_threshold', type=float, default=cmseq.CMSEQ_DEFAULTS.poly_dominant_frq_thrsh,
-                   help="The cutoff for degree of 'allele dominance' for a position to be considered polymorphic")                   
+                   help="The cutoff for degree of 'allele dominance' for a position to be considered polymorphic")         
+    p.add_argument('--clades', type=str, nargs='+', default=[],
+                   help="Restricts the reconstruction of the markers to the specified clades")          
     p.add_argument('--tmp', type=str, default=None,
                    help="If specified, the directory where to store the temporal files")
     p.add_argument('--debug', action='store_true', default=False,
-                   help=("If specified, StrainPhlAn will not remove the temporal folders"))
+                   help=("If specified, StrainPhlAn will not remove the temporal folder. Not available with inputs in BAM format"))
     p.add_argument('-n', '--nprocs', type=int, default=1,
                    help="The number of threads to execute the script")
     
@@ -92,6 +101,9 @@ def check_params(args):
             init_new_line=True)
     elif args.input_format.lower() != "bam" and args.input_format.lower() != "sam" and args.input_format.lower() != "bz2":
         error('The input format must be SAM, BAM, or compressed in BZ2 format', 
+            exit=True, init_new_line=True)
+    elif args.input_format.lower() == "bam" and len(args.clades) > 0:
+        error('The --clades option cannot be used with inputs in BAM format', 
             exit=True, init_new_line=True)
     elif not os.path.exists(args.output_dir):
         error('The directory {} does not exist'.format(args.output_dir), exit=True, 
@@ -216,7 +228,6 @@ def convert_inputs(input, sorted, input_format, tmp_dir, nprocs):
     return input
 
 
-#ToDo: minimumReadsAlignning as command line parameter
 """
 Gets the markers for each sample and writes the Pickle files
 
@@ -228,9 +239,10 @@ Gets the markers for each sample and writes the Pickle files
 :param min_base_coverage: the minimum coverage for a base to be considered
 :param min_base_quality: the minimum quality for a base to be considered
 :param dominant_frq_threshold: the cutoff for degree of 'allele dominance' for a position to be considered polymorphic
+:param filtered: string to append to the end of the output file if the SAM input was filtered
 :param nprocs: number of threads to use in the execution
 """
-def execute_cmseq(input, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, dominant_frq_threshold, nprocs):
+def execute_cmseq(input, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, dominant_frq_threshold, filtered, nprocs):
     info("Getting consensus markers from samples...", init_new_line=True)
     for i in input:
         info("\tProcessing sample: "+i, init_new_line=True)
@@ -242,10 +254,62 @@ def execute_cmseq(input, output_dir, breath_threshold, min_reads_aligning, min_r
             breath = get_breath(seq)
             if breath > breath_threshold:
                 consensus.append({"marker":c, "breath":breath, "sequence":seq})
-        markers_pkl = open(output_dir+n+'.pkl', 'wb')
+        markers_pkl = open(output_dir+n+'{}.pkl'.format(filtered), 'wb')
         optimized_dump(markers_pkl, consensus)
         info("\tDone.", init_new_line=True)
     info("Done.", init_new_line=True)
+     
+    
+"""
+Filters an input SAM file with the hits against markers of specific clades
+
+:param input_fle: whether the BAM files are sorted
+:param input_format: format of the sample files [bam or sam]
+:param tmp_dir: the path where to store the tmp directory
+:param filtered_markers: the list with the filtered markers
+:return: the output filtered SAM file
+"""
+def parallel_filter_sam(input_file, input_format, tmp_dir, filtered_markers):
+    output_file = tmp_dir + input_file.split('/')[-1]
+    if input_format.lower() == "bz2":
+        ifn = bz2.open(input_file, 'rt')
+        output_file = output_file.replace('.bz2','')
+    elif input_format.lower() == "sam":
+        ifn = open(input_file, 'r')
+    with open(output_file, 'w') as ofn:
+        for line in ifn:
+            s_line = line.strip().split('\t')
+            if line.startswith('@'):        
+                if line.startswith('@HD'):
+                    ofn.write(line)
+                elif s_line[1].split(':')[1] in filtered_markers:
+                    ofn.write(line)        
+            elif s_line[2] in filtered_markers:
+                ofn.write(line)
+    ifn.close()
+    return output_file
+   
+    
+"""
+Filters the input SAM files with the hits against markers of specific clades
+
+:param clades: the filtered set of clades to reconstruct the markers
+:param database: the MetaPhlan markers database:param input: the samples as SAM or BAM files
+:param input_format: format of the sample files [bam or sam]
+:param tmp_dir: the path where to store the tmp directory
+:param nprocs: number of threads to use in the execution
+:returns: the filtered input files
+"""
+def filter_sam_files(clades, database, input, input_format, tmp_dir, nprocs):
+    info('Loading MetaPhlAn '+ database.split('/')[-1][:-4] + ' database...', init_new_line=True)
+    filtered_markers = list()
+    db = pickle.load(bz2.BZ2File(database))
+    for marker in db['markers']:
+        if db['markers'][marker]['clade'] in clades:
+            filtered_markers.append(marker)
+    info('Done.',init_new_line=True)
+    filtered_input = execute_pool(((parallel_filter_sam, i, input_format, tmp_dir, filtered_markers) for i in input), nprocs)
+    return filtered_input
 
 
 """
@@ -257,21 +321,28 @@ user-selected output directory
 :param sorted: whether the BAM files are sorted
 :param input_format: format of the sample files [bam or sam]
 :param output_dir: the output directory
+:param database: the MetaPhlan markers database
 :param breath_threshold: the breath threshold for the consensus markers
 :param min_reads_aligning: the minimum number of reads to cover a marker
 :param min_read_len: the minimum length for a read to be considered
 :param min_base_coverage: the minimum coverage for a base to be considered
 :param min_base_quality: the minimum quality for a base to be considered
 :param dominant_frq_threshold: the cutoff for degree of 'allele dominance' for a position to be considered polymorphic
+:param clades: the filtered set of clades to reconstruct the markers
 :param tmp: the path where to store the tmp directory
 :param debug: whether to remove the tmp directory
 :param nprocs: number of threads to use in the execution
 """
-def samples_to_markers(input, sorted, input_format, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, dominant_frq_threshold, tmp, debug, nprocs):  
+def samples_to_markers(input, sorted, input_format, output_dir, database, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, dominant_frq_threshold, clades, tmp, debug, nprocs):  
     tmp_dir = tempfile.mkdtemp(dir=output_dir) + "/" if tmp is None else tempfile.mkdtemp(dir=tmp) + "/"
-    
+    filtered = ''
+    if len(clades) > 0:
+        input = filter_sam_files(clades, database, input, input_format, tmp_dir, nprocs)
+        input_format = 'sam'
+        sorted = False
+        filtered = '_filtered'
     input = convert_inputs(input, sorted, input_format, tmp_dir, nprocs)
-    execute_cmseq(input, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, dominant_frq_threshold, nprocs)        
+    execute_cmseq(input, output_dir, breath_threshold, min_reads_aligning, min_read_len, min_base_coverage, min_base_quality, dominant_frq_threshold, filtered, nprocs)        
     
     if not debug:
         shutil.rmtree(tmp_dir, ignore_errors=False, onerror=None)
@@ -284,12 +355,14 @@ Main function
 :param sorted: whether the BAM files are sorted
 :param input_format: format of the sample files [bam or sam]
 :param output_dir: the output directory
+:param database: the MetaPhlan markers database
 :param breadth_threshold: the breadth threshold for the consensus markers
 :param min_reads_aligning: the minimum number of reads to cover a marker
 :param min_read_len: the minimum length for a read to be considered
 :param min_base_coverage: the minimum coverage for a base to be considered
 :param min_base_quality: the minimum quality for a base to be considered
 :param dominant_frq_threshold: the cutoff for degree of 'allele dominance' for a position to be considered polymorphic
+:param clades: the filtered set of clades to reconstruct the markers
 :param tmp: the path where to store the tmp directory
 :param debug: whether to remove the tmp directory
 :param nprocs: number of threads to use in the execution
@@ -300,9 +373,9 @@ def main():
     info("Start samples to markers execution")
     check_dependencies()
     args = check_params(args)
-    samples_to_markers(args.input, args.sorted, args.input_format, args.output_dir, 
+    samples_to_markers(args.input, args.sorted, args.input_format, args.output_dir, args.database, 
         args.breadth_threshold, args.min_reads_aligning, args.min_read_len, args.min_base_coverage, 
-        args.min_base_quality, args.dominant_frq_threshold, args.tmp, args.debug, args.nprocs)
+        args.min_base_quality, args.dominant_frq_threshold, args.clades, args.tmp, args.debug, args.nprocs)
     exec_time = time.time() - t0
     info("Finish samples to markers execution ("+str(round(exec_time, 2))+
         " seconds): Results are stored at \""+args.output_dir+"\"\n",

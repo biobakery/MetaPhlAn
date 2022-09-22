@@ -1,11 +1,34 @@
+## Version 4.0.2 (Sep 22nd, 2022)
+### New features
+* [MetaPhlAn] The new `--subsampling` parameter allows reads' subsampling on the flight
+* [MetaPhlAn] The new `--subsampling_seed` parameter enables a deterministic or randomized subsampling of the reads
+* [MetaPhlAn] The new `--gtdb_profiles` of the `merge_metaphlan_profiles.tsv` allows the merge of GTDB-based MetaPhlAn profiles
+* [StrainPhlAn] The new `--breadth_thres` parameter allows StrainPhlAn to filter the consensus markers sequences after the execution of `sample2markers.py`
+* [StrainPhlAn] Interactive selection of the available SGBs when the clade is specified at the species level
+* [StrainPhlAn] The new `--non_interactive` parameter disables user interaction when running StrainPhlAn 
+* [StrainPhlAn] The new `--abs_n_markers_thres` and `--abs_n_samples_thres` parameters enables the specification of the samples/markers filtering thresholds in absolute numbers 
+* [StrainPhlAn] The new `--treeshrink` parameter enables StrainPhlAn to run TreeShrink for outlier removal in the tree 
+* [StrainPhlAn] Addition of the `VallesColomerM_2022_Jan21_thresholds.tsv` for compatibility with the mpa_vJan21 database
+* [StrainPhlAn] The new `--clades` parameter enables `sample2markers.py` to restrict the reconstruction of markers to the specified clades
+
+### Changed features
+* [StrainPhlAn] The `-c` parameter of the `extract_markers.py` script now allows the specification of multiple clades
+* [StrainPhlAn] The `--print_clades_only` parameter now produces an output `print_clades_only.tsv` report
+* [StrainPhlAn] Compatibility with clade markers compressed in bz2 format
+* [StrainPhlAn] The `strain_transmission.py` script now uses by the default the `VallesColomerM_2022_Jan21_thresholds.tsv` thresholds
+### Fixes
+* [MetaPhlAn] `metaphlan2krona.py` and `hclust2` have been added to the bioconda recipe
+
+<br/>
+
 ## Version 4.0.1 (Aug 25th, 2022)
 ### New features
-* The new `--offline` parameter stops MetaPhlAn from automatically checking for updates
+* [MetaPhlAn] The new `--offline` parameter stops MetaPhlAn from automatically checking for updates
 ### Changed features
-* Improved StrainPhlAn's gaps management with the newest version of PhyloPhlAn (version 3.0.3)
-* Improved set of colors for the `plot_tree_graphlan.py script`
+* [StrainPhlAn] Improved StrainPhlAn's gaps management with the newest version of PhyloPhlAn (version 3.0.3)
+* [StrainPhlAn] Improved set of colors for the `plot_tree_graphlan.py script`
 ### Fixes
-* Fixes `KeyError: 't'` error when running MetaPhlAn with the `--CAMI_format_output` parameter
+* [MetaPhlAn] Fixes `KeyError: 't'` error when running MetaPhlAn with the `--CAMI_format_output` parameter
 
 <br/>
 
@@ -16,9 +39,9 @@
 * Ability to profile 21,978 known (kSGBs) and 4,992 unknown (uSGBs) microbial species
 * Better representation of, not only the human gut microbiome but also many other animal and ecological environments
 ### New features
-* Compatibility with MetaPhlAn 3 databases with parameter `--mpa3`
+* [MetaPhlAn] Compatibility with MetaPhlAn 3 databases with parameter `--mpa3`
 ### Changed features
-* Estimation of metagenome composed by microbes not included in the database with parameter `--unclassified_estimation`
+* [MetaPhlAn] Estimation of metagenome composed by microbes not included in the database with parameter `--unclassified_estimation`
 
 <br/>
 
@@ -29,7 +52,7 @@
 * Marker genes for a subset of existing bioBakery 3 species were also revised
 * Most existing bioBakery 3 species pangenomes were updated with revised or expanded gene content
 ### Changed features
-* MetaPhlAn 3.1 software has been updated to work with revised marker database
+* [MetaPhlAn] MetaPhlAn 3.1 software has been updated to work with revised marker database
 
 <br/>
 
