@@ -2,8 +2,8 @@
 {% set version = "4.0.2" %}
 
 package:
-  name: metaphlan
-  version: 4.0.2
+  name: {{ name }}
+  version: {{ version }}
 
 source:
   # url: https://github.com/biobakery/MetaPhlAn/archive/{{version}}.tar.gz
