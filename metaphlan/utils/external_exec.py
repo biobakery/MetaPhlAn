@@ -3,298 +3,202 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.0.2'
-__date__ = '22 Sep 2022'
+__version__ = '4.0.3'
+__date__ = '24 Oct 2022'
 
-import os, sys, re, shutil, tempfile
+
+import os
+import re
+import shutil
+import tempfile
 import subprocess as sb
 try:
     from .util_fun import info, error
 except ImportError:
     from util_fun import info, error
 
-"""
-Executes a command
 
-:param cmd: the command to execute
-"""
 def execute(cmd):
+    """Runs a command line executable
+
+    Args:
+        cmd (dict): the dict with the command line information
+    """
     inp_f = None
     out_f = sb.DEVNULL
-
     if cmd['stdin']:
         inp_f = open(cmd['stdin'], 'r')
     if cmd['stdout']:
         out_f = open(cmd['stdout'], 'w')
-
     exec_res = sb.run(cmd['command_line'], stdin=inp_f, stdout=out_f)
     if exec_res.returncode == 1:
-        error("An error was ocurred executing a external tool, exiting...", 
-            init_new_line=True, exit=True) 
-
+        error("An error was ocurred executing a external tool, exiting...", exit=True)
     if cmd['stdin']:
         inp_f.close()
     if cmd['stdout']:
         out_f.close()
 
 
-"""
-Creates the BLASTn database to align the reference genomes
-
-:param output_dir: the output directory
-:param reference: the FASTA with the reference
-:returns: the created BLASTn database
-"""
 def create_blastn_db(output_dir, reference):
-    reference_name = os.path.splitext(os.path.basename(reference))[0]    
+    """Creates the BLASTn database to align the reference genomes"""
+    reference_name = os.path.splitext(os.path.basename(reference))[0]
     params = {
-        "program_name" : "makeblastdb",
-        "params" : "-parse_seqids -dbtype nucl",
-        "input" : "-in",
-        "output" : "-out",
-        "command_line" : "#program_name# #params# #input# #output#"
+        "program_name": "makeblastdb",
+        "params": "-parse_seqids -dbtype nucl",
+        "input": "-in",
+        "output": "-out",
+        "command_line": "#program_name# #params# #input# #output#"
     }
-    execute(compose_command(params, input_file=reference, output_file=output_dir+reference_name))
-    return output_dir+reference_name
+    execute(compose_command(params, input_file=reference,
+            output_file=os.path.join(output_dir, reference_name)))
+    return os.path.join(output_dir, reference_name)
 
 
-"""
-Executes BLASTn
-
-:param output_dir: the output directory
-:param clade_markers: the FASTA with the markers
-:param blastn_db: the BLASTn database
-:param nprocs: the number of thread to use
-:returns: the BLASTn output file
-"""
 def execute_blastn(output_dir, clade_markers, blastn_db, nprocs=1):
+    """Executes BLASTn"""
     db_name = os.path.splitext(os.path.basename(blastn_db))[0]
     params = {
-        "program_name" : "blastn",
-        "params" : "-outfmt \"6 qseqid sseqid qlen qstart qend sstart send\" -evalue 1e-10 -max_target_seqs 1",
-        "input" : "-query",
+        "program_name": "blastn",
+        "params": "-outfmt \"6 qseqid sseqid qlen qstart qend sstart send\" -evalue 1e-10 -max_target_seqs 1",
+        "input": "-query",
         "database": "-db",
-        "output" : "-out",
-        "threads" : "-num_threads",
-        "command_line" : "#program_name# #params# #threads# #database# #input# #output#"
+        "output": "-out",
+        "threads": "-num_threads",
+        "command_line": "#program_name# #params# #threads# #database# #input# #output#"
     }
-    execute(compose_command(params, input_file=clade_markers, database=blastn_db, 
-        output_file=output_dir+db_name+".blastn", nproc=nprocs))
-    return output_dir+db_name+".blastn"
+    execute(compose_command(params, input_file=clade_markers, database=blastn_db,
+                            output_file=os.path.join(output_dir, "{}.blastn".format(db_name)), nproc=nprocs))
+    return os.path.join(output_dir, "{}.blastn".format(db_name))
 
 
-"""
-Creates the PhyloPhlAn database
-
-:param output_dir: the output directory
-:param clade: the clade
-"""
 def create_phylophlan_db(output_dir, clade):
-    markers = output_dir+clade
+    """Creates the PhyloPhlAn database"""
+    markers = os.path.join(output_dir, clade)
     params = {
-        "program_name" :"phylophlan_setup_database",
-        "params" : "-d "+clade+" -e fna -t n --overwrite",
-        "input" : "-i",
-        "command_line" : "#program_name# #input# #params#"
+        "program_name": "phylophlan_setup_database",
+        "params": "-d {} -e fna -t n --overwrite".format(clade),
+        "input": "-i",
+        "command_line": "#program_name# #input# #params#"
     }
     execute(compose_command(params, input_file=markers))
-    #os.rename(output_dir+clade+".fna", markers+"/"+clade+".fna")
 
 
-"""
-Generates the PhyloPhlan configuration file
-
-:param output_dir: the output directory
-:returns: the generated configuration file
-"""
 def generate_phylophlan_config_file(output_dir, configuration):
-    conf_file = output_dir+"phylophlan.cfg"
+    """Generates the PhyloPhlan configuration file"""
+    conf_file = os.path.join(output_dir, "phylophlan.cfg")
     params = {
-        "program_name" : "phylophlan_write_config_file",
-        "params" : "-d n --db_dna makeblastdb --map_dna "+configuration['map']+
-            " --msa "+configuration['aligner']+" --trim "+configuration['trim']+
-            " --tree1 "+configuration['tree1'], #+
-            # configuration['tree2'],
-        "output" : "-o",
-        "command_line" : "#program_name# #output# #params#"
+        "program_name": "phylophlan_write_config_file",
+        "params": "-d n --db_dna makeblastdb --map_dna {} --msa {} --trim {} --tree1 {}".format(configuration['map'], configuration['aligner'], configuration['trim'], configuration['tree1']),
+        "output": "-o",
+        "command_line": "#program_name# #output# #params#"
     }
     execute(compose_command(params, output_file=conf_file))
     return conf_file
 
 
-"""
-Executes PhyloPhlAn
-
-:param samples_markers_dir: the temporal samples markers directory
-:param conf_file: the PhyloPhlAn configuration file
-:param min_entries: the minimun number of entries to consider a good marker 
-:param tmp_dir: the temporal output directory
-:param output_dir: the output_directory
-:param clade: the clade
-:param phylogeny_conf: the precision of the phylogenetic analysis
-:param mutation_rates: whether get  the mutation rates for the markers
-:param nproc: the number of threads to run phylophlan
-"""
-def execute_phylophlan(samples_markers_dir, conf_file, min_entries, min_markers, tmp_dir, output_dir, 
-    clade, phylogeny_conf, mutation_rates, nprocs):
-    accuracy = " --"+phylogeny_conf
-
+def execute_phylophlan(samples_markers_dir, conf_file, min_entries, min_markers, tmp_dir, output_dir, clade, phylogeny_conf, mutation_rates, nprocs):
+    """Executes PhyloPhlAn"""
+    advanced_params = "--"+phylogeny_conf
     if mutation_rates:
-        accuracy = accuracy + " --mutation_rates"
+        advanced_params = advanced_params + " --mutation_rates"
     params = {
-        "program_name" : "phylophlan",
-        "params" : "-d "+clade[:30]+" --data_folder "+tmp_dir+
-            " --databases_folder "+tmp_dir+" -t n -f "+conf_file+
-            " --diversity low"+accuracy+" --genome_extension fna"+
-            " --force_nucleotides --min_num_entries "+str(min_entries)+
-            " --convert_N2gap --min_num_markers "+str(min_markers),
-        "input" : "-i",
-        "output_path" : "--output_folder",
-        "output" : "-o",
-        "threads" : "--nproc",
-        "command_line" : "#program_name# #input# #output# #output_path# #params# #threads#"
+        "program_name": "phylophlan",
+        "params": "-d {} --data_folder {} --databases_folder {} -t n -f {} --diversity low {} --genome_extension fna --force_nucleotides --min_num_entries {} --convert_N2gap --min_num_markers {}".format(clade[:30], tmp_dir, tmp_dir, conf_file, advanced_params, min_entries, min_markers),
+        "input": "-i",
+        "output_path": "--output_folder",
+        "output": "-o",
+        "threads": "--nproc",
+        "command_line": "#program_name# #input# #output# #output_path# #params# #threads#"
     }
     execute(compose_command(params=params, input_file=samples_markers_dir, output_path=output_dir,
-        output_file=".", nproc=nprocs))
- 
- 
-"""
-Executes TreeShrink
+                            output_file=".", nproc=nprocs))
 
-:param input_tree: the input tree
-:param output_tree: the output tree
-:param q_value: the q threshold
-"""
+
 def execute_treeshrink(input_tree, output_dir, tmp=None, centroid=False, q_value=0.05, m_value='all-genes'):
+    """Executes TreeShrink"""
     advanced_string = ''
-    if tmp != None:
-        advanced_string += '-p {} '.format(tmp) 
+    if tmp is not None:
+        advanced_string += '-p {} '.format(tmp)
     if centroid:
         advanced_string += '-c '
     if not os.path.exists('{}/treeshrink'.format(output_dir)):
         os.mkdir('{}/treeshrink'.format(output_dir))
     params = {
-        "program_name" : "treeshrink.py",
-        "params" : "{}-q {} -m {} -f".format(advanced_string, q_value, m_value),
-        "input" : "-t",
+        "program_name": "treeshrink.py",
+        "params": "{}-q {} -m {} -f".format(advanced_string, q_value, m_value),
+        "input": "-t",
         "output_path": '-o',
-        "output" : "-O",
-        "command_line" : "#program_name# #input# #output_path# #output# #params#"
+        "output": "-O",
+        "command_line": "#program_name# #input# #output_path# #output# #params#"
     }
-    execute(compose_command(params=params, input_file=input_tree, output_path='{}/treeshrink'.format(output_dir), output_file=input_tree.split('/')[-1].replace('.StrainPhlAn4.tre','.TreeShrink')))
-               
+    execute(compose_command(params=params, input_file=input_tree, output_path='{}/treeshrink'.format(
+        output_dir), output_file=input_tree.split('/')[-1].replace('.StrainPhlAn4.tre', '.TreeShrink')))
 
-#ToDo: Parametrize this function: default output_dir, remove the compressed file...
-"""
-Decompressed BZ2 files
 
-:param input: the input BZ2 file to decompress
-:param output_dir: the output directory
-:returns: the decompressed file
-"""
-def decompress_bz2(input, output_dir):
-    n, _ = os.path.splitext(os.path.basename(input))
+def decompress_bz2(input_file, output_dir):
+    """Decompressed BZ2 files"""
+    n, _ = os.path.splitext(os.path.basename(input_file))
     params = {
-        "program_name" : "bzip2",
-        "input" : "-cdk",
-        "command_line" : "#program_name# #input# > #output#"
-    }      
-    decompressed_file = output_dir + n 
-    execute(compose_command(params, input_file=input, output_file=decompressed_file))
+        "program_name": "bzip2",
+        "input": "-cdk",
+        "command_line": "#program_name# #input# > #output#"
+    }
+    decompressed_file = os.path.join(output_dir, n)
+    execute(compose_command(params, input_file=input_file,
+            output_file=decompressed_file))
     if decompressed_file.endswith('_sam'):
         os.rename(decompressed_file, decompressed_file[:-4] + '.sam')
         decompressed_file = decompressed_file[:-4] + '.sam'
     return decompressed_file
 
 
-"""
-Converts SAM files to sorted BAM files using samtools
-
-:param input: the input SAM file
-:param output_dir: the output directory
-:returns: the sorted BAM file
-"""
-def samtools_sam_to_bam(input, output_dir):
-    n, _ = os.path.splitext(os.path.basename(input))   
+def samtools_sam_to_bam(input_file, output_dir):
+    """Converts SAM files to sorted BAM files using samtools"""
+    n, _ = os.path.splitext(os.path.basename(input_file))
     params = {
-        "program_name" : "samtools",
-        "params" : "view",
-        "input" : "-Sb",
-        "command_line" : "#program_name# #params# #input# > #output#"
-    }       
-    execute(compose_command(params, input_file=input, output_file=output_dir+n+".bam"))
-    return output_dir+n+".bam"
+        "program_name": "samtools",
+        "params": "view",
+        "input": "-Sb",
+        "command_line": "#program_name# #params# #input# > #output#"
+    }
+    execute(compose_command(params, input_file=input_file,
+            output_file=os.path.join(output_dir, "{}.bam".format(n))))
+    return os.path.join(output_dir, "{}.bam".format(n))
 
 
-"""
-Sort BAM files using samtools
-
-:param input: the input BAM file
-:param output_dir: the output directory
-:returns: the sorted BAM file
-"""
-def samtools_sort_bam_v0(input, output_dir):
-    n, _ = os.path.splitext(os.path.basename(input))
+def samtools_sort_bam_v1(input_file, output_dir):
+    """Sort BAM files using samtools"""
+    n, _ = os.path.splitext(os.path.basename(input_file))
     params = {
-        "program_name" : "samtools",
-        "params" : "sort",
-        "command_line" : "#program_name# #params# #input# #output#"
-    }        
-    execute(compose_command(params, input_file=input, output_file=output_dir+n+".sorted"))
-    return output_dir+n+".sorted.bam"
+        "program_name": "samtools",
+        "params": "sort",
+        "output": "-o",
+        "command_line": "#program_name# #params# #input# #output#"
+    }
+    execute(compose_command(params, input_file=input_file,
+            output_file=os.path.join(output_dir, "{}.sorted.bam".format(n))))
+    shutil.move(os.path.join(output_dir, "{}.sorted.bam".format(n)),
+                os.path.join(output_dir, "{}.bam".format(n)))
+    return os.path.join(output_dir, "{}.bam".format(n))
 
 
-"""
-Sort BAM files using samtools
-
-:param input: the input BAM file
-:param output_dir: the output directory
-:returns: the sorted BAM file
-"""
-def samtools_sort_bam_v1(input, output_dir):
-    n, _ = os.path.splitext(os.path.basename(input))  
-    params = {
-        "program_name" : "samtools",
-        "params" : "sort",
-        "output" : "-o",
-        "command_line" : "#program_name# #params# #input# #output#"
-    }      
-    execute(compose_command(params, input_file=input, output_file=output_dir+n+".sorted.bam"))
-    shutil.move(output_dir+n+".sorted.bam", output_dir+n+".bam")
-    return output_dir+n+".bam"
-
-
-"""
-Generates a FASTA file with the markers form a MetaPhlAn database
-
-:param database: the MetaPhlan markers database
-:param output_dir: the output directory
-"""
 def generate_markers_fasta(database, output_dir):
-    
-    file_out, db_markers_faa = tempfile.mkstemp(dir=output_dir,prefix="db_markers_temp_",suffix=".fna")
+    """Generates a FASTA file with the markers form a MetaPhlAn database"""
+    file_out, db_markers_faa = tempfile.mkstemp(
+        dir=output_dir, prefix="db_markers_temp_", suffix=".fna")
     os.close(file_out)
     bowtie_database, _ = os.path.splitext(database)
     params = {
-        "program_name" : "bowtie2-inspect",
-        "command_line" : "#program_name# #input# > #output#"
+        "program_name": "bowtie2-inspect",
+        "command_line": "#program_name# #input# > #output#"
     }
-    execute(compose_command(params, input_file=bowtie_database, output_file=db_markers_faa))
+    execute(compose_command(params, input_file=bowtie_database,
+            output_file=db_markers_faa))
     return db_markers_faa
 
 
-"""
-Compose a command for further executions
-
-:param params: the params of the command
-:param check: [default=False] check if program is available
-:param input_file: [optional] the input file
-:param database: [optional] the database
-:param output_path: [optional] the output path
-:param output_file: [optional] the output file
-:param nproc: [default=1] the number of procs to use
-"""
 def compose_command(params, check=False, input_file=None, database=None, output_path=None, output_file=None, nproc=1):
+    """Compose a command for further executions. Copied from the PhyloPhlAn 3 code"""
     program_name = None
     stdin = None
     stdout = None
@@ -304,10 +208,12 @@ def compose_command(params, check=False, input_file=None, database=None, output_
     command_line = params['command_line']
 
     if 'program_name' in list(params):
-        command_line = command_line.replace('#program_name#', params['program_name'])
+        command_line = command_line.replace(
+            '#program_name#', params['program_name'])
         program_name = params['program_name']
     else:
-        error('Error: something wrong... '+program_name+' not found!', exit=True)
+        error('Error: something wrong... ' +
+              program_name+' not found!', exit=True)
 
     if check:
         command_line = program_name
@@ -319,13 +225,15 @@ def compose_command(params, check=False, input_file=None, database=None, output_
             command_line = command_line.replace('#params#', params['params'])
 
         if 'threads' in list(params):
-            command_line = command_line.replace('#threads#', '{} {}'.format(params['threads'], nproc))
+            command_line = command_line.replace(
+                '#threads#', '{} {}'.format(params['threads'], nproc))
 
         if output_path:
             r_output_path = output_path
 
             if 'output_path' in list(params):
-                command_line = command_line.replace('#output_path#', '{} {}'.format(params['output_path'], output_path))
+                command_line = command_line.replace(
+                    '#output_path#', '{} {}'.format(params['output_path'], output_path))
             else:
                 output_file = os.path.join(output_path, output_file)
 
@@ -343,7 +251,8 @@ def compose_command(params, check=False, input_file=None, database=None, output_
                 command_line = command_line.replace('#input#', inp)
 
         if database and ('database' in list(params)):
-            command_line = command_line.replace('#database#', '{} {}'.format(params['database'], database))
+            command_line = command_line.replace(
+                '#database#', '{} {}'.format(params['database'], database))
 
         if output_file:
             out = output_file
@@ -368,8 +277,8 @@ def compose_command(params, check=False, input_file=None, database=None, output_
     quotes = [j for j, e in enumerate(command_line) if e == '"']
 
     for s, e in zip(quotes[0::2], quotes[1::2]):
-        command_line = command_line.replace(command_line[s + 1:e], command_line[s + 1:e].replace(' ', '#'))
+        command_line = command_line.replace(
+            command_line[s + 1:e], command_line[s + 1:e].replace(' ', '#'))
 
     return {'command_line': [str(a).replace('#', ' ') for a in re.sub(' +', ' ', command_line.replace('"', '')).split(' ') if a],
             'stdin': stdin, 'stdout': stdout, 'env': environment, 'output_path': r_output_path, 'output_file': r_output_file}
-

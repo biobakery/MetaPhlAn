@@ -1,8 +1,20 @@
+## Version 4.0.3 (Oct 24nd, 2022)
+### Changed features
+* [MetaPhlAn] Removal of the NCBI taxID from the merged profiles produced by the `merge_metaphlan_profiles.py` script
+* [StrainPhlAn] Improved StrainPhlAn's performance in the markers/samples filtering step
+### Fixes
+* [MetaPhlAn] `-t rel_ab_w_read_stats` now produces the reads stats also at the SGB level
+* [MetaPhlAn] Fixes overstimation of reads aligned to known clades
+* [MetaPhlAn] Fixes error when not providing the number of reads using SAM files as input
+* [StrainPhlAn] Fixes `No markers were found for the clade` error while executing StrainPhlAn without providing the clade markers FASTA file
+
+<br/>
+
 ## Version 4.0.2 (Sep 22nd, 2022)
 ### New features
 * [MetaPhlAn] The new `--subsampling` parameter allows reads' subsampling on the flight
 * [MetaPhlAn] The new `--subsampling_seed` parameter enables a deterministic or randomized subsampling of the reads
-* [MetaPhlAn] The new `--gtdb_profiles` of the `merge_metaphlan_profiles.tsv` allows the merge of GTDB-based MetaPhlAn profiles
+* [MetaPhlAn] The new `--gtdb_profiles` of the `merge_metaphlan_profiles.py` allows the merge of GTDB-based MetaPhlAn profiles
 * [StrainPhlAn] The new `--breadth_thres` parameter allows StrainPhlAn to filter the consensus markers sequences after the execution of `sample2markers.py`
 * [StrainPhlAn] Interactive selection of the available SGBs when the clade is specified at the species level
 * [StrainPhlAn] The new `--non_interactive` parameter disables user interaction when running StrainPhlAn 

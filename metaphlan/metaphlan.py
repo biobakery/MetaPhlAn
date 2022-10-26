@@ -4,8 +4,8 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '4.0.2'
-__date__ = '22 Sep 2022'
+__version__ = '4.0.3'
+__date__ = '24 Oct 2022'
 
 import sys
 try:
@@ -527,9 +527,9 @@ class TaxClade:
         return [(m,float(n)*1000.0/(np.absolute(self.markers2lens[m] - self.avg_read_length) +1) )
                     for m,n in self.markers2nreads.items()]
 
-    def compute_mapped_reads( self ):        
+    def compute_mapped_reads( self ):    
         tax_level = 't__' if SGB_ANALYSIS else 's__'
-        if self.name.startswith(tax_level):
+        if self.nreads != 0 or self.name.startswith(tax_level):
             return self.nreads
         for c in self.children.values():
             self.nreads += c.compute_mapped_reads()
@@ -802,7 +802,7 @@ class TaxTree:
             tot_reads += clade.compute_mapped_reads()
 
         for clade_label, clade in self.all_clades.items():
-            if clade.name[:3] != 't__':
+            if SGB_ANALYSIS or clade.name[:3] != 't__':
                 nreads = clade.nreads
                 clade_label = clade.get_full_name()
                 tax_id = clade.get_full_taxids()
@@ -813,7 +813,7 @@ class TaxTree:
         ret_r = dict([( tax, (abundance, clade2est_nreads[tax] )) for tax, abundance in clade2abundance.items() if tax in clade2est_nreads])
 
         if tax_lev:
-            ret_d[("UNCLASSIFIED", '-1')] = 1.0 - sum(ret_d.values())  
+            ret_d[("UNCLASSIFIED", '-1')] = 1.0 - sum(ret_d.values())
         return ret_d, ret_r, tot_reads
 
 def mapq_filter(marker_name, mapq_value, min_mapq_val):
@@ -831,7 +831,7 @@ def separate_reads2markers(reads2markers):
     else:
         return {r: m for r, m in reads2markers.items() if ('SGB' in m or 'EUK' in m) and not 'VDB' in m}, {r: m for r, m in reads2markers.items() if 'VDB' in m and not ('SGB' in m or 'EUK' in m)}
 
-def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=None, subsampling=None, subsampling_seed='1992'):
+def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=None, nreads=None, subsampling=None, subsampling_seed='1992'):
     if not mapping_f:
         ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, sys.stdin
     else:
@@ -853,6 +853,7 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
             else:
                 reads2markers[r] = c
     elif input_type == 'sam':
+        n_metagenome_reads = nreads 
         for line in inpf:
             o = ras_line(line)
             if ((o[0][0] != '@') and #no header
@@ -1086,23 +1087,19 @@ def main():
     tree = TaxTree( mpa_pkl, ignore_markers )
     tree.set_min_cu_len( pars['min_cu_len'] )
 
-    markers2reads, n_metagenome_reads, avg_read_length = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'], pars['subsampling'], pars['subsampling_seed'])
+    if pars['input_type'] == 'sam' and not pars['nreads']:
+        sys.stderr.write(
+                "Please provide the size of the metagenome using the "
+                "--nreads parameter when running MetaPhlAn using SAM files as input"
+                "\nExiting...\n\n" )
+        sys.exit(1)
+
+    markers2reads, n_metagenome_reads, avg_read_length = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'], pars['nreads'], pars['subsampling'], pars['subsampling_seed'])
 
     tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'])
 
     if no_map:
         os.remove( pars['inp'] )
-
-    if not n_metagenome_reads and pars['nreads']:
-        n_metagenome_reads = pars['nreads']
-    
-    if ESTIMATE_UNK and pars['input_type'] == 'sam':
-        if not n_metagenome_reads and not pars['nreads']:
-            sys.stderr.write(
-                    "Please provide the size of the metagenome using the "
-                    "--nreads parameter when running MetaPhlAn using SAM files as input"
-                    "\nExiting...\n\n" )
-            sys.exit(1)
 
     map_out = []
     for marker,reads in sorted(markers2reads.items(), key=lambda pars: pars[0]):
@@ -1224,7 +1221,7 @@ def main():
             outpred = [(taxstr, taxid,round(relab*100.0*fraction_mapped_reads,5)) for (taxstr, taxid),relab in cl2ab.items() if relab > 0.0]
 
             if outpred:
-                outf.write( "#estimated_reads_mapped_to_known_clades:{}\n".format(tot_nreads) )
+                outf.write( "#estimated_reads_mapped_to_known_clades:{}\n".format(round(tot_nreads)) )
                 outf.write( "\t".join( [    "#clade_name",
                                             "clade_taxid",
                                             "relative_abundance",
@@ -1235,7 +1232,7 @@ def main():
                                                 "-1",
                                                 str(round((1-fraction_mapped_reads)*100,5)),
                                                 "-",
-                                                str(unmapped_reads) ]) + "\n" )
+                                                str(round(unmapped_reads)) ]) + "\n" )
                                                 
                 for taxstr, taxid, relab in sorted(  outpred, reverse=True,
                                     key=lambda x:x[2]+(100.0*(8-(x[0].count("|"))))):

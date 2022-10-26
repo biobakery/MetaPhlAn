@@ -25,19 +25,14 @@ def merge(aaastrIn, ostm, gtdb):
     for f in aaastrIn:
         headers = [x.strip() for x in takewhile(lambda x: x.startswith('#'), open(f))]
         listmpaVersion.add(headers[0])
-
-        if (not gtdb and len(headers) in [4, 5]) or (gtdb and len(headers) == 2):
-            names = headers[-1].split('#')[1].strip().split('\t')
-        else:
-            print('merge_metaphlan_tables: wrong header format for "{}", please check your profiles.\n'.format(f))
-            return
+        names = headers[-1].split('#')[1].strip().split('\t')
 
         if len(listmpaVersion) > 1:
             print('merge_metaphlan_tables: profiles from differrent versions of MetaPhlAn, please profile your '
                   'samples using the same MetaPhlAn version.\n')
             return
             
-        iIn = pd.read_csv(f, sep='\t', skiprows=len(headers), names=names, usecols=range(3 if not gtdb else 2), index_col=0)
+        iIn = pd.read_csv(f, sep='\t', skiprows=len(headers), names=names, usecols=[0,2] if not gtdb else range(2), index_col=0)
         profiles_list.append(pd.Series(data=iIn['relative_abundance'], index=iIn.index,
                                        name=os.path.splitext(os.path.basename(f))[0].replace('_profile', '')))
 

@@ -1,5 +1,6 @@
-from .util_fun import info, error, optimized_dump, create_folder, parse_marker_name, get_breath
+from .util_fun import info, warning, error, create_folder
 from .parallelisation import execute_pool
-from .external_exec import decompress_bz2, create_blastn_db, execute_blastn, generate_markers_fasta
-from .external_exec import generate_phylophlan_config_file, create_phylophlan_db, execute_phylophlan, execute_treeshrink
-from .extract_markers import extract_markers 
+from .external_exec import decompress_bz2, create_blastn_db, execute_blastn
+from .database_controller import MetaphlanDatabaseController
+from .phylophlan_controller import Phylophlan3Controller
+from .consensus_markers import ConsensusMarker, ConsensusMarkers
