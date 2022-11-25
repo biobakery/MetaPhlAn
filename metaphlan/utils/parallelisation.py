@@ -7,6 +7,8 @@ __version__ = '4.0.3'
 __date__ = '24 Oct 2022'
 
 
+from typing import Iterable, Callable, Any
+
 try:
     from .util_fun import error
 except ImportError:
@@ -31,7 +33,7 @@ def parallel_execution(arguments):
     """Executes each parallelised call of a function
 
     Args:
-        arguments ((str, list)): tuple with the function and its arguments
+        arguments ((Callable, *Any)): tuple with the function and its arguments
 
     Returns:
         function: the call to the function
@@ -42,15 +44,16 @@ def parallel_execution(arguments):
             return function(*args)
         except Exception as e:
             terminating.set()
-            raise
+            raise e
     else:
         terminating.set()
+
 
 def execute_pool(args, nprocs):
     """Creates a pool for a parallelised function and returns the results of each execution as a list
 
     Args:
-        args ((str, list)): tuple with the function and its arguments
+        args (Iterable[tuple]): tuple with the function and its arguments
         nprocs (int): number of procs to use
 
     Returns:

@@ -15,8 +15,13 @@ import tempfile
 import bz2
 import pickletools
 import argparse as ap
-from cmseq import cmseq
+from collections import Counter
 from shutil import rmtree
+
+import pysam
+import cmseq
+import scipy.stats as sps
+
 try:
     from .external_exec import samtools_sam_to_bam, samtools_sort_bam_v1, decompress_bz2
     from .util_fun import info, error
@@ -41,7 +46,7 @@ class SampleToMarkers:
             (list, str): tuple with the list of decompressed files and their format
         """
         results = execute_pool(
-            ((self.decompress_bz2_file, i, self.tmp_dir) for i in self.input), self.nprocs)
+            ((SampleToMarkers.decompress_bz2_file, i, self.tmp_dir) for i in self.input), self.nprocs)
         decompressed = [r[0] for r in results]
         decompressed_format = [r[1] for r in results]
         if decompressed_format[1:] == decompressed_format[:-1]:
@@ -54,6 +59,7 @@ class SampleToMarkers:
         else:
             error("Decompressed files have different formats", exit=True)
 
+    @staticmethod
     def decompress_bz2_file(input_file, output_dir):
         """Decompress a BZ2 file and returns the decompressed file and the decompressed file format
 
@@ -88,6 +94,10 @@ class SampleToMarkers:
                 ((samtools_sort_bam_v1, i, self.tmp_dir) for i in self.input), self.nprocs)
             info("\tDone.")
 
+        info('\tIndexing the bam samples...')
+        execute_pool(((pysam.index, i) for i in self.input), self.nprocs)
+        info('\tDone.')
+
     def build_consensus_markers(self, filtered):
         """Gets the markers for each sample and writes the Pickle files
 
@@ -96,24 +106,77 @@ class SampleToMarkers:
         """
         for i in self.input:
             info("\tProcessing sample: {}".format(i))
-            results = self.execute_cmseq(i)
+            results = self.get_consensuses_for_sample(i)
             self.write_results_as_pkl(filtered, os.path.splitext(
                 os.path.basename(i))[0], results)
             info("\tDone.")
 
-    def execute_cmseq(self, input_bam):
-        """cmseq on the specified BAM file
+
+    def get_consensuses_for_sample(self, input_bam, stepper='nofilter', error_rate=cmseq.CMSEQ_DEFAULTS.poly_error_rate):
+        """Pileup on the specified BAM file
 
         Args:
             input_bam (str): the path to the input BAM file
+            stepper (str): stepper to use in the pileup
+            error_rate (float): the sequencing error rate
 
         Returns:
-            list: the list with the reconstructed consensus markers
+            list[tuple[str, str]]: the list with the marker names and consensus sequences
         """
-        collection = cmseq.BamFile(
-            input_bam, index=True, minlen=self.min_read_len, minimumReadsAligning=self.min_reads_aligning)
-        return collection.parallel_reference_free_consensus(ncores=self.nprocs, mincov=self.min_base_coverage, minqual=self.min_base_quality,
-                                                            consensus_rule=cmseq.BamContig.majority_rule_polymorphicLoci, dominant_frq_thrsh=self.dominant_frq_threshold)
+
+        info('\t\tLoading the bam file and extracting information...')
+        sam_file = pysam.AlignmentFile(input_bam)
+
+        all_markers = sam_file.references
+        marker_lengths = sam_file.lengths
+        marker_to_length = dict(zip(all_markers, marker_lengths))
+        marker_read_counts = [sam_file.count(m) for m in all_markers]
+        selected_markers = [m for m, c, l in zip(all_markers, marker_read_counts, marker_lengths)
+                            if c >= self.min_reads_aligning and l >= self.min_marker_len]
+        selected_markers_set = set(selected_markers)
+        info('\t\tDone')
+
+        ACTGactg = set(list('ACTGactg'))
+
+        info('\t\tInitializing marker sequences with gaps')
+        consensuses = {m: bytearray(b'-' * marker_to_length[m]) for m in selected_markers}
+        info('\t\tRunning the pileup...')
+        for base_pileup in sam_file.pileup(contig=None, stepper=stepper, min_base_quality=self.min_base_quality):
+            marker = base_pileup.reference_name
+            if marker not in selected_markers_set:
+                continue
+
+            pos = base_pileup.pos
+            query_sequences = base_pileup.get_query_sequences()
+            query_qualities = base_pileup.get_query_qualities()
+
+            bq = [(b.upper(), q) for b, q in zip(query_sequences, query_qualities) if b in ACTGactg]
+            if not bq:  # zero coverage
+                continue
+
+            bases, qualities = zip(*bq)
+
+            base_coverage = len(bases)
+            if base_coverage < self.min_base_coverage:
+                continue
+
+            base_frequencies = Counter(bases)
+            max_frequency = max(base_frequencies.values())
+            max_ratio = max_frequency / base_coverage
+
+            base_consensus = base_frequencies.most_common(1)[0][0]
+            if max_ratio < self.dominant_frq_threshold:
+                p_value = sps.binom.cdf(max_frequency, base_coverage, 1 - error_rate)
+                if p_value <= 0.05:  # likely a polymorphic position
+                    base_consensus = '*'
+
+            consensuses[marker][pos] = ord(base_consensus)
+
+        info('\t\tConverting bytes to string')
+        consensuses = {m: c.decode() for m, c in consensuses.items()}  # convert bytearrays to strings
+        return consensuses.items()
+
+
 
     def write_results_as_pkl(self, filtered, name, results):
         """Writes the consensus sequences as a PKL file
@@ -204,7 +267,7 @@ class SampleToMarkers:
         self.database_controller = MetaphlanDatabaseController(args.database)
         self.breadth_threshold = args.breadth_threshold
         self.min_reads_aligning = args.min_reads_aligning
-        self.min_read_len = args.min_read_len
+        self.min_marker_len = args.min_marker_len
         self.min_base_coverage = args.min_base_coverage
         self.min_base_quality = args.min_base_quality
         self.dominant_frq_threshold = args.dominant_frq_threshold
@@ -237,8 +300,8 @@ def read_params():
                    help="The breadth of coverage threshold for the consensus markers")
     p.add_argument('--min_reads_aligning', type=int, default=8,
                    help="The minimum number of reads to cover a marker")
-    p.add_argument('--min_read_len', type=int, default=cmseq.CMSEQ_DEFAULTS.minlen,
-                   help="The minimum lenght for a read to be considered")
+    p.add_argument('--min_marker_len', type=int, default=cmseq.CMSEQ_DEFAULTS.minlen,
+                   help="The minimum length for a marker to be considered")
     p.add_argument('--min_base_coverage', type=int, default=cmseq.CMSEQ_DEFAULTS.mincov,
                    help="The minimum depth of coverage for a base to be considered")
     p.add_argument('--min_base_quality', type=int, default=cmseq.CMSEQ_DEFAULTS.minqual,
