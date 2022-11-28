@@ -51,10 +51,11 @@ class MetaphlanDatabaseController:
             clades (list): the list of clades
 
         Returns:
-            list: the list of markers from the input clades
+            set: the list of markers from the input clades
         """
         self.load_database()
-        return [marker for marker in self.database_pkl['markers'] if self.database_pkl['markers'][marker]['clade'] in clades]
+        return set((marker for marker in self.database_pkl['markers']
+                    if self.database_pkl['markers'][marker]['clade'] in clades))
 
     def get_species2sgbs(self):
         """Retrieve information from the MetaPhlAn database
