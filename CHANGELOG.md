@@ -1,3 +1,12 @@
+## Version 4.0.4 (Jan 17nd, 2023)
+### Changed features
+* [MetaPhlAn] Download of the pre-computed Bowtie2 database is now the default option during installation
+* [StrainPhlAn] Improved StrainPhlAn's sample2makers.py script performance and speed
+### Fixes
+* [StrainPhlAn] Fixes error when using --abs_n_samples_threshold in the PhyloPhlAn call
+
+<br/>
+
 ## Version 4.0.3 (Oct 24nd, 2022)
 ### Changed features
 * [MetaPhlAn] Removal of the NCBI taxID from the merged profiles produced by the `merge_metaphlan_profiles.py` script

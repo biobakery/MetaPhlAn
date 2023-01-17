@@ -5,8 +5,8 @@ __author__ = ('Michal Puncochar (michal.puncochar@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.0.3'
-__date__ = '24 Oct 2022'
+__version__ = '4.0.4'
+__date__ = '17 Jan 2023'
 
 
 
