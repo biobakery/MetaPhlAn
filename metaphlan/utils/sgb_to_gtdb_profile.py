@@ -25,7 +25,7 @@ def read_params():
     p.add_argument('-i', '--input', type=str,
                    default=None, help="The input profile")
     p.add_argument('-d', '--database', type=str, default='latest',
-                   help="The name of the MetaPhlAn database")
+                   help="The path to the MetaPhlAn PKL database")
     p.add_argument('-o', '--output', type=str,
                    default=None, help="The output profile")
     return p.parse_args()

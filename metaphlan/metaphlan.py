@@ -289,10 +289,7 @@ def read_params(args):
          " * clade_specific_strain_tracker: list of markers present for a specific clade, specified with --clade, and all its subclades\n"
          "[default 'rel_ab']" )
     arg( '--nreads', metavar="NUMBER_OF_READS", type=int, default = None, help =
-         "The total number of reads in the original metagenome. It is used only when \n"
-         "-t marker_table is specified for normalizing the length-normalized counts \n"
-         "with the metagenome size as well. No normalization applied if --nreads is not \n"
-         "specified" )
+         "The total number of reads in the original metagenome. It is mandatory when the --input_type is a SAM file." )
     arg( '--pres_th', metavar="PRESENCE_THRESHOLD", type=int, default = 1.0, help =
          'Threshold for calling a marker present by the -t marker_pres_table option' )
     arg( '--clade', metavar="", default=None, type=str, help =
