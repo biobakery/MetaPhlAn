@@ -10,6 +10,9 @@
 * Improved phylum assignment of SGBs with no reference genomes at FGB level using MASH distances on amino acids to find the closest kSGB
 ### Changed features
 * [StrainPhlAn] Improved StrainPhlAn's speed when running with the --print_clades_only option
+### Missing features
+* [MetaPhlAn] The GTDB taxonomic assignment for the vOct22 database is not available yet (expected release: end of Feb 2023)
+* [MetaPhlAn] The phylogenetic tree of life for the vOct22 database is not available yet (expected release: TBD).
 
 <br/>
 
