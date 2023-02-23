@@ -1,18 +1,17 @@
 #!/usr/bin/env python
 __author__ = 'Aitor Blanco (aitor.blancomiguez@unitn.it'
-__version__ = '4.0.4'
-__date__ = '17 Jan 2023'
+__version__ = '4.0.5'
+__date__ = '23 Feb 2023'
 
 import os
 import time
 import argparse as ap
 try:
     from .util_fun import info, error
+    from .database_controller import MetaphlanDatabaseController
 except ImportError:
     from util_fun import info, error
-
-GTDB_ASSIGNMENT_FILE = os.path.join(os.path.dirname(os.path.abspath(
-    __file__)), "mpa_vJan21_CHOCOPhlAnSGB_202103_SGB2GTDB.tsv")
+    from database_controller import MetaphlanDatabaseController
 
 
 def read_params():
@@ -25,6 +24,8 @@ def read_params():
         description="", formatter_class=ap.ArgumentDefaultsHelpFormatter)
     p.add_argument('-i', '--input', type=str,
                    default=None, help="The input profile")
+    p.add_argument('-d', '--database', type=str, default='latest',
+                   help="The name of the MetaPhlAn database")
     p.add_argument('-o', '--output', type=str,
                    default=None, help="The output profile")
     return p.parse_args()
@@ -42,7 +43,7 @@ def check_params(args):
         error('-o (or --output) must be specified', exit=True)
 
 
-def get_gtdb_profile(mpa_profile, gtdb_profile):
+def get_gtdb_profile(mpa_profile, gtdb_profile, database):
     """Creates the GDTB profile from a MPA one
 
     Args:
@@ -51,7 +52,7 @@ def get_gtdb_profile(mpa_profile, gtdb_profile):
     """
     tax_levels = ['d', 'p', 'c', 'o', 'f', 'g', 's']
     sgb2gtdb = dict()
-    with open(GTDB_ASSIGNMENT_FILE, 'r') as read_file:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "{}_SGB2GTDB.tsv".format(database)), 'r') as read_file:
         for line in read_file:
             line = line.strip().split('\t')
             sgb2gtdb[line[0]] = line[1]
@@ -91,7 +92,8 @@ def main():
     args = read_params()
     info("Start execution")
     check_params(args)
-    get_gtdb_profile(args.input, args.output)
+    database_controller = MetaphlanDatabaseController(args.database)
+    get_gtdb_profile(args.input, args.output, database_controller.get_database_name())
     exec_time = time.time() - t0
     info("Finish execution ({} seconds)".format(round(exec_time, 2)))
 

@@ -1,4 +1,19 @@
-## Version 4.0.4 (Jan 17nd, 2023)
+## Version 4.0.5 (Feb 23rd, 2023)
+### Database updates
+* We just released the new vOct22 database
+* Addition of ~200k new genomes
+* 3,580 more SGBs than the vJan21
+* 2,548 genomes considered reference genomes in vJan21 were relabelled as MAGs in NCBI -> 1,550 kSGBs in vJan21 are now uSGBs in vOct22
+* Removed redundant reference genomes from the vJan21 genomic database using a MASH distance threshold at 0.1%
+* Local reclustering to improve SGB definitions of oversized or too-close SGBs
+* Improved GGB and FGB definitions by reclustering SGB centroids from scratch
+* Improved phylum assignment of SGBs with no reference genomes at FGB level using MASH distances on amino acids to find the closest kSGB
+### Changed features
+* [StrainPhlAn] Improved StrainPhlAn's speed when running with the --print_clades_only option
+
+<br/>
+
+## Version 4.0.4 (Jan 17th, 2023)
 ### Changed features
 * [MetaPhlAn] Download of the pre-computed Bowtie2 database is now the default option during installation
 * [StrainPhlAn] Improved StrainPhlAn's sample2makers.py script performance and speed
@@ -7,7 +22,7 @@
 
 <br/>
 
-## Version 4.0.3 (Oct 24nd, 2022)
+## Version 4.0.3 (Oct 24th, 2022)
 ### Changed features
 * [MetaPhlAn] Removal of the NCBI taxID from the merged profiles produced by the `merge_metaphlan_profiles.py` script
 * [StrainPhlAn] Improved StrainPhlAn's performance in the markers/samples filtering step
