@@ -1,5 +1,15 @@
 # MetaPhlAn: Metagenomic Phylogenetic Analysis
 [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/metaphlan/README.html) [![PyPI - Downloads](https://img.shields.io/pypi/dm/metaphlan?label=MetaPhlAn%20on%20PyPi)](https://pypi.org/project/MetaPhlAn/) [![MetaPhlAn on DockerHub](https://img.shields.io/docker/pulls/biobakery/metaphlan?label=MetaPhlAn%20on%20DockerHub)](https://hub.docker.com/r/biobakery/metaphlan) [![Build MetaPhlAn package](https://github.com/biobakery/MetaPhlAn/workflows/Build%20MetaPhlAn%20package/badge.svg?branch=3.0)](https://github.com/biobakery/MetaPhlAn/actions?query=workflow%3A%22Build+MetaPhlAn+package%22)
+
+## An updated markers database is now available!
+* Addition of ~200k new genomes
+* 3,580 more SGBs than the vJan21
+* 2,548 genomes considered reference genomes in vJan21 were relabelled as MAGs in NCBI -> 1,550 kSGBs in vJan21 are now uSGBs in vOct22
+* Removed redundant reference genomes from the vJan21 genomic database using a MASH distance threshold at 0.1%
+* Local reclustering to improve SGB definitions of oversized or too-close SGBs
+* Improved GGB and FGB definitions by reclustering SGB centroids from scratch
+* Improved phylum assignment of SGBs with no reference genomes at FGB level using MASH distances on amino acids to find the closest kSGB
+
 ## What's new in version 4
 * Adoption of the species-level genome bins system (SGBs, http://segatalab.cibio.unitn.it/data/Pasolli_et_al.html)
 * New MetaPhlAn marker genes extracted identified from ~1M microbial genomes
