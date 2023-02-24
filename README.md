@@ -35,7 +35,7 @@ MetaPhlAn 4 relies on ~5.1M unique clade-specific marker genes identified from ~
 
 If you use MetaPhlAn, please cite:
 
-[**Extending and improving metagenomic taxonomic profiling with uncharacterized species with MetaPhlAn 4.**](https://doi.org/10.1101/2022.08.22.504593) Aitor Blanco-Miguez, Francesco Beghini, Fabio Cumbo, Lauren J. McIver, Kelsey N. Thompson, Moreno Zolfo, Paolo Manghi, Leonard Dubois, Kun D. Huang, Andrew Maltez Thomas, Gianmarco Piccinno, Elisa Piperni, Michal Punčochář, Mireia Valles-Colomer, Adrian Tett, Francesca Giordano, Richard Davies, Jonathan Wolf, Sarah E. Berry, Tim D. Spector, Eric A. Franzosa, Edoardo Pasolli, Francesco Asnicar, Curtis Huttenhower, Nicola Segata. Preprint (2022)
+[**Extending and improving metagenomic taxonomic profiling with uncharacterized species using MetaPhlAn 4.**](https://doi.org/10.1038/s41587-023-01688-w) Aitor Blanco-Miguez, Francesco Beghini, Fabio Cumbo, Lauren J. McIver, Kelsey N. Thompson, Moreno Zolfo, Paolo Manghi, Leonard Dubois, Kun D. Huang, Andrew Maltez Thomas, Gianmarco Piccinno, Elisa Piperni, Michal Punčochář, Mireia Valles-Colomer, Adrian Tett, Francesca Giordano, Richard Davies, Jonathan Wolf, Sarah E. Berry, Tim D. Spector, Eric A. Franzosa, Edoardo Pasolli, Francesco Asnicar, Curtis Huttenhower, Nicola Segata. Nature Biotechnology (2023)
 
 If you use StrainPhlAn, please cite the MetaPhlAn paper and the following StrainPhlAn paper:
 
