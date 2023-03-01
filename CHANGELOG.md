@@ -1,3 +1,9 @@
+## Version 4.0.6 (Mar 1st, 2023)
+### Changed features
+* [MetaPhlAn] The GTDB taxonomic assignment for the vOct22 database is now available.
+
+<br/>
+
 ## Version 4.0.5 (Feb 23rd, 2023)
 ### Database updates
 * We just released the new vOct22 database
