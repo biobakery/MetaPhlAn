@@ -80,11 +80,12 @@ def get_gtdb_profile(mpa_profile, gtdb_profile, database):
                 new_level = tax_levels[tax_levels.index(tax_level)+1]
                 if new_tax not in abundances[new_level]:
                     abundances[new_level][new_tax] = 0
-                abundances[new_level][new_tax] += abundances[tax_level][tax]
+                abundances[new_level][new_tax] += abundances[tax_level][tax]        
         tax_levels.reverse()
+        total4level = {x:sum([y for x,y in abundances[x].items()]) for x in tax_levels}
         for tax_level in tax_levels:
             for tax in abundances[tax_level]:
-                wf.write('{}\t{}\n'.format(tax, abundances[tax_level][tax]))
+                wf.write('{}\t{}\n'.format(tax, abundances[tax_level][tax] * 100 / total4level[tax_level]))
 
 
 def main():
