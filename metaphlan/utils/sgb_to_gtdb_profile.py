@@ -70,7 +70,7 @@ def get_gtdb_profile(mpa_profile, gtdb_profile, database):
                 elif 't__SGB' in line:
                     line = line.strip().split('\t')
                     gtdb_tax = sgb2gtdb[line[0].split('|')[-1][3:]]
-                    if gtdb_tax not in abundances:
+                    if gtdb_tax not in abundances['s']:
                         abundances['s'][gtdb_tax] = 0
                     abundances['s'][gtdb_tax] += float(line[2])
         tax_levels.reverse()
