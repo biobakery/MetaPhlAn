@@ -185,7 +185,7 @@ def download_unpack_tar(download_file_name, folder, bowtie2_build, nproc, use_ze
         sys.stderr.write('Cannot change permission for {}. Make sure the files are readable.'.format(os.path.join(folder, download_file_name + "*.bt2l")))
 
     sys.stderr.write('Removing uncompressed databases\n')
-    os.remove(fna_file)
+    #os.remove(fna_file)
 
     # remove all the individual FASTA files but ViralDB
     for fna_file in iglob(os.path.join(folder, download_file_name + "_*.fna")):
