@@ -78,7 +78,7 @@ argp.add_argument( "aistms",    metavar = "input.txt", nargs = "+",
     help = "One or more tab-delimited text tables to join" )
 argp.add_argument( '-o',    metavar = "output.txt", nargs = 1,
     help = "Name of output file in which joined tables are saved" )
-argp.add_argument( '-g',  choices=['breadth','breadth_of_coverage','depth_of_coverage_mean','depth_of_coverage_median'],
+argp.add_argument( '-g',  choices=['breadth_of_coverage','depth_of_coverage_mean','depth_of_coverage_median'],
     help = "Value to group by (default is 'breadth_of_coverage')",
     default = "breadth_of_coverage")
 argp.add_argument( '--no_info',  action='store_true',
