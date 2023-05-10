@@ -1,17 +1,20 @@
 #!/usr/bin/env python
 __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
-__version__ = '4.beta.1'
-__date__    = '7 Jun 2022'
+__version__ = '4.0.6'
+__date__ = '1 Mar 2023'
 
 import argparse as ap
 import dendropy
 from io import StringIO
 import re
+import random
 from collections import defaultdict
 import matplotlib.colors as colors
 import subprocess
 
+def for_shuffle():
+  return 0.1
 
 def read_params():
     p = ap.ArgumentParser()
@@ -106,7 +109,10 @@ def main():
             count += 1
             node.taxon = dendropy.Taxon(label='node_%d'%count)
     metadatas = sorted(list(metadatas))
-    color_names = list(colors.cnames.keys())
+    color_names = list(colors.TABLEAU_COLORS.keys())
+    color_names_plus = list(colors.CSS4_COLORS.keys())
+    random.shuffle(color_names_plus, for_shuffle)
+    color_names += color_names_plus
     metadata2color = {}
     for i, md in enumerate(metadatas):
         metadata2color[md] = color_names[i % len(color_names)]

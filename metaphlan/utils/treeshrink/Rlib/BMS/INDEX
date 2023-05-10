@@ -1,0 +1,47 @@
+BMS-package             Bayesian Model Sampling 0.3.3
+[.bma                   Extract Parts of a topmod Object
+as.zlm                  Extract a Model from a bma Object
+beta.draws.bma          Coefficients of the Best Models
+bin2hex                 Converting Binary Code to and from Hexadecimal
+                        Code
+bma-class               Class "bma"
+bms                     Bayesian Model Sampling and Averaging
+c.bma                   Concatenate bma objects
+coef.bma                Posterior Inclusion Probabilities and
+                        Coefficients from a 'bma' Object
+datafls                 FLS (2001) growth data
+density.bma             Coefficient Marginal Posterior Densities
+f21hyper                Gaussian Hypergeometric Function F(a,b,c,z)
+fullmodel.ssq           OLS Statistics for the Full Model Including All
+                        Potential Covariates
+gdensity                Posterior Density of the Shrinkage Factor
+gprior-class            Class "gprior"
+image.bma               Plot Signs of Best Models
+is.bma                  Tests for a 'bma' Object
+lps.bma                 Log Predictive Score
+mprior-class            Class "mprior"
+plot.bma                Plot Posterior Model Size and Model
+                        Probabilities
+plot.pred.density       Predictive Densities for bma Objects
+plotComp                Compare Two or More bma Objects
+plotConv                Plot Convergence of BMA Sampler
+plotModelsize           Plot Model Size Distribution
+pmp.bma                 Posterior Model Probabilities
+pmpmodel                Posterior Model Probability for any Model
+post.var                Posterior Variance and Deviance
+pred.density            Predictive Densities for bma Objects
+predict.bma             Predict Method for bma Objects
+predict.zlm             Predict Method for zlm Linear Model
+print.bma               Printing bma Objects
+print.topmod            Printing topmod Objects
+quantile.pred.density   Extract Quantiles from 'density' Objects
+summary.bma             Summary Statistics for a 'bma' Object
+summary.zlm             Summarizing Linear Models under Zellner's g
+topmod                  Topmodel Object
+topmod-class            Class "topmod"
+topmodels.bma           Model Binaries and their Posterior model
+                        Probabilities
+variable.names.bma      Variable names and design matrix
+variable.names.zlm      Variable names and design matrix
+zlm                     Bayesian Linear Model with Zellner's g
+zlm-class               Class "zlm"
