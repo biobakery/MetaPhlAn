@@ -5,8 +5,8 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '4.0.6'
-__date__ = '1 Mar 2023'
+__version__ = '4.1.0'
+__date__ = '23 Aug 2023'
 
 import sys
 try:
@@ -29,6 +29,7 @@ from glob import glob
 from subprocess import DEVNULL
 import argparse as ap
 import bz2
+import gzip
 import pickle
 import subprocess as subp
 import tempfile as tf
@@ -349,8 +350,12 @@ def read_params(args):
         help="The number of CPUs to use for parallelizing the mapping [default 4]")
     arg('--subsampling', type=int, default=None,
         help="Specify the number of reads to be considered from the input metagenomes [default None]")
+    arg('--mapping_subsampling', action='store_true',
+        help="If used, the subsamping will be done on the mapping results instead of on the reads.")
     arg('--subsampling_seed', type=str, default='1992',
         help="Random seed to use in the selection of the subsampled reads. Choose \"random\r for a random behaviour")
+    arg('--subsampling_output', type=str, default=None,
+        help="The output file for the subsampled reads. If not specified the subsampled reads will not be saved.")
     arg('--install', action='store_true',
         help="Only checks if the MetaPhlAn DB is installed and installs it if not. All other parameters are ignored.")
     arg('--offline', action='store_true',
@@ -981,7 +986,7 @@ def separate_reads2markers(reads2markers):
     else:
         return {r: m for r, m in reads2markers.items() if ('SGB' in m or 'EUK' in m) and not 'VDB' in m}, {r: m for r, m in reads2markers.items() if 'VDB' in m and not ('SGB' in m or 'EUK' in m)}
 
-def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=None, nreads=None, subsampling=None, subsampling_seed='1992'):
+def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=None, nreads=None, mapping_subsampling=False, subsampling=None, subsampling_seed='1992', remove_input=False):
     if not mapping_f:
         ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, sys.stdin
     else:
@@ -1015,11 +1020,9 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
                     reads2markers[o[0]] = o[2].split('/')[0]
     inpf.close()
     
-    if subsampling != None:
+    if subsampling is not None and mapping_subsampling:
         if subsampling >= n_metagenome_reads:
-            sys.stderr.write("WARNING: The specified subsampling ({}) is higher than the original number of reads ({}).".format(subsampling, n_metagenome_reads))
-        elif subsampling < 10000:
-            sys.stderr.write("WARNING: The specified subsampling ({}) is below the recommended minimum of 10,000 reads.".format(subsampling))
+            sys.stderr.write("WARNING: The specified subsampling ({}) is higher than the original number of reads ({}).\n".format(subsampling, n_metagenome_reads))
         else:
             reads2markers =  dict(sorted(reads2markers.items()))
             if subsampling_seed.lower() != 'random':
@@ -1035,8 +1038,8 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
             sgb_reads2markers.clear()
             viral_reads2markers.clear()
             n_metagenome_reads = subsampling
-    elif n_metagenome_reads < 10000:
-        sys.stderr.write("WARNING: The number of reads in the sample ({}) is below the recommended minimum of 10,000 reads.".format(subsampling))
+    elif subsampling is None and n_metagenome_reads < 10000:
+        sys.stderr.write("WARNING: The number of reads in the sample ({}) is below the recommended minimum of 10,000 reads.\n".format(subsampling))
         
     markers2reads = defdict(set)   
     for r, m in reads2markers.items():
@@ -1129,6 +1132,60 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
 
     return True
 
+def _make_gen_fastq(reader):
+    b = reader(1024 * 1024) 
+    while (b):
+        yield b
+        b = reader(1024 * 1024)
+
+def rawpycount(filename):
+    f = bz2.BZ2File(filename, 'rb') if filename.endswith(".bz2") else gzip.open(filename, 'rb') if filename.endswith('.gz') else open(filename, 'rb')
+    f_gen = _make_gen_fastq(f.read)
+    n_metagenome_reads = sum( buf.count(b'\n') for buf in f_gen)
+    f.close()
+    return n_metagenome_reads
+
+def subsample_reads(inp, subsampling, subsampling_seed, subsampling_output, tmp_dir):
+    n_metagenome_reads = 0
+    
+    for inp_f in inp.split(','):
+        n_metagenome_reads += int(rawpycount(inp_f)/4)
+        
+    if subsampling >= n_metagenome_reads:
+        sys.stderr.write("WARNING: The specified subsampling ({}) is higher than the original number of reads ({}).\n".format(subsampling, n_metagenome_reads)) 
+        return inp, None
+    
+    if subsampling_seed.lower() != 'random':
+        random.seed(int(subsampling_seed))
+        
+    sample = set(random.sample(range(n_metagenome_reads), subsampling))
+    length, read_num = 0, -1
+    
+    if subsampling_output is None:
+        out = tf.NamedTemporaryFile(dir=tmp_dir, mode='w', delete=False)
+        subsampling_output = out.name
+    else:
+        out = bz2.open(subsampling_output, 'wt') if subsampling_output.endswith(".bz2") else gzip.open(subsampling_output, 'wt') if subsampling_output.endswith('.gz') else open(subsampling_output, 'w')
+    
+    for inp_f in inp.split(','):
+        line = 1
+        reader = bz2.open(inp_f, 'rt') if inp_f.endswith(".bz2") else gzip.open(inp_f, 'rt') if inp_f.endswith('.gz') else open(inp_f, 'r')
+        while (line and length < subsampling):
+            line = reader.readline()
+            read_num += 1
+            if read_num in sample:
+                length += 1
+                out.write(line)       
+                for _ in range(3):
+                    out.write(reader.readline())
+            else:
+                for _ in range(3):
+                    reader.readline()
+        reader.close()
+    out.close()
+        
+    return subsampling_output, subsampling
+
 def main():
     ranks2code = { 'k' : 'superkingdom', 'p' : 'phylum', 'c':'class',
                    'o' : 'order', 'f' : 'family', 'g' : 'genus', 's' : 'species'}
@@ -1140,11 +1197,26 @@ def main():
 
     ESTIMATE_UNK = pars['unclassified_estimation']
     
+    if pars['subsampling'] is not None and pars['subsampling'] < 10000:
+        sys.stderr.write("WARNING: The specified subsampling ({}) is below the recommended minimum of 10,000 reads.\n".format(pars['subsampling']))
+    
     if not (pars['subsampling_seed'].lower() == 'random' or pars['subsampling_seed'].isdigit()):
         sys.stderr.write("Error: The --subsampling_seed parameter is not accepted. It should contain an integer number or \"random\". Exiting...\n\n")
         sys.exit(1)
     
-
+    if pars['mapping_subsampling'] and pars['subsampling'] is None:
+        sys.stderr.write("Error: The --mapping_subsampling parameter should be used together with the --subsampling parameter. Exiting...\n\n")
+        sys.exit(1)
+        
+    if not pars['mapping_subsampling'] and pars['subsampling'] is not None:
+        if pars['input_type'] != 'fastq':
+            sys.stderr.write("Error: The reads' subsampling procedure requires fastq input! Exiting...\n\n")
+            sys.exit(1)
+        elif not pars['inp']:
+            sys.stderr.write("Error: Input reads for the subsampling must be provided as parameter. Stdin input is not allowed! Exiting...\n\n")
+            sys.exit(1)
+        pars['inp'], pars['subsampling'] = subsample_reads(pars['inp'], pars['subsampling'], pars['subsampling_seed'], pars['subsampling_output'], pars['tmp_dir'])
+        
     # check if the database is installed, if not then install
     pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'], pars['offline'])
 
@@ -1255,7 +1327,8 @@ def main():
                                 exe=pars['bowtie2_exe'], samout=pars['samout'],
 
                                 min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'], min_mapq_val=pars['min_mapq_val'],profile_vsc_folder=viralTempFolder)
-
+            if pars['subsampling_output'] is None and not pars['mapping_subsampling'] and pars['subsampling'] is not None:
+                os.remove(pars['inp'])
             pars['input_type'] = 'bowtie2out'
         pars['inp'] = pars['bowtie2out'] # !!!
     with bz2.BZ2File( pars['mpa_pkl'], 'r' ) as a:
@@ -1272,7 +1345,7 @@ def main():
                 "\nExiting...\n\n" )
         sys.exit(1)
 
-    markers2reads, n_metagenome_reads, avg_read_length = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'], pars['nreads'], pars['subsampling'], pars['subsampling_seed'])
+    markers2reads, n_metagenome_reads, avg_read_length = map2bbh(pars['inp'], pars['min_mapq_val'], pars['input_type'], pars['min_alignment_len'], pars['nreads'], pars['mapping_subsampling'], pars['subsampling'], pars['subsampling_seed'])
 
     if pars['profile_vsc']:
         
