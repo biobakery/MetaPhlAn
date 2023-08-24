@@ -1039,7 +1039,7 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
             viral_reads2markers.clear()
             n_metagenome_reads = subsampling
     elif subsampling is None and n_metagenome_reads < 10000:
-        sys.stderr.write("WARNING: The number of reads in the sample ({}) is below the recommended minimum of 10,000 reads.\n".format(subsampling))
+        sys.stderr.write("WARNING: The number of reads in the sample ({}) is below the recommended minimum of 10,000 reads.\n".format(n_metagenome_reads))
         
     markers2reads = defdict(set)   
     for r, m in reads2markers.items():
