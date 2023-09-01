@@ -65,6 +65,7 @@ test:
     - hclust2.py -h
     - run_treeshrink.py -h
     - treeshrink.py -h
+    - create_toy_database.py -h
 
 about:
   home: https://github.com/biobakery/metaphlan

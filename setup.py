@@ -45,6 +45,7 @@ setuptools.setup(
             'metaphlan2krona.py = metaphlan.utils.metaphlan2krona:main',
             'run_treeshrink.py = metaphlan.utils.treeshrink.run_treeshrink:main',
             'treeshrink.py = metaphlan.utils.treeshrink.treeshrink:main',
+            'create_toy_database.py = metaphlan.utils.create_toy_database:main',
         ]
     },
     description='MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea and Eukaryotes) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.',
