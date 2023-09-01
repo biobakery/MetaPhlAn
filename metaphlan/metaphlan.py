@@ -1429,6 +1429,9 @@ def main():
             outf.write('#{}\n'.format(pars['index']))
             outf.write('#{}\n'.format(' '.join(sys.argv)))
             outf.write('#{} reads processed\n'.format(n_metagenome_reads))
+        
+        if pars['t'] == 'rel_ab_w_read_stats':
+            outf.write('#Average read length {}\n'.format(avg_read_length))           
 
         if not CAMI_OUTPUT:
             outf.write('#' + '\t'.join((pars["sample_id_key"], pars["sample_id"])) + '\n')
