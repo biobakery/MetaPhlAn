@@ -74,7 +74,7 @@ def get_sgbs_in_db(taxonomy):
 
 
 def create_toy_database(input_sgbs, input_pkl, input_fna, output_pkl, output_fna):
-    info('Loading input PKL database {}...'.format(input_pkl.split('/')[-1]))
+    info('Loading input PKL database {}...'.format(input_pkl))
     mpa_pkl = pickle.load(bz2.open(input_pkl,'rb'))
     info('Done.')
     sgbs_in_db = get_sgbs_in_db(mpa_pkl['taxonomy'])
