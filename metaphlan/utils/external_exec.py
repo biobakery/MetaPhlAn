@@ -54,6 +54,15 @@ def create_blastn_db(output_dir, reference):
     return os.path.join(output_dir, reference_name)
 
 
+def build_bowtie2_db(input_fasta, output_database):
+    params = {
+        "program_name": "bowtie2-build",
+        "params": "--large-index {} {}".format(input_fasta, output_database),
+        "command_line": "#program_name# #params#"
+    }
+    execute(compose_command(params, input_file=input_fasta, output_file=output_database))
+    
+
 def execute_blastn(output_dir, clade_markers, blastn_db, nprocs=1):
     """Executes BLASTn"""
     db_name = os.path.splitext(os.path.basename(blastn_db))[0]
@@ -135,8 +144,18 @@ def execute_treeshrink(input_tree, output_dir, tmp=None, centroid=False, q_value
         output_dir), output_file=input_tree.split('/')[-1].replace('.StrainPhlAn4.tre', '.TreeShrink')))
 
 
+def compress_bz2(input_file):
+    """Compress BZ2 files"""
+    params = {
+        "program_name": "bzip2",
+        "params": "{}".format(input_file),
+        "command_line": "#program_name# #params#"
+    }
+    execute(compose_command(params, input_file=input_file))
+    
+
 def decompress_bz2(input_file, output_dir):
-    """Decompressed BZ2 files"""
+    """Decompresses BZ2 files"""
     n, _ = os.path.splitext(os.path.basename(input_file))
     params = {
         "program_name": "bzip2",
