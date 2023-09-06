@@ -502,6 +502,7 @@ class Strainphlan:
         self.print_clades_only = args.print_clades_only
         self.non_interactive = args.non_interactive
         self.phylophlan_mode = args.phylophlan_mode
+        self.phylophlan_params = args.phylophlan_params
         self.debug = args.debug
         self.nprocs = args.nprocs
         self.tmp_dir = args.output_dir if args.tmp is None else args.tmp
@@ -559,6 +560,7 @@ def read_params():
     p.add_argument('--mutation_rates', action='store_true', default=False,
                    help="If specified, StrainPhlAn will produce a mutation rates table for each of the aligned markers and a summary table "
                    "for the concatenated MSA. This operation can take long time to finish")
+    p.add_argument('--phylophlan_params', type=str, default=None, help="Additional phylophlan parameters")
     p.add_argument('--print_clades_only', action='store_true', default=False,
                    help="If specified, StrainPhlAn will only print the potential clades and stop the execution")
     p.add_argument('--non_interactive', action='store_true', default=False,

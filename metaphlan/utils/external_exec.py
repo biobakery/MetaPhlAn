@@ -105,11 +105,13 @@ def generate_phylophlan_config_file(output_dir, configuration):
     return conf_file
 
 
-def execute_phylophlan(samples_markers_dir, conf_file, min_entries, min_markers, tmp_dir, output_dir, clade, phylogeny_conf, mutation_rates, nprocs):
+def execute_phylophlan(samples_markers_dir, conf_file, min_entries, min_markers, tmp_dir, output_dir, clade, phylogeny_conf, additional_params, mutation_rates, nprocs):
     """Executes PhyloPhlAn"""
-    advanced_params = "--"+phylogeny_conf
+    advanced_params = "--" + phylogeny_conf
+    if additional_params is not None:
+        advanced_params += " " + additional_params
     if mutation_rates:
-        advanced_params = advanced_params + " --mutation_rates"
+        advanced_params += " --mutation_rates"
     params = {
         "program_name": "phylophlan",
         "params": "-d {} --data_folder {} --databases_folder {} -t n -f {} --diversity low {} --genome_extension fna --force_nucleotides --min_num_entries {} --convert_N2gap --min_num_markers {}".format(clade[:30], tmp_dir, tmp_dir, conf_file, advanced_params, min_entries, min_markers),

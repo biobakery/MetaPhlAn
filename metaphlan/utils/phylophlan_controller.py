@@ -83,7 +83,7 @@ class Phylophlan3Controller(PhylophlanController):
         info("\tProcessing samples...")
         min_entries = self.marker_in_n_samples if self.abs_n_samples_thres else self.marker_in_n_samples * num_samples // 100
         execute_phylophlan(samples_markers_dir, self.phylophlan_configuration, min_entries, int(round(min_markers, 0)),
-                           self.tmp_dir, self.output_dir, self.clade, self.phylophlan_mode, self.mutation_rates, self.nprocs)
+                           self.tmp_dir, self.output_dir, self.clade, self.phylophlan_mode, self.phylophlan_params, self.mutation_rates, self.nprocs)
         if self.mutation_rates:
             move(os.path.join(self.output_dir, "mutation_rates.tsv"), os.path.join(
                 self.output_dir, "{}.mutation".format(self.clade)))
@@ -104,6 +104,7 @@ class Phylophlan3Controller(PhylophlanController):
         self.marker_in_n_samples = args.marker_in_n_samples
         self.abs_n_samples_thres = args.abs_n_samples_thres
         self.phylophlan_mode = args.phylophlan_mode
+        self.phylophlan_params = args.phylophlan_params
         self.phylophlan_configuration = args.phylophlan_configuration
         self.mutation_rates = args.mutation_rates
         self.output_dir = args.output_dir
