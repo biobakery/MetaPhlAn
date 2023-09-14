@@ -2,9 +2,6 @@
 path = metaphlan/utils/hclust2
 url = https://github.com/SegataLab/hclust2
 
-[submodule "metaphlan/utils/cmseq"]
-path = metaphlan/utils/cmseq
-url = https://github.com/SegataLab/cmseq
 [submodule "phylophlan"]
 path = metaphlan/utils/phylophlan
 url = https://github.com/biobakery/phylophlan

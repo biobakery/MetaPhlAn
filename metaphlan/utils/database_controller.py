@@ -42,7 +42,13 @@ class MetaphlanDatabaseController:
             dict: the dictionary assigning markers to clades
         """
         self.load_database()
-        return {marker: self.database_pkl['markers'][marker]['clade'] for marker in self.database_pkl['markers']}
+        return {marker_name: marker_info['clade'] for marker_name, marker_info in self.database_pkl['markers'].items()}
+
+
+    def get_markers2ext(self):
+        self.load_database()
+        return {marker_name: ['t__' + sgb for sgb in marker_info['ext']] for marker_name, marker_info in self.database_pkl['markers'].items()}
+
 
     def get_filtered_markers(self, clades):
         """Retrieve the markers belonging to a list of clades

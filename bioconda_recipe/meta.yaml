@@ -27,7 +27,6 @@ requirements:
     - bowtie2 >=2.0.0
     - dendropy
     - numpy
-    - cmseq
     - phylophlan >=3.0.3
     - biom-format
     - matplotlib-base

@@ -19,7 +19,9 @@ import pickletools
 import argparse as ap
 from collections import Counter
 from shutil import rmtree
+import subprocess as sp
 
+import numpy as np
 import pysam
 import scipy.stats as sps
 
@@ -41,6 +43,8 @@ class SampleToMarkers:
     """SampleToMarkers class"""
 
     class DEFAULTS:
+        depth_avg_q = 0.2
+        quasi_marker_frac = 0.33
         pileup_stepper = 'nofilter'
         poly_error_rate = 0.001
         min_base_coverage = 1
@@ -116,9 +120,9 @@ class SampleToMarkers:
         """
         for i in self.input:
             info("\tProcessing sample: {}".format(i))
-            results = self.get_consensuses_for_sample(i)
-            self.write_results_as_pkl(filtered, os.path.splitext(
-                os.path.basename(i))[0], results)
+            consensuses, coverages = self.get_consensuses_for_sample(i)
+            consensuses_filtered = self.filter_consensuses(consensuses, coverages)
+            self.write_results_as_pkl(filtered, os.path.splitext(os.path.basename(i))[0], consensuses_filtered)
             info("\tDone.")
 
 
@@ -134,7 +138,7 @@ class SampleToMarkers:
             poly_pvalue_threshold (float): the p-value threshold to call polymorphic position
 
         Returns:
-            list[tuple[str, str]]: the list with the marker names and consensus sequences
+            tuple[dict[str, str], dict[str, np.ndarray[int]]]: the list with the marker names and consensus sequences
         """
 
         info('\t\tLoading the bam file and extracting information...')
@@ -149,11 +153,15 @@ class SampleToMarkers:
 
         info('\t\tRunning the pileup...')
         consensuses = {m: bytearray(b'-' * marker_to_length[m]) for m in all_markers}
+        coverages = {m: np.zeros(marker_to_length[m], dtype=int) for m in all_markers}
         for base_pileup in sam_file.pileup(contig=None, stepper=stepper, min_base_quality=self.min_base_quality):
             marker = base_pileup.reference_name
             pos = base_pileup.pos
             bases = [b.upper() for b in base_pileup.get_query_sequences() if b in ACTGactg]
             base_coverage = len(bases)
+
+            coverages[marker][pos] = base_coverage
+
             if base_coverage < self.min_base_coverage:
                 continue
 
@@ -171,28 +179,69 @@ class SampleToMarkers:
 
         info('\t\tDone.')
 
-        consensuses = [(m, c.decode()) for m, c in consensuses.items()]  # convert bytearrays to strings
-        return consensuses
+        consensuses = {m: c.decode() for m, c in consensuses.items()}  # convert bytearrays to strings
+        return consensuses, coverages
 
 
+    def filter_consensuses(self, consensuses, coverages):
+        """
+        Filters the markers for colliding quasi-markers and the breadth of coverage.
+        Also computes the depth of coverage
 
-    def write_results_as_pkl(self, filtered, name, results):
+        Args:
+            consensuses (dict[str, str]): dictionary marker name => sequence
+            coverages: (dict[str, np.ndarray[int]]): dictionary marker name => per-base coverages
+
+        Returns:
+            list[ConsensusMarker]:
+        """
+        markers2ext = self.database_controller.get_markers2ext()
+        markers2clade = self.database_controller.get_markers2species()
+        clade2nmarkers = Counter(markers2clade.values())
+
+        markers_all = list(consensuses.keys())
+        clades_all = [markers2clade[m] for m in markers_all]
+        clades_counter = Counter(clades_all)  # number of marker with non-zero coverage for each clade
+
+        markers_non_quasi = [m for m in markers_all if len(markers2ext[m]) == 0]
+        markers_quasi = [m for m in markers_all if len(markers2ext[m]) > 0]
+        # if any external SGB has >= quasi_marker_frac non-zero markers ==> discard
+        markers_quasi_filtered = [m for m in markers_quasi
+                                  if not any(clades_counter[ext_sgb] / clade2nmarkers[ext_sgb] >= self.quasi_marker_frac
+                                             for ext_sgb in markers2ext[m])]
+
+        consensus_markers_filtered = []
+        for m in markers_non_quasi + markers_quasi_filtered:
+            seq = consensuses[m]
+            cov = coverages[m]
+            assert len(seq) == len(cov)
+
+            # calculate robust average by trimming upper and lower quantiles at depth_avg_q
+            cov = sorted(cov)
+            t = int(self.depth_avg_q * len(cov))
+            cov_trimmed = cov[t:-t]
+            avg_depth = np.mean(cov_trimmed)
+
+            c = ConsensusMarker(m, seq, avg_depth=avg_depth)
+            if c.breadth < self.breadth_threshold:
+                continue
+            consensus_markers_filtered.append(c)
+
+        return consensus_markers_filtered
+
+
+    def write_results_as_pkl(self, filtered, name, consensuses):
         """Writes the consensus sequences as a PKL file
 
         Args:
             filtered (str): string to append when filtered for clades
             name (str): the name of the sample
-            results (list): the list with the reconstructed consensus markers
+            consensuses (list[ConsensusMarker]): the list of (marker_name, seq) with the reconstructed consensus markers
         """
-        consensus = []
-        for m, seq in results:
-            marker = ConsensusMarker(m, seq)
-            if marker.breadth >= self.breadth_threshold:
-                consensus.append(
-                    {"marker": marker.name, "breath": marker.breadth, "sequence": marker.sequence})
+        marker_dicts = [marker.to_dict() for marker in consensuses]
         with open(os.path.join(self.output_dir, '{}{}.pkl'.format(name, filtered)), 'wb') as markers_pkl:
-            markers_pkl.write(pickletools.optimize(
-                pickle.dumps(consensus, pickle.HIGHEST_PROTOCOL)))
+            markers_pkl.write(pickletools.optimize(pickle.dumps(marker_dicts, pickle.HIGHEST_PROTOCOL)))
+
 
     def parallel_filter_sam(self, input_file, filtered_markers):
         """
@@ -256,7 +305,7 @@ class SampleToMarkers:
         return output_file
 
     def filter_sam_files(self):
-        """Filters the input SAM files with the hits against markers of specific clades"""
+        """Filters the input SAM files with the hits against markers of specific clades and low quality reads"""
         filtered_markers = self.database_controller.get_filtered_markers(
             self.clades) if len(self.clades) > 0 else None
         self.input = execute_pool(
@@ -301,6 +350,8 @@ class SampleToMarkers:
         self.tmp_dir = args.output_dir if args.tmp is None else args.tmp
         self.debug = args.debug
         self.nprocs = args.nprocs
+        self.quasi_marker_frac = args.quasi_marker_frac
+        self.depth_avg_q = args.depth_avg_q
 
 
 def read_params():
@@ -314,6 +365,10 @@ def read_params():
     p.add_argument('-i', '--input', type=str,
                    nargs='+', default=[],
                    help="The input samples as SAM or BAM files")
+    p.add_argument('--quasi_marker_frac', type=float, default=SampleToMarkers.DEFAULTS.quasi_marker_frac,
+                   help="Fraction [0-1] of markers with a hit of an external SGB to disqualify a quasi-marker.")
+    p.add_argument('--depth_avg_q', type=float, default=SampleToMarkers.DEFAULTS.depth_avg_q,
+                   help="A quantile to cut from both ends of the coverage distributions to calculate robust average.")
     p.add_argument('--sorted', action='store_true', default=False,
                    help="Whether the BAM input files are sorted")
     p.add_argument('-f', '--input_format', type=str, default="bz2",
@@ -390,10 +445,28 @@ def check_input_files(input_files, input_format):
                 s, input_format.upper()), exit=True)
 
 
+def check_samtools():
+    samtools_version_output = sp.run("samtools", capture_output=True).stderr.decode().split('\n')
+    for line in samtools_version_output:
+        if line.startswith('Version:'):
+            samtools_version_info = line
+            break
+    else:
+        error("Couldn't get information about the samtools version", exit=True)
+        return
+
+    samtools_version = samtools_version_info.rstrip('\n').split(' ')[1]
+    samtools_version_parts = [int(x) for x in samtools_version.split('.')]
+    if samtools_version_parts < [1]:
+        error(f'The samtools version required is >= 1.x.x, installed is {samtools_version}', exit=True)
+    info(f'Using samtools version {samtools_version}')
+
+
 def main():
     t0 = time.time()
     args = read_params()
     info("Start samples to markers execution")
+    check_samtools()
     check_params(args)
     sampletomarkers = SampleToMarkers(args)
     sampletomarkers.run_sample2markers()

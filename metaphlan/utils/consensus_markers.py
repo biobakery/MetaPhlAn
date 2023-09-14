@@ -6,6 +6,7 @@ import os
 import pickle
 import bz2
 from hashlib import sha256
+
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 
@@ -66,13 +67,24 @@ class ConsensusMarker:
         seq_len = len(self.sequence)
         return ((seq_len - self.sequence.count('N') - self.sequence.count('*') - self.sequence.count('-')) * 100) / seq_len
 
-    def __init__(self, name, sequence, breadth=None):
+
+    def to_dict(self):
+        return {"marker": self.name, "breath": self.breadth, "avg_depth": self.avg_depth, "sequence": self.sequence}
+
+
+    @classmethod
+    def from_dict(cls, d):
+        cls(d['marker'], d['sequence'], breadth=d['breath'], avg_depth=d['avg_depth'] if 'avg_depth' in d else None)
+
+
+    def __init__(self, name, sequence, breadth=None, avg_depth=None):
         self.name = name
         self.sequence = sequence
-        if breadth == None:
+        if breadth is None:
             self.breadth = self.get_breadth()
         else:
             self.breadth = breadth
+        self.avg_depth = avg_depth
 
 
 class ConsensusMarkers:
@@ -88,15 +100,12 @@ class ConsensusMarkers:
         Args:
             pkl_file (str): the path to the PKL file
         """
-        self.consensus_markers = []
         sample_as_pkl = pickle.load(bz2.BZ2File(pkl_file)) if os.path.splitext(
             pkl_file)[1] == ".bz2" else pickle.load(open(pkl_file, "rb"))
-        for marker in sample_as_pkl:
-            self.consensus_markers.append(ConsensusMarker(
-                marker['marker'], marker['sequence'], marker['breath']))
+        self.consensus_markers = [ConsensusMarker.from_dict(marker) for marker in sample_as_pkl]
 
     def __init__(self, pkl_file=None):
-        if pkl_file != None:
+        if pkl_file is not None:
             self.from_pkl(pkl_file)
         else:
             self.consensus_markers = []
