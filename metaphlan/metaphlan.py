@@ -1022,7 +1022,7 @@ def map2bbh(mapping_f, min_mapq_val, input_type='bowtie2out', min_alignment_len=
     
     if subsampling is not None and mapping_subsampling:
         if subsampling >= n_metagenome_reads:
-            sys.stderr.write("WARNING: The specified subsampling ({}) is higher than the original number of reads ({}).\n".format(subsampling, n_metagenome_reads))
+            sys.stderr.write("WARNING: The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.\n".format(subsampling, n_metagenome_reads))
         else:
             reads2markers =  dict(sorted(reads2markers.items()))
             if subsampling_seed.lower() != 'random':
@@ -1152,7 +1152,7 @@ def subsample_reads(inp, subsampling, subsampling_seed, subsampling_output, tmp_
         n_metagenome_reads += int(rawpycount(inp_f)/4)
         
     if subsampling >= n_metagenome_reads:
-        sys.stderr.write("WARNING: The specified subsampling ({}) is higher than the original number of reads ({}).\n".format(subsampling, n_metagenome_reads)) 
+        sys.stderr.write("WARNING: The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.\n".format(subsampling, n_metagenome_reads)) 
         return inp, None
     
     if subsampling_seed.lower() != 'random':
