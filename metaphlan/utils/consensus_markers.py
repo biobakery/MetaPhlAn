@@ -5,8 +5,10 @@ __date__ = '23 Aug 2023'
 import os
 import pickle
 import bz2
+import pickletools
 from hashlib import sha256
 
+from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 
@@ -22,7 +24,7 @@ class ConsensusMarker:
         """
         return str(int(sha256(self.name.encode('utf-8')).hexdigest(), 16) % 10**12)
 
-    def get_sequence(self, trim_sequences=0):
+    def to_seq_record(self, trim_sequences=0):
         """Gets FASTA sequence as a biopython object
 
         Args:
@@ -32,7 +34,7 @@ class ConsensusMarker:
             SeqRecord: the parsed and trimmed sequence
         """
         marker_name = self.parse_marker_name()
-        return SeqRecord(Seq(self.sequence[trim_sequences:-trim_sequences].replace("*", "-").replace('-', 'N')), id=marker_name, description=marker_name)
+        return SeqRecord(Seq(self.sequence[trim_sequences:-trim_sequences].replace("*", "-")), id=marker_name, description=marker_name)
 
     def get_polymorphisms(self):
         """ Gets the number of polymorphic positions in the marker
@@ -90,11 +92,8 @@ class ConsensusMarker:
 class ConsensusMarkers:
     """ConsensusMarkers class"""
 
-    def to_fasta(self, output_file):
-        """Writes the consensus markers to FASTA"""
-        pass
-
-    def from_pkl(self, pkl_file):
+    @classmethod
+    def from_pkl(cls, pkl_file):
         """Init from PKL file
 
         Args:
@@ -102,10 +101,21 @@ class ConsensusMarkers:
         """
         sample_as_pkl = pickle.load(bz2.BZ2File(pkl_file)) if os.path.splitext(
             pkl_file)[1] == ".bz2" else pickle.load(open(pkl_file, "rb"))
-        self.consensus_markers = [ConsensusMarker.from_dict(marker) for marker in sample_as_pkl]
+        return cls([ConsensusMarker.from_dict(marker) for marker in sample_as_pkl])
 
-    def __init__(self, pkl_file=None):
-        if pkl_file is not None:
-            self.from_pkl(pkl_file)
-        else:
-            self.consensus_markers = []
+
+    def to_pkl(self, output_path):
+        marker_dicts = [marker.to_dict() for marker in self.consensus_markers]
+        with open(output_path, 'wb') as markers_pkl:
+            markers_pkl.write(pickletools.optimize(pickle.dumps(marker_dicts, pickle.HIGHEST_PROTOCOL)))
+
+
+    def to_fasta(self, output_file, trim_ends=0):
+        """Writes the consensus markers to FASTA"""
+        seq_records = [m.to_seq_record(trim_ends) for m in self.consensus_markers]
+        with open(output_file) as f:
+            SeqIO.write(seq_records, f, 'fasta')
+
+
+    def __init__(self, consensus_markers):
+        self.consensus_markers = consensus_markers

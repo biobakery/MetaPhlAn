@@ -3,20 +3,26 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Duy Tin Truong (duytin.truong@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
-              'Francesco Beghini (francesco.beghini@unitn.it)')
+              'Francesco Beghini (francesco.beghini@unitn.it),'
+              'Michal Puncochar (michal.puncochar@unitn.it')
 __version__ = '4.1.0'
 __date__ = '23 Aug 2023'
 
 
 import argparse as ap
 import collections
+import io
 import os
+import re
+import subprocess as sp
 import tempfile
 import time
 from shutil import copyfile, rmtree
+
 import numpy
 import pandas as pd
-from Bio import SeqIO
+from Bio import SeqIO, Seq
+
 try:
     from .utils import *
 except ImportError:
@@ -53,8 +59,8 @@ class Strainphlan:
     def add_secondary_references(self):
         """Adds secondary references to the marker matrix"""
         filtered_clade_markers = self.cleaned_markers_matrix.columns.tolist()
-        markers_matrix = execute_pool(((Strainphlan.process_reference, reference, os.path.join(
-            self.tmp_dir, "blastn"), self.clade_markers_file, filtered_clade_markers) for reference in self.secondary_references), self.nprocs)
+        markers_matrix = execute_pool(((Strainphlan.process_reference, reference, self.tmp_dir, self.clade_markers_file,
+                                        filtered_clade_markers) for reference in self.secondary_references), self.nprocs)
         self.include_secondary_matrix(markers_matrix)
 
     def include_secondary_matrix(self, markers_matrix):
@@ -69,7 +75,7 @@ class Strainphlan:
         self.cleaned_markers_matrix = pd.concat(
             [self.cleaned_markers_matrix, mm])
 
-    def get_markers_matrix(self, print_clades=False):
+    def get_markers_matrix_from_samples(self, print_clades=False):
         """Gets a binary matrix representing the presence/ausence of the clade markers in the uploaded samples
 
         Args:
@@ -106,18 +112,19 @@ class Strainphlan:
         Args:
             sample_path (str): the path to the sample
             clade_markers (list): the list with the clade markers names
+            breadth_thres:
 
         Returns:
             dict: dictionary containing the sample-to-markers information as a binary matrix
         """
-        sample = ConsensusMarkers(pkl_file=sample_path)
+        sample = ConsensusMarkers.from_pkl(sample_path)
         markers = {"sample": sample_path}
         markers.update({m: 0 for m in clade_markers})
         markers.update(
             {marker.name: 1 for marker in sample.consensus_markers if marker.name in clade_markers and marker.breadth >= breadth_thres})
         return markers
 
-    def clean_markers_matrix(self, markers_matrix, messages=True):
+    def filter_markers_matrix(self, markers_matrix, messages=True):
         """Filters the primary samples, references and markers based on the user defined thresholds
 
         Args:
@@ -170,12 +177,10 @@ class Strainphlan:
         for reference in self.references+self.secondary_references:
             sample_name = os.path.splitext(os.path.basename(reference[:-4]))[0] if reference.endswith(
                 '.bz2') else os.path.splitext(os.path.basename(reference))[0]
-            if sample_name in [os.path.splitext(os.path.basename(sample))[0] for sample in self.cleaned_markers_matrix.index.tolist()]:
-                if reference.endswith('.bz2'):
-                    decompress_bz2(reference, markers_tmp_dir)
-                else:
-                    copyfile(reference, os.path.join(
-                        markers_tmp_dir, "{}.fna".format(sample_name)))
+
+            if sample_name in [os.path.splitext(os.path.basename(sample))[0] for sample in self.cleaned_markers_matrix.index]:
+                reference_marker = os.path.join(self.tmp_dir, "reference_markers", f'{sample_name}.fna')
+                copyfile(reference_marker, os.path.join(markers_tmp_dir, f"{sample_name}.fna"))
 
     def matrix_markers_to_fasta(self):
         """For each sample, writes the FASTA files with the sequences of the filtered markers
@@ -190,7 +195,7 @@ class Strainphlan:
         filtered_samples = self.cleaned_markers_matrix.index.tolist()
         filtered_markers = self.cleaned_markers_matrix.columns.tolist()
         execute_pool(((Strainphlan.sample_markers_to_fasta, sample, filtered_samples, filtered_markers, self.trim_sequences, markers_tmp_dir)
-                     for sample in self.samples+self.secondary_samples), self.nprocs)
+                     for sample in self.samples + self.secondary_samples), self.nprocs)
         return markers_tmp_dir
 
     @staticmethod
@@ -199,16 +204,19 @@ class Strainphlan:
 
         Args:
             sample_path (str): the path to the sample
+            trim_sequences:
+            filtered_markers:
+            filtered_samples:
             markers_tmp_dir (str): the temporal folder were the FASTA file is written
         """
         if sample_path in filtered_samples:
             sample_name = os.path.splitext(os.path.basename(sample_path))[
                 0].replace(".pkl", "")
             with open(os.path.join(markers_tmp_dir, '{}.fna'.format(sample_name)), 'w') as marker_fna:
-                sample = ConsensusMarkers(pkl_file=sample_path)
-                for marker in sample.consensus_markers:
-                    if marker.name in filtered_markers:
-                        SeqIO.write(marker.get_sequence(trim_sequences), marker_fna, 'fasta')
+                sample = ConsensusMarkers.from_pkl(sample_path)
+                sample.consensus_markers = [m for m in sample.consensus_markers if m.name in filtered_markers]
+                sample.to_fasta(marker_fna, trim_ends=trim_sequences)
+
 
     def cleaned_clade_markers_to_fasta(self):
         """Writes a FASTA file with the sequences of the filtered clade markers"""
@@ -216,65 +224,124 @@ class Strainphlan:
         create_folder(clade_tmp_dir)
         for m in self.cleaned_markers_matrix.columns.tolist():
             marker = ConsensusMarker(m, self.db_clade_markers[m])
-            with open(os.path.join(clade_tmp_dir, '{}.fna'.format(marker.parse_marker_name())), 'w') as marker_fna:
-                SeqIO.write(marker.get_sequence(
-                    self.trim_sequences), marker_fna, 'fasta')
+            markers = ConsensusMarkers([marker])
+            markers.to_fasta(os.path.join(clade_tmp_dir, '{}.fna'.format(marker.parse_marker_name())), trim_ends=self.trim_sequences)
 
-    def get_markers_from_references(self, markers_matrix):
+    def get_markers_from_references(self):
         """Gets markers from reference files and returns the marker matrix with the reference markers
 
         Args:
-            markers_matrix (list): the list with the samples-to-markers information of the main samples
 
         Returns:
             list: the list with the samples-to-markers information of the main samples and references
         """
-        create_folder(os.path.join(self.tmp_dir, "blastn"))
-        results = execute_pool(((Strainphlan.process_reference, reference, os.path.join(self.tmp_dir, "blastn"), self.clade_markers_file, list(
+        return execute_pool(((Strainphlan.process_reference, reference, self.tmp_dir, self.clade_markers_file, list(
             self.db_clade_markers.keys())) for reference in self.references), self.nprocs)
-        return markers_matrix + results
 
-    @staticmethod
-    def process_reference(reference, blastn_dir, clade_markers_file, clade_markers):
+    @classmethod
+    def process_reference(cls, reference_file, tmp_dir, clade_markers_file, clade_markers):
         """Processes each reference file and get a markers dictionary to add to the markers matrix
 
         Args:
-            reference (str): path to the reference file
-            blastn_dir (str): the temporal folder where the BLASTn results where saved
+            reference_file (str): path to the reference file
+            tmp_dir (str): the temporal folder where the BLASTn results where saved
+            clade_markers_file (str):
             clade_markers (list): the list with the clade markers names
 
         Returns:
             dict: the dictionary with the reference-to-markers information
         """
-        name = os.path.splitext(os.path.basename(reference))[0]
-        if reference.endswith(".bz2"):
+        name = os.path.splitext(os.path.basename(reference_file))[0]
+        if reference_file.endswith(".bz2"):
+            uncompressed_refernces_dir = os.path.join(tmp_dir, "uncompressed_references")
+            os.makedirs(uncompressed_refernces_dir, exist_ok=True)
             name = os.path.splitext(name)[0]
-            reference = decompress_bz2(reference, blastn_dir)
-        blastn_db = create_blastn_db(blastn_dir, reference)
-        blastn_file = execute_blastn(
-            blastn_dir, clade_markers_file, blastn_db)
-        return Strainphlan.parse_blastn_results(os.path.join(blastn_dir, '{}.pkl'.format(name)), blastn_file, clade_markers)
+            reference_file = decompress_bz2(reference_file, uncompressed_refernces_dir)
+
+        ext_markers = cls.extract_markers_from_genome(reference_file, clade_markers_file)
+
+        reference_markers_dir = os.path.join(tmp_dir, "reference_markers")
+        os.makedirs(reference_markers_dir, exist_ok=True)
+
+        consensus_markers = ConsensusMarkers([ConsensusMarker(m, s) for m, s in ext_markers.items()])
+        consensus_markers.to_fasta(os.path.join(reference_markers_dir, f'{name}.fna'))
+
+
+        markers_matrix = {m: int(m in ext_markers) for m in clade_markers}
+
+        return markers_matrix
+
 
     @staticmethod
-    def parse_blastn_results(sample, blastn_file, clade_markers):
-        """Parses BLASTn results and gets the presence of the clade markers in the reference file
+    def extract_markers_from_genome(reference_file, clade_markers_file):
+        """
 
         Args:
-            sample (str): path to the reference file
-            blastn_file (str): path to the BLASTn result
-            clade_markers (list): the list with the clade markers names
+            reference_file (str):
+            clade_markers_file (str):
 
         Returns:
-            dict: the dictionary with the reference-to-markers information
+
         """
-        markers = {"sample": sample}
-        markers.update({m: 0 for m in clade_markers})
-        with open(blastn_file, "r") as rf:
-            for line in rf:
-                if line == '':
-                    break
-                markers[line.split("\t")[0]] = 1
-        return markers
+        # load the raw fasta data
+        with util_fun.openrt(reference_file) as f:
+            input_file_data = f.read()
+
+        # parse the fasta
+        input_seqs = {seq.id: seq for seq in SeqIO.parse(io.StringIO(input_file_data), 'fasta')}
+
+        # we need the additional btop column
+        columns = 'qseqid sseqid pident length mismatch gapopen qstart qend qlen sstart send evalue bitscore btop'
+        cmd = f'blastn -query {clade_markers_file} -subject - -num_threads {1} -outfmt'.split(' ') \
+              + ['6 ' + columns]
+
+        # run blastn and pass the raw data to stdin
+        r = sp.run(cmd, input=input_file_data, check=True, capture_output=True, text=True)
+
+        df = pd.read_csv(io.StringIO(r.stdout), sep='\t', names=columns.split(' '))
+
+        ext_markers = {}
+        for _, row in df.iterrows():
+            sseq = str(input_seqs[row['sseqid']].seq)
+            btop = re.split(r'(\d+|[ACTG-]{2})', row['btop'])[1::2]  # blast trace-back operations
+
+            assert row['qend'] >= row['qstart']
+            strand = 1 if row['send'] >= row['sstart'] else -1  # whether reverse-complemented
+
+            qi = row['qstart'] - 1
+            si = row['sstart'] - 1
+            ext_s = '-' * qi
+            for op in btop:
+                if op.isnumeric():
+                    op = int(op)
+                    ext_s += sseq[si: si + strand * op: strand]
+                    qi += op
+                    si += strand * op
+                else:
+                    if strand == -1:
+                        op = str(Seq.Seq(op).complement())
+
+                    if op[0] == '-':  # query gap
+                        qi += 1
+                        ext_s += '-'
+                    elif op[1] == '-':  # subject gap
+                        si += strand
+                    else:
+                        qi += 1
+                        si += strand
+                        ext_s += op[1]
+
+            ext_s += '-' * (row['qend'] - qi)
+
+            assert len(ext_s) == row['qlen']
+
+            if strand == -1:
+                ext_s = str(Seq.Seq(ext_s).complement())
+
+            ext_markers[row['qseqid']] = ext_s
+
+        return ext_markers
+
 
     def calculate_polymorphic_rates(self):
         """Generates a file with the polymorphic rates of the species for each sample"""
@@ -282,7 +349,7 @@ class Strainphlan:
             polymorphic_file.write("sample\tpercentage_of_polymorphic_sites\tavg_by_marker\tmedian_by_marker" +
                                    "\tstd_by_marker\tmin_by_marker\tmax_by_marker\tq25_by_marker\tq75_by_marker")
             for sample_path in self.samples+self.secondary_samples:
-                sample = ConsensusMarkers(pkl_file=sample_path)
+                sample = ConsensusMarkers.from_pkl(sample_path)
                 p_stats, p_count, m_len = [], 0, 0
                 for marker in sample.consensus_markers:
                     if marker.name in self.db_clade_markers:
@@ -350,7 +417,7 @@ class Strainphlan:
         species_to_check = set()
         info('Detecting clades...')
         for sample_path in self.samples:
-            sample = ConsensusMarkers(pkl_file=sample_path)
+            sample = ConsensusMarkers.from_pkl(sample_path)
             species_to_check.update({markers2species[marker.name] for marker in sample.consensus_markers if (
                 marker.name in markers2species and marker.breadth >= self.breadth_thres)})
         for species in species_to_check:
@@ -427,18 +494,18 @@ class Strainphlan:
         """Retrieves the filtered markers matrix with the filtered samples and references
 
         Args:
-            print_clades (bool, optional): Whether it was runned in the print_clade_only mode. Defaults to False.
+            print_clades (bool, optional): Whether it was run in the print_clade_only mode. Defaults to False.
         """
         if not print_clades:
             info("Getting markers from main samples...")
-        markers_matrix = self.get_markers_matrix(print_clades)
+        markers_matrix = self.get_markers_matrix_from_samples(print_clades)
         if not print_clades:
             info("Done.")
             info("Getting markers from main references...")
-            markers_matrix = self.get_markers_from_references(markers_matrix)
+            markers_matrix += self.get_markers_from_references()
             info("Done.")
             info("Removing bad markers / samples...")
-        self.clean_markers_matrix(markers_matrix, messages=not print_clades)
+        self.filter_markers_matrix(markers_matrix, messages=not print_clades)
         if not print_clades:
             info("Done.")
             info("Getting markers from secondary samples and references...")
@@ -614,6 +681,7 @@ def check_params(args):
             error('The secondary reference file \"{}\" does not exist'.format(
                 r), exit=True)
 
+
 def main():
     t0 = time.time()
     args = read_params()
@@ -627,6 +695,7 @@ def main():
     exec_time = time.time() - t0
     info("Finish StrainPhlAn {} execution ({} seconds): Results are stored at \"{}\"".format(
         __version__, round(exec_time, 2), args.output_dir))
+
 
 if __name__ == '__main__':
     main()

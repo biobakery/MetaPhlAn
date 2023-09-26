@@ -6,7 +6,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
 __version__ = '4.1.0'
 __date__ = '23 Aug 2023'
 
-
+import bz2
+import gzip
 import os
 import sys
 import time
@@ -82,3 +83,13 @@ def create_folder(path):
             os.mkdir(path)
     except Exception as e:
         error('An error ocurred when creating the \"{}\" folder'.format(e), exit=True)
+
+
+def openrt(file_path):
+    file_path = str(file_path)
+    if file_path.endswith('.bz2'):
+        return bz2.open(file_path, 'rt')
+    elif file_path.endswith('.gz'):
+        return gzip.open(file_path, 'rt')
+    else:
+        return open(file_path)

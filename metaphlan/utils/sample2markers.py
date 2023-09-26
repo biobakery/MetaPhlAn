@@ -10,16 +10,14 @@ __date__ = '23 Aug 2023'
 
 
 
-import os
-import time
-import pickle
-import tempfile
-import bz2
-import pickletools
 import argparse as ap
+import bz2
+import os
+import subprocess as sp
+import tempfile
+import time
 from collections import Counter
 from shutil import rmtree
-import subprocess as sp
 
 import numpy as np
 import pysam
@@ -30,13 +28,13 @@ try:
     from .util_fun import info, error
     from .parallelisation import execute_pool
     from .database_controller import MetaphlanDatabaseController
-    from .consensus_markers import ConsensusMarker
+    from .consensus_markers import ConsensusMarker, ConsensusMarkers
 except ImportError:
     from external_exec import samtools_sam_to_bam, samtools_sort_bam_v1, decompress_bz2
     from util_fun import info, error
     from parallelisation import execute_pool
     from database_controller import MetaphlanDatabaseController
-    from consensus_markers import ConsensusMarker
+    from consensus_markers import ConsensusMarker, ConsensusMarkers
 
 
 class SampleToMarkers:
@@ -45,6 +43,7 @@ class SampleToMarkers:
     class DEFAULTS:
         depth_avg_q = 0.2
         quasi_marker_frac = 0.33
+        min_breadth = 80
         pileup_stepper = 'nofilter'
         poly_error_rate = 0.001
         min_base_coverage = 1
@@ -230,19 +229,6 @@ class SampleToMarkers:
         return consensus_markers_filtered
 
 
-    def write_results_as_pkl(self, filtered, name, consensuses):
-        """Writes the consensus sequences as a PKL file
-
-        Args:
-            filtered (str): string to append when filtered for clades
-            name (str): the name of the sample
-            consensuses (list[ConsensusMarker]): the list of (marker_name, seq) with the reconstructed consensus markers
-        """
-        marker_dicts = [marker.to_dict() for marker in consensuses]
-        with open(os.path.join(self.output_dir, '{}{}.pkl'.format(name, filtered)), 'wb') as markers_pkl:
-            markers_pkl.write(pickletools.optimize(pickle.dumps(marker_dicts, pickle.HIGHEST_PROTOCOL)))
-
-
     def parallel_filter_sam(self, input_file, filtered_markers):
         """
         Filters an input SAM file
@@ -334,24 +320,37 @@ class SampleToMarkers:
             rmtree(self.tmp_dir)
             info("Done.")
 
+
+    def write_results_as_pkl(self, filtered, name, consensuses):
+        """Writes the consensus sequences as a PKL file
+
+        Args:
+            filtered (str): string to append when filtered for clades
+            name (str): the name of the sample
+            consensuses (list[ConsensusMarker]): the list of (marker_name, seq) with the reconstructed consensus markers
+        """
+        consensus_markers = ConsensusMarkers(consensuses)
+        consensus_markers.to_pkl(os.path.join(self.output_dir, '{}{}.pkl'.format(name, filtered)))
+
+
     def __init__(self, args):
         self.input = args.input
-        self.sorted = args.sorted
-        self.input_format = args.input_format
         self.output_dir = args.output_dir
         self.database_controller = MetaphlanDatabaseController(args.database)
+        self.tmp_dir = args.output_dir if args.tmp is None else args.tmp
         self.breadth_threshold = args.breadth_threshold
+        self.input_format = args.input_format
+        self.clades = args.clades
+        self.sorted = args.sorted
         self.min_reads_aligning = args.min_reads_aligning
         self.min_base_coverage = args.min_base_coverage
         self.min_base_quality = args.min_base_quality
         self.min_mapping_quality = args.min_mapping_quality
         self.dominant_frq_threshold = args.dominant_frq_threshold
-        self.clades = args.clades
-        self.tmp_dir = args.output_dir if args.tmp is None else args.tmp
-        self.debug = args.debug
-        self.nprocs = args.nprocs
         self.quasi_marker_frac = args.quasi_marker_frac
         self.depth_avg_q = args.depth_avg_q
+        self.debug = args.debug
+        self.nprocs = args.nprocs
 
 
 def read_params():
@@ -360,27 +359,19 @@ def read_params():
     Returns:
         namespace: The populated namespace with the command line arguments
     """
-    p = ap.ArgumentParser(
-        description="", formatter_class=ap.ArgumentDefaultsHelpFormatter)
-    p.add_argument('-i', '--input', type=str,
-                   nargs='+', default=[],
-                   help="The input samples as SAM or BAM files")
-    p.add_argument('--quasi_marker_frac', type=float, default=SampleToMarkers.DEFAULTS.quasi_marker_frac,
-                   help="Fraction [0-1] of markers with a hit of an external SGB to disqualify a quasi-marker.")
-    p.add_argument('--depth_avg_q', type=float, default=SampleToMarkers.DEFAULTS.depth_avg_q,
-                   help="A quantile to cut from both ends of the coverage distributions to calculate robust average.")
-    p.add_argument('--sorted', action='store_true', default=False,
-                   help="Whether the BAM input files are sorted")
-    p.add_argument('-f', '--input_format', type=str, default="bz2",
-                   help="The input samples format {bam, sam, bz2}")
-    p.add_argument('-o', '--output_dir', type=str, default=None,
-                   help="The output directory")
+    p = ap.ArgumentParser(description="", formatter_class=ap.ArgumentDefaultsHelpFormatter)
+    # required
+    p.add_argument('-i', '--input', type=str, nargs='+', required=True, help="The input samples as SAM or BAM files")
+    p.add_argument('-o', '--output_dir', type=str, required=True, help="The output directory")
+
+    # optional
     p.add_argument('-d', '--database', type=str, default='latest',
-                   help="The input MetaPhlAn " + __version__ + " database")
-    p.add_argument('-b', '--breadth_threshold', type=int, default=80,
-                   help="The breadth of coverage threshold for the consensus markers")
-    p.add_argument('--min_reads_aligning', type=int, default=8,
-                   help="The minimum number of reads to cover a marker")
+                   help="The input MetaPhlAn " + __version__ + " database (path to the pkl file)")
+    p.add_argument('--clades', type=str, nargs='+', default=[],
+                   help="Restricts the reconstruction of the markers to the specified clades")
+    p.add_argument('-f', '--input_format', type=str, default="bz2", help="The input samples format {bam, sam, bz2}")
+    p.add_argument('--sorted', action='store_true', default=False, help="Whether the BAM input files are sorted")
+    p.add_argument('--min_reads_aligning', type=int, default=8, help="The minimum number of reads to cover a marker")
     p.add_argument('--min_base_coverage', type=int, default=SampleToMarkers.DEFAULTS.min_base_coverage,
                    help="The minimum depth of coverage for a base to be considered")
     p.add_argument('--min_base_quality', type=int, default=SampleToMarkers.DEFAULTS.min_base_quality,
@@ -389,15 +380,20 @@ def read_params():
                    help="The minimum quality for a mapping of the read to be considered.")
     p.add_argument('--dominant_frq_threshold', type=float, default=SampleToMarkers.DEFAULTS.poly_dominant_frq_thrsh,
                    help="The cutoff for degree of 'allele dominance' for a position to be considered polymorphic")
-    p.add_argument('--clades', type=str, nargs='+', default=[],
-                   help="Restricts the reconstruction of the markers to the specified clades")
+    p.add_argument('--quasi_marker_frac', type=float, default=SampleToMarkers.DEFAULTS.quasi_marker_frac,
+                   help="Fraction [0-1] of markers with a hit of an external SGB to disqualify a quasi-marker.")
+    p.add_argument('--depth_avg_q', type=float, default=SampleToMarkers.DEFAULTS.depth_avg_q,
+                   help="A quantile to cut from both ends of the coverage distributions to calculate robust average.")
     p.add_argument('--tmp', type=str, default=None,
-                   help="If specified, the directory where to store the temporal files")
+                   help="If specified, the directory where to store the temporal files. "
+                        "Otherwise the output directory will be used.")
+    p.add_argument('-b', '--breadth_threshold', type=int, default=SampleToMarkers.DEFAULTS.min_breadth,
+                   help="The breadth of coverage threshold for the consensus markers")
     p.add_argument('--debug', action='store_true', default=False,
                    help="If specified, StrainPhlAn will not remove the temporal folder. "
                         "Not available with inputs in BAM format")
-    p.add_argument('-n', '--nprocs', type=int, default=1,
-                   help="The number of threads to execute the script")
+    p.add_argument('-n', '--nprocs', type=int, default=1, help="The number of threads to execute the script")
+
     return p.parse_args()
 
 
@@ -407,25 +403,19 @@ def check_params(args):
     Args:
         args (namespace): the arguments to check
     """
-    if not args.input:
-        error('-i (or --input) must be specified', exit=True)
-    elif not args.input_format:
-        error('-f (or --input_format) must be specified', exit=True)
-    elif not args.output_dir:
-        error('-o (or --output_dir) must be specified', exit=True)
-    elif args.input_format.lower() not in ['bam', 'sam', 'bz2']:
-        error('The input format must be SAM, BAM, or compressed in BZ2 format', exit=True)
-    elif args.input_format.lower() == "bam" and len(args.clades) > 0:
-        error('The --clades option cannot be used with inputs in BAM format', exit=True)
-    elif not os.path.exists(args.output_dir):
-        error('The directory {} does not exist'.format(
-            args.output_dir), exit=True)
-    elif not (args.tmp is None) and not os.path.exists(args.tmp):
+    if not os.path.exists(args.output_dir):
+        error('The directory {} does not exist'.format(args.output_dir), exit=True)
+    if args.tmp is not None and not os.path.exists(args.tmp):
         error('The directory {} does not exist'.format(args.tmp), exit=True)
-    elif args.database != 'latest' and not os.path.exists(args.database):
+    if args.database != 'latest' and not os.path.exists(args.database):
         error('The database does not exist', exit=True)
-    else:
-        check_input_files(args.input, args.input_format)
+    if args.input_format.lower() not in ['bam', 'sam', 'bz2']:
+        error('The input format must be SAM, BAM, or compressed in BZ2 format', exit=True)
+    if args.input_format.lower() == "bam" and len(args.clades) > 0:
+        error('The --clades option cannot be used with inputs in BAM format', exit=True)
+
+    check_input_files(args.input, args.input_format)
+
     return args
 
 
