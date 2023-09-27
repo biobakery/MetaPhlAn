@@ -60,7 +60,7 @@ class Strainphlan:
         """Adds secondary references to the marker matrix"""
         filtered_clade_markers = self.cleaned_markers_matrix.columns.tolist()
         markers_matrix = execute_pool(((Strainphlan.process_reference, reference, self.tmp_dir, self.clade_markers_file,
-                                        filtered_clade_markers) for reference in self.secondary_references), self.nprocs)
+                                        filtered_clade_markers, self.trim_sequences) for reference in self.secondary_references), self.nprocs)
         self.include_secondary_matrix(markers_matrix)
 
     def include_secondary_matrix(self, markers_matrix):
@@ -117,7 +117,8 @@ class Strainphlan:
         Returns:
             dict: dictionary containing the sample-to-markers information as a binary matrix
         """
-        sample = ConsensusMarkers.from_pkl(sample_path)
+        sample = ConsensusMarkers.from_file(sample_path)
+
         markers = {"sample": sample_path}
         markers.update({m: 0 for m in clade_markers})
         markers.update(
@@ -210,12 +211,11 @@ class Strainphlan:
             markers_tmp_dir (str): the temporal folder were the FASTA file is written
         """
         if sample_path in filtered_samples:
-            sample_name = os.path.splitext(os.path.basename(sample_path))[
-                0].replace(".pkl", "")
-            with open(os.path.join(markers_tmp_dir, '{}.fna'.format(sample_name)), 'w') as marker_fna:
-                sample = ConsensusMarkers.from_pkl(sample_path)
-                sample.consensus_markers = [m for m in sample.consensus_markers if m.name in filtered_markers]
-                sample.to_fasta(marker_fna, trim_ends=trim_sequences)
+            sample_name = os.path.splitext(os.path.basename(sample_path))[0].replace(".pkl", "")
+            marker_output_file = os.path.join(markers_tmp_dir, '{}.fna'.format(sample_name))
+            sample = ConsensusMarkers.from_file(sample_path)
+            sample.consensus_markers = [m for m in sample.consensus_markers if m.name in filtered_markers]
+            sample.to_fasta(marker_output_file, trim_ends=trim_sequences)
 
 
     def cleaned_clade_markers_to_fasta(self):
@@ -236,10 +236,10 @@ class Strainphlan:
             list: the list with the samples-to-markers information of the main samples and references
         """
         return execute_pool(((Strainphlan.process_reference, reference, self.tmp_dir, self.clade_markers_file, list(
-            self.db_clade_markers.keys())) for reference in self.references), self.nprocs)
+            self.db_clade_markers.keys()), self.trim_sequences) for reference in self.references), self.nprocs)
 
     @classmethod
-    def process_reference(cls, reference_file, tmp_dir, clade_markers_file, clade_markers):
+    def process_reference(cls, reference_file, tmp_dir, clade_markers_file, clade_markers, trim_sequences):
         """Processes each reference file and get a markers dictionary to add to the markers matrix
 
         Args:
@@ -264,10 +264,10 @@ class Strainphlan:
         os.makedirs(reference_markers_dir, exist_ok=True)
 
         consensus_markers = ConsensusMarkers([ConsensusMarker(m, s) for m, s in ext_markers.items()])
-        consensus_markers.to_fasta(os.path.join(reference_markers_dir, f'{name}.fna'))
+        consensus_markers.to_fasta(os.path.join(reference_markers_dir, f'{name}.fna'), trim_ends=trim_sequences)
 
-
-        markers_matrix = {m: int(m in ext_markers) for m in clade_markers}
+        markers_matrix = {'sample': reference_file}
+        markers_matrix.update({m: int(m in ext_markers) for m in clade_markers})
 
         return markers_matrix
 
@@ -303,7 +303,7 @@ class Strainphlan:
         ext_markers = {}
         for _, row in df.iterrows():
             sseq = str(input_seqs[row['sseqid']].seq)
-            btop = re.split(r'(\d+|[ACTG-]{2})', row['btop'])[1::2]  # blast trace-back operations
+            btop = re.split(r'(\d+|[^\d]{2})', row['btop'])[1::2]  # blast trace-back operations
 
             assert row['qend'] >= row['qstart']
             strand = 1 if row['send'] >= row['sstart'] else -1  # whether reverse-complemented
@@ -322,17 +322,18 @@ class Strainphlan:
                         op = str(Seq.Seq(op).complement())
 
                     if op[0] == '-':  # query gap
-                        qi += 1
-                        ext_s += '-'
-                    elif op[1] == '-':  # subject gap
                         si += strand
+                    elif op[1] == '-':  # subject gap
+                        ext_s += '-'
+                        qi += 1
                     else:
                         qi += 1
                         si += strand
                         ext_s += op[1]
 
-            ext_s += '-' * (row['qend'] - qi)
+            ext_s += '-' * (row['qlen'] - row['qend'])
 
+            assert qi == row['qend']
             assert len(ext_s) == row['qlen']
 
             if strand == -1:
@@ -349,7 +350,7 @@ class Strainphlan:
             polymorphic_file.write("sample\tpercentage_of_polymorphic_sites\tavg_by_marker\tmedian_by_marker" +
                                    "\tstd_by_marker\tmin_by_marker\tmax_by_marker\tq25_by_marker\tq75_by_marker")
             for sample_path in self.samples+self.secondary_samples:
-                sample = ConsensusMarkers.from_pkl(sample_path)
+                sample = ConsensusMarkers.from_file(sample_path)
                 p_stats, p_count, m_len = [], 0, 0
                 for marker in sample.consensus_markers:
                     if marker.name in self.db_clade_markers:
@@ -417,7 +418,7 @@ class Strainphlan:
         species_to_check = set()
         info('Detecting clades...')
         for sample_path in self.samples:
-            sample = ConsensusMarkers.from_pkl(sample_path)
+            sample = ConsensusMarkers.from_file(sample_path)
             species_to_check.update({markers2species[marker.name] for marker in sample.consensus_markers if (
                 marker.name in markers2species and marker.breadth >= self.breadth_thres)})
         for species in species_to_check:
@@ -576,6 +577,7 @@ class Strainphlan:
         self.phylophlan_controller = Phylophlan3Controller(args)
         self.cleaned_markers_matrix = pd.DataFrame()
 
+
 def read_params():
     """ Reads and parses the command line arguments of the script
     
@@ -639,6 +641,7 @@ def read_params():
     p.add_argument('-v', '--version', action='store_true',
                    help="Shows this help message and exit")
     return p.parse_args()
+
 
 def check_params(args):
     """Checks the mandatory command line arguments of the script

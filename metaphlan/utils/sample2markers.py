@@ -121,7 +121,11 @@ class SampleToMarkers:
             info("\tProcessing sample: {}".format(i))
             consensuses, coverages = self.get_consensuses_for_sample(i)
             consensuses_filtered = self.filter_consensuses(consensuses, coverages)
-            self.write_results_as_pkl(filtered, os.path.splitext(os.path.basename(i))[0], consensuses_filtered)
+
+            consensus_markers = ConsensusMarkers(consensuses_filtered, self.database_controller.get_database_name())
+            output_filename = f'{os.path.splitext(os.path.basename(i))[0]}{filtered}.json.bz2'
+            output_path = os.path.join(self.output_dir, output_filename)
+            consensus_markers.to_json(output_path)
             info("\tDone.")
 
 
@@ -229,7 +233,8 @@ class SampleToMarkers:
         return consensus_markers_filtered
 
 
-    def parallel_filter_sam(self, input_file, filtered_markers):
+    @staticmethod
+    def parallel_filter_sam(input_file, tmp_dir, input_format, min_mapping_quality, min_reads_aligning, filtered_markers, all_markers):
         """
         Filters an input SAM file
             * filters out viral markers (VDB)
@@ -238,49 +243,56 @@ class SampleToMarkers:
 
         Args:
             input_file (str): the input SAM file
+            tmp_dir:
+            input_format:
+            min_reads_aligning:
+            min_mapping_quality:
             filtered_markers (set): the list with the markers of the filtered clades, None if to use all markers
+            all_markers:
 
         Returns:
             str: the path to the output file
         """
-        output_file = os.path.join(self.tmp_dir, input_file.split('/')[-1])
-        if self.input_format.lower() == "bz2":
-            ifn = bz2.open(input_file, 'rt')
+        output_file = os.path.join(tmp_dir, input_file.split('/')[-1])
+        if input_format.lower() == "bz2":
+            ifn = bz2.open(input_file, 'rb')
             output_file = output_file.replace('.bz2', '')
         else:
-            assert self.input_format.lower() == "sam"
-            ifn = open(input_file, 'r')
+            assert input_format.lower() == "sam"
+            ifn = open(input_file, 'rb')
 
         def filter_mapping_line(line_fields_, markers_subset):
             marker_ = line_fields_[2]
-            if marker_.startswith('VDB'):
+            if marker_.startswith(b'VDB'):
                 return False
-            if markers_subset is not None and marker_ not in markers_subset:
+            if markers_subset is not None and marker_.decode() not in markers_subset:
                 return False
-            mapq_ = int(line_fields_[4])
-            if mapq_ < self.min_mapping_quality:
+            mapq_ = int(line_fields_[4].decode())
+            if mapq_ < min_mapping_quality:
                 return False
             return True
 
         marker_to_reads = Counter()
         for line in ifn:
-            if line.startswith('@'):
+            if line.startswith(b'@'):
                 continue
-            line_fields = line.rstrip('\n').split('\t')
+            line_fields = line.rstrip(b'\n').split(b'\t')
             if filter_mapping_line(line_fields, filtered_markers):
-                marker = line_fields[2]
+                marker = line_fields[2].decode()
                 marker_to_reads[marker] += 1
+                if marker not in all_markers:
+                    error(f'Marker {marker} not in the metaphlan database', exit=True)
 
-        selected_markers = set((m for m, c in marker_to_reads.items() if c >= self.min_reads_aligning))
+        selected_markers = set((m for m, c in marker_to_reads.items() if c >= min_reads_aligning))
 
         ifn.seek(0)  # second pass of the file
-        with open(output_file, 'w') as ofn:
+        with open(output_file, 'wb') as ofn:
             for line in ifn:
-                line_fields = line.rstrip('\n').split('\t')
-                if line.startswith('@HD'):
+                line_fields = line.rstrip(b'\n').split(b'\t')
+                if line.startswith(b'@HD'):
                     ofn.write(line)
-                elif line.startswith('@'):
-                    marker = line_fields[1].split(':')[1]
+                elif line.startswith(b'@'):
+                    marker = line_fields[1].split(b':')[1].decode()
                     if marker in selected_markers:
                         ofn.write(line)
                 else:
@@ -292,10 +304,11 @@ class SampleToMarkers:
 
     def filter_sam_files(self):
         """Filters the input SAM files with the hits against markers of specific clades and low quality reads"""
-        filtered_markers = self.database_controller.get_filtered_markers(
-            self.clades) if len(self.clades) > 0 else None
-        self.input = execute_pool(
-            ((self.parallel_filter_sam, i, filtered_markers) for i in self.input), self.nprocs)
+        filtered_markers = self.database_controller.get_filtered_markers(self.clades) if len(self.clades) > 0 else None
+        all_markers = set(self.database_controller.get_markers())
+        self.input = execute_pool(((SampleToMarkers.parallel_filter_sam, i, self.tmp_dir, self.input_format,
+                                    self.min_mapping_quality, self.min_reads_aligning, filtered_markers, all_markers)
+                                   for i in self.input), self.nprocs)
         self.input_format = 'sam'
         self.sorted = False
 
@@ -319,18 +332,6 @@ class SampleToMarkers:
             info("Removing temporary files...")
             rmtree(self.tmp_dir)
             info("Done.")
-
-
-    def write_results_as_pkl(self, filtered, name, consensuses):
-        """Writes the consensus sequences as a PKL file
-
-        Args:
-            filtered (str): string to append when filtered for clades
-            name (str): the name of the sample
-            consensuses (list[ConsensusMarker]): the list of (marker_name, seq) with the reconstructed consensus markers
-        """
-        consensus_markers = ConsensusMarkers(consensuses)
-        consensus_markers.to_pkl(os.path.join(self.output_dir, '{}{}.pkl'.format(name, filtered)))
 
 
     def __init__(self, args):

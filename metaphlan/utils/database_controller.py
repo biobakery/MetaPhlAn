@@ -44,6 +44,9 @@ class MetaphlanDatabaseController:
         self.load_database()
         return {marker_name: marker_info['clade'] for marker_name, marker_info in self.database_pkl['markers'].items()}
 
+    def get_markers(self):
+        self.load_database()
+        return list(self.database_pkl['markers'].keys())
 
     def get_markers2ext(self):
         self.load_database()

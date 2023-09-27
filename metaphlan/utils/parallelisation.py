@@ -59,9 +59,14 @@ def execute_pool(args, nprocs):
     Returns:
         list: the list with the results of the parallel executions
     """
-    terminating = Event()
-    with Pool(initializer=init_terminating, initargs=(terminating,), processes=nprocs) as pool:
-        try:
-            return [_ for _ in pool.imap_unordered(parallel_execution, args, chunksize=CHUNKSIZE)]
-        except Exception as e:
-            error('Parallel execution fails: {}'.format(e), exit=True)
+    args = list(args)
+    if nprocs == 1 or len(args) == 1:  # no need to initialize pool
+        return [function(*a) for function, *a in args]
+    else:
+        terminating = Event()
+        with Pool(initializer=init_terminating, initargs=(terminating,), processes=nprocs) as pool:
+            try:
+                return [_ for _ in pool.imap_unordered(parallel_execution, args, chunksize=CHUNKSIZE)]
+            except Exception as e:
+                error('Parallel execution fails: {}'.format(e), exit=False)
+                raise e

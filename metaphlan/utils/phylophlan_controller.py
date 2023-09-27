@@ -2,7 +2,7 @@ __author__ = 'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it'
 __version__ = '4.1.0'
 __date__ = '23 Aug 2023'
 
-
+import abc
 import os
 import bz2
 from shutil import move, copy
@@ -17,9 +17,11 @@ except ImportError:
 class PhylophlanController:
     """PhyloPhlAnController interface class"""
 
+    @abc.abstractmethod
     def compute_phylogeny(self):
         """Executes PhyloPhlAn to compute phylogeny"""
         pass
+
 
     def get_phylophlan_configuration(self):
         """Gets PhyloPhlAn configuration
@@ -34,6 +36,7 @@ class PhylophlanController:
         configuration['tree1'] = 'raxml'
         return configuration
 
+
 class Phylophlan3Controller(PhylophlanController):
     """PhyloPhlAn3Controller class"""
 
@@ -43,23 +46,20 @@ class Phylophlan3Controller(PhylophlanController):
         Args:
             samples_markers_dir (str): Directory containing the samples as FASTA
         """
-        samples = [s.split('/')[-1].replace('.pkl', '')
-                   for s in self.samples+self.secondary_samples]
         os.mkdir(os.path.join(self.tmp_dir, 'markers_dna'))
         os.mkdir(os.path.join(self.tmp_dir, 'map_dna'))
         os.mkdir(os.path.join(self.tmp_dir, 'clean_dna'))
         for sample in os.listdir(samples_markers_dir):
-            if sample.replace('.fna', '') in samples:
-                open(os.path.join(self.tmp_dir, 'map_dna',
-                     sample.replace('.fna', '.b6o.bkp')), 'a').close()
-                open(os.path.join(self.tmp_dir, 'map_dna',
-                     sample.replace('.fna', '.b6o.bz2')), 'a').close()
-                copy(os.path.join(samples_markers_dir, sample),
-                     os.path.join(self.tmp_dir, 'clean_dna', sample))
-                with bz2.open(os.path.join(self.tmp_dir, 'markers_dna', '{}.bz2'.format(sample)), 'wt') as write_file:
-                    with open(os.path.join(samples_markers_dir, sample), 'r') as read_file:
-                        for line in read_file:
-                            write_file.write(line)
+            open(os.path.join(self.tmp_dir, 'map_dna',
+                 sample.replace('.fna', '.b6o.bkp')), 'a').close()
+            open(os.path.join(self.tmp_dir, 'map_dna',
+                 sample.replace('.fna', '.b6o.bz2')), 'a').close()
+            copy(os.path.join(samples_markers_dir, sample),
+                 os.path.join(self.tmp_dir, 'clean_dna', sample))
+            with bz2.open(os.path.join(self.tmp_dir, 'markers_dna', '{}.bz2'.format(sample)), 'wt') as write_file:
+                with open(os.path.join(samples_markers_dir, sample), 'r') as read_file:
+                    for line in read_file:
+                        write_file.write(line)
 
     def compute_phylogeny(self, samples_markers_dir, num_samples, min_markers, temporal_dir):
         """Executes PhyloPhlAn to compute phylogeny
