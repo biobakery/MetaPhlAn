@@ -25,7 +25,7 @@ def execute(cmd):
         cmd (dict): the dict with the command line information
     """
     inp_f = None
-    out_f = sb.DEVNULL
+    out_f = sb.PIPE
     if cmd['stdin']:
         inp_f = open(cmd['stdin'], 'r')
     if cmd['stdout']:
@@ -33,6 +33,9 @@ def execute(cmd):
     exec_res = sb.run(cmd['command_line'], stdin=inp_f, stdout=out_f)
     if exec_res.returncode == 1:
         error("An error was ocurred executing a external tool, exiting...", exit=True)
+        print(exec_res.stdout)
+        print('===')
+        print(exec_res.stderr)
     if cmd['stdin']:
         inp_f.close()
     if cmd['stdout']:
@@ -105,24 +108,30 @@ def generate_phylophlan_config_file(output_dir, configuration):
     return conf_file
 
 
-def execute_phylophlan(samples_markers_dir, conf_file, min_entries, min_markers, tmp_dir, output_dir, clade, phylogeny_conf, additional_params, mutation_rates, nprocs):
+def execute_phylophlan(samples_markers_dir, conf_file, tmp_dir, output_dir, phylogeny_conf, additional_params, mutation_rates, nprocs):
     """Executes PhyloPhlAn"""
-    advanced_params = "--" + phylogeny_conf
+    cmd = f'phylophlan -i {samples_markers_dir} -o . --output_folder {output_dir} --nproc {nprocs} --strainphlan' \
+          f' --{phylogeny_conf} --data_folder {tmp_dir} -t n -f {conf_file} --diversity low' \
+          f' --genome_extension fna --min_num_entries 1 --min_num_markers 1'
+
     if additional_params is not None:
-        advanced_params += " " + additional_params
+        cmd += " " + additional_params
     if mutation_rates:
-        advanced_params += " --mutation_rates"
-    params = {
-        "program_name": "phylophlan",
-        "params": "-d {} --data_folder {} --databases_folder {} -t n -f {} --diversity low {} --genome_extension fna --force_nucleotides --min_num_entries {} --convert_N2gap --min_num_markers {}".format(clade[:30], tmp_dir, tmp_dir, conf_file, advanced_params, min_entries, min_markers),
-        "input": "-i",
-        "output_path": "--output_folder",
-        "output": "-o",
-        "threads": "--nproc",
-        "command_line": "#program_name# #input# #output# #output_path# #params# #threads#"
-    }
-    execute(compose_command(params=params, input_file=samples_markers_dir, output_path=output_dir,
-                            output_file=".", nproc=nprocs))
+        cmd += " --mutation_rates"
+
+    r = sb.run(cmd, capture_output=True, shell=True)
+    with open(os.path.join(tmp_dir, "phylophlan_log.stdout"), 'wb') as f:
+        f.write(r.stdout)
+    with open(os.path.join(tmp_dir, "phylophlan_log.stderr"), 'wb') as f:
+        f.write(r.stderr)
+    if r.returncode != 0:
+        error("Error executing PhyloPhlAn")
+        info('== stdout ==')
+        print(r.stdout.decode())
+        info('== stderr ==')
+        print(r.stderr.decode())
+        info('exiting')
+        exit(1)
 
 
 def execute_treeshrink(input_tree, output_dir, tmp=None, centroid=False, q_value=0.05, m_value='all-genes'):

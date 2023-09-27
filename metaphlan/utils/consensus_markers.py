@@ -160,7 +160,7 @@ class ConsensusMarkers:
     def to_fasta(self, output_file, trim_ends=0):
         """Writes the consensus markers to FASTA"""
         seq_records = [m.to_seq_record(trim_ends) for m in self.consensus_markers]
-        with open(output_file, 'w') as f:
+        with bz2.open(output_file, 'wt') as f:
             SeqIO.write(seq_records, f, 'fasta')
 
     def __str__(self):

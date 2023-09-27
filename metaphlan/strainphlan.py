@@ -180,8 +180,8 @@ class Strainphlan:
                 '.bz2') else os.path.splitext(os.path.basename(reference))[0]
 
             if sample_name in [os.path.splitext(os.path.basename(sample))[0] for sample in self.cleaned_markers_matrix.index]:
-                reference_marker = os.path.join(self.tmp_dir, "reference_markers", f'{sample_name}.fna')
-                copyfile(reference_marker, os.path.join(markers_tmp_dir, f"{sample_name}.fna"))
+                reference_marker = os.path.join(self.tmp_dir, "reference_markers", f'{sample_name}.fna.bz2')
+                copyfile(reference_marker, os.path.join(markers_tmp_dir, f"{sample_name}.fna.bz2"))
 
     def matrix_markers_to_fasta(self):
         """For each sample, writes the FASTA files with the sequences of the filtered markers
@@ -212,20 +212,11 @@ class Strainphlan:
         """
         if sample_path in filtered_samples:
             sample_name = os.path.splitext(os.path.basename(sample_path))[0].replace(".pkl", "")
-            marker_output_file = os.path.join(markers_tmp_dir, '{}.fna'.format(sample_name))
+            marker_output_file = os.path.join(markers_tmp_dir, '{}.fna.bz2'.format(sample_name))
             sample = ConsensusMarkers.from_file(sample_path)
             sample.consensus_markers = [m for m in sample.consensus_markers if m.name in filtered_markers]
             sample.to_fasta(marker_output_file, trim_ends=trim_sequences)
 
-
-    def cleaned_clade_markers_to_fasta(self):
-        """Writes a FASTA file with the sequences of the filtered clade markers"""
-        clade_tmp_dir = os.path.join(self.tmp_dir, self.clade[:30])
-        create_folder(clade_tmp_dir)
-        for m in self.cleaned_markers_matrix.columns.tolist():
-            marker = ConsensusMarker(m, self.db_clade_markers[m])
-            markers = ConsensusMarkers([marker])
-            markers.to_fasta(os.path.join(clade_tmp_dir, '{}.fna'.format(marker.parse_marker_name())), trim_ends=self.trim_sequences)
 
     def get_markers_from_references(self):
         """Gets markers from reference files and returns the marker matrix with the reference markers
@@ -264,7 +255,7 @@ class Strainphlan:
         os.makedirs(reference_markers_dir, exist_ok=True)
 
         consensus_markers = ConsensusMarkers([ConsensusMarker(m, s) for m, s in ext_markers.items()])
-        consensus_markers.to_fasta(os.path.join(reference_markers_dir, f'{name}.fna'), trim_ends=trim_sequences)
+        consensus_markers.to_fasta(os.path.join(reference_markers_dir, f'{name}.fna.bz2'), trim_ends=trim_sequences)
 
         markers_matrix = {'sample': reference_file}
         markers_matrix.update({m: int(m in ext_markers) for m in clade_markers})
@@ -530,15 +521,12 @@ class Strainphlan:
             info("Writing samples as markers' FASTA files...")
             samples_as_markers_dir = self.matrix_markers_to_fasta()
             info("Done.")
-            info("Writing filtered clade markers as FASTA file...")
-            self.cleaned_clade_markers_to_fasta()
-            info("Done.")
             info("Calculating polymorphic rates...")
             self.calculate_polymorphic_rates()
             info("Done.")
             info("Executing PhyloPhlAn...")
-            self.phylophlan_controller.compute_phylogeny(samples_as_markers_dir, len(
-                self.cleaned_markers_matrix), self.min_markers, self.tmp_dir)
+            self.phylophlan_controller.compute_phylogeny(samples_as_markers_dir, len(self.cleaned_markers_matrix),
+                                                         self.tmp_dir)
             info("Done.")
             info("Writing information file...")
             self.write_info()
