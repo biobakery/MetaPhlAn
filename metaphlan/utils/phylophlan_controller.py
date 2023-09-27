@@ -1,39 +1,42 @@
-__author__ = 'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it'
+__author__ = 'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it),' \
+             'Michal Puncochar (michal.puncochar@unitn.it)'
 __version__ = '4.1.0'
 __date__ = '23 Aug 2023'
 
 import abc
 import os
-import bz2
-from shutil import move, copy
+from shutil import move
+
 try:
     from .util_fun import info, error
-    from .external_exec import generate_phylophlan_config_file, create_phylophlan_db, execute_phylophlan, execute_treeshrink
+    from .external_exec import generate_phylophlan_config_file, execute_treeshrink, run_command
 except ImportError:
     from util_fun import info, error
-    from external_exec import generate_phylophlan_config_file, create_phylophlan_db, execute_phylophlan, execute_treeshrink
+    from external_exec import generate_phylophlan_config_file, execute_treeshrink, run_command
 
 
-class PhylophlanController:
+class PhylophlanController(abc.ABC):
     """PhyloPhlAnController interface class"""
 
     @abc.abstractmethod
-    def compute_phylogeny(self):
+    def compute_phylogeny(self, *args, **kwargs):
         """Executes PhyloPhlAn to compute phylogeny"""
         pass
 
 
-    def get_phylophlan_configuration(self):
+    @staticmethod
+    def get_phylophlan_configuration():
         """Gets PhyloPhlAn configuration
 
         Returns:
             dict: The dictionary with the PhyloPhlAn configuration
         """
-        configuration = {}
-        configuration['map'] = 'blastn'
-        configuration['aligner'] = 'mafft'
-        configuration['trim'] = 'trimal'
-        configuration['tree1'] = 'raxml'
+        configuration = {
+            'map': 'blastn',
+            'aligner': 'mafft',
+            'trim': 'trimal',
+            'tree1': 'raxml'
+        }
         return configuration
 
 
@@ -54,9 +57,8 @@ class Phylophlan3Controller(PhylophlanController):
             self.phylophlan_configuration = generate_phylophlan_config_file(
                 tmp_dir, self.get_phylophlan_configuration())
             info("\tDone.")
-        info("\tProcessing samples...")
-        execute_phylophlan(samples_markers_dir, self.phylophlan_configuration, tmp_dir, self.output_dir,
-                           self.phylophlan_mode, self.phylophlan_params, self.mutation_rates, self.nprocs)
+        info("\tExecuting PhyloPhlAn...")
+        self.execute_phylophlan(samples_markers_dir, tmp_dir)
         if self.mutation_rates:
             move(os.path.join(self.output_dir, "mutation_rates.tsv"), os.path.join(
                 self.output_dir, "{}.mutation".format(self.clade)))
@@ -64,18 +66,46 @@ class Phylophlan3Controller(PhylophlanController):
                 self.output_dir, "{}_mutation_rates".format(self.clade)))
         info("\tDone.")
         if self.treeshrink:
-            info("Executing TreeShrink...")
+            info("\tExecuting TreeShrink...")
             execute_treeshrink(os.path.join(self.output_dir, 'RAxML_bestTree.{}.StrainPhlAn4.tre'.format(
                 self.clade)), self.output_dir, tmp=tmp_dir, centroid=True if num_samples >= 100 else False)
-            info("Done.")
-            info('This StrainPhlAn analysis ran TreeShrink, do not forget to cite:')
-            info('Mai, Uyen, and Siavash Mirarab. 2018. “TreeShrink: Fast and Accurate Detection of Outlier Long Branches in Collections of Phylogenetic Trees.” BMC Genomics 19 (S5): 272. https://doi.org/10.1186/s12864-018-4620-2.')
+            info("\tDone.")
+            info('\tThis StrainPhlAn analysis ran TreeShrink, do not forget to cite:')
+            info('\tMai, Uyen, and Siavash Mirarab. 2018. “TreeShrink: Fast and Accurate Detection of Outlier Long'
+                 ' Branches in Collections of Phylogenetic Trees.” BMC Genomics 19 (S5): 272.'
+                 ' https://doi.org/10.1186/s12864-018-4620-2.')
+
+
+    def execute_phylophlan(self, samples_markers_dir, tmp_dir):
+        """
+        Executes PhyloPhlAn
+
+        Args:
+            samples_markers_dir:
+            tmp_dir:
+
+        Returns:
+
+        """
+        cmd = f'phylophlan' \
+              f' -i {samples_markers_dir} -o . --output_folder {self.output_dir} --nproc {self.nprocs}' \
+              f' --strainphlan --{self.phylophlan_mode} --data_folder {tmp_dir} -f {self.phylophlan_configuration}' \
+              f' -t n --diversity low --genome_extension fna --min_num_entries 1 --min_num_markers 1'
+
+        if self.phylophlan_params is not None:
+            cmd += " " + self.phylophlan_params
+        if self.mutation_rates:
+            cmd += " --mutation_rates"
+
+        r = run_command(cmd)
+        with open(os.path.join(tmp_dir, "phylophlan_log.stdout"), 'wb') as f:
+            f.write(r.stdout)
+        with open(os.path.join(tmp_dir, "phylophlan_log.stderr"), 'wb') as f:
+            f.write(r.stderr)
+
 
     def __init__(self, args):
         self.samples = args.samples
-        self.secondary_samples = args.secondary_samples
-        self.marker_in_n_samples = args.marker_in_n_samples
-        self.abs_n_samples_thres = args.abs_n_samples_thres
         self.phylophlan_mode = args.phylophlan_mode
         self.phylophlan_params = args.phylophlan_params
         self.phylophlan_configuration = args.phylophlan_configuration

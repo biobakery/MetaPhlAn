@@ -29,11 +29,13 @@ def init_terminating(terminating_):
     global terminating
     terminating = terminating_
 
+
 def parallel_execution(arguments):
-    """Executes each parallelised call of a function
+    """
+    Executes each parallelized call of a function
 
     Args:
-        arguments ((Callable, *Any)): tuple with the function and its arguments
+        arguments (Tuple[Callable, *Any]): tuple with the function and its arguments
 
     Returns:
         function: the call to the function
@@ -50,7 +52,8 @@ def parallel_execution(arguments):
 
 
 def execute_pool(args, nprocs):
-    """Creates a pool for a parallelised function and returns the results of each execution as a list
+    """
+    Creates a pool for a parallelized function and returns the results of each execution as a list
 
     Args:
         args (Iterable[tuple]): tuple with the function and its arguments
@@ -60,7 +63,7 @@ def execute_pool(args, nprocs):
         list: the list with the results of the parallel executions
     """
     args = list(args)
-    if nprocs == 1 or len(args) == 1:  # no need to initialize pool
+    if nprocs == 1 or len(args) <= 1:  # no need to initialize pool
         return [function(*a) for function, *a in args]
     else:
         terminating = Event()
