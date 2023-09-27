@@ -90,7 +90,8 @@ class Phylophlan3Controller(PhylophlanController):
         cmd = f'phylophlan' \
               f' -i {samples_markers_dir} -o . --output_folder {self.output_dir} --nproc {self.nprocs}' \
               f' --strainphlan --{self.phylophlan_mode} --data_folder {tmp_dir} -f {self.phylophlan_configuration}' \
-              f' -t n --diversity low --genome_extension fna --min_num_entries 1 --min_num_markers 1'
+              f' -t n --diversity low --genome_extension fna --min_num_entries 1 --min_num_markers 1' \
+              f' --fragmentary_threshold 1.0 --not_variant_threshold 1.0 --gap_perc_threshold 0.8'
 
         if self.phylophlan_params is not None:
             cmd += " " + self.phylophlan_params
