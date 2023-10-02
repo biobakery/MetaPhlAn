@@ -305,7 +305,7 @@ class SampleToMarkers:
     def filter_sam_files(self):
         """Filters the input SAM files with the hits against markers of specific clades and low quality reads"""
         filtered_markers = self.database_controller.get_filtered_markers(self.clades) if len(self.clades) > 0 else None
-        all_markers = set(self.database_controller.get_markers())
+        all_markers = set(self.database_controller.get_all_markers())
         self.input = execute_pool(((SampleToMarkers.parallel_filter_sam, i, self.tmp_dir, self.input_format,
                                     self.min_mapping_quality, self.min_reads_aligning, filtered_markers, all_markers)
                                    for i in self.input), self.nprocs)

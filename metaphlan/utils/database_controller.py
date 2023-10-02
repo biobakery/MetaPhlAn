@@ -27,6 +27,7 @@ class MetaphlanDatabaseController:
             if verbose:
                 info('Done.')
 
+
     def get_database_name(self):
         """Gets database name
 
@@ -35,16 +36,33 @@ class MetaphlanDatabaseController:
         """
         return self.database.split('/')[-1][:-4]
 
+
     def get_markers2species(self):
         """Retrieve information from the MetaPhlAn database
 
         Returns:
-            dict: the dictionary assigning markers to clades
+            dict[str, str]: the dictionary assigning markers to clades
         """
         self.load_database()
         return {marker_name: marker_info['clade'] for marker_name, marker_info in self.database_pkl['markers'].items()}
 
-    def get_markers(self):
+
+    def get_markers_for_clade(self, clade):
+        """
+
+        Args:
+            clade (str):
+
+        Returns:
+            set: marker names for the given clade
+
+        """
+        self.load_database()
+        return set(marker_name for marker_name, marker_info in self.database_pkl['markers'].items()
+                   if marker_info['clade'] == clade)
+
+
+    def get_all_markers(self):
         self.load_database()
         return list(self.database_pkl['markers'].keys())
 
