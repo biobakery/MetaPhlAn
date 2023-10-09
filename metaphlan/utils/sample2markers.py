@@ -41,6 +41,7 @@ class SampleToMarkers:
     """SampleToMarkers class"""
 
     class DEFAULTS:
+        min_reads_aligning = 8
         depth_avg_q = 0.2
         quasi_marker_frac = 0.33
         min_breadth = 80
@@ -289,13 +290,14 @@ class SampleToMarkers:
         with open(output_file, 'wb') as ofn:
             for line in ifn:
                 line_fields = line.rstrip(b'\n').split(b'\t')
-                if line.startswith(b'@HD'):
-                    ofn.write(line)
-                elif line.startswith(b'@'):
-                    marker = line_fields[1].split(b':')[1].decode()
+                if line.startswith(b'@SQ'):
+                    assert line_fields[1].startswith(b'SN:')  # in bowtie2 output SN is always the first tag
+                    marker = line_fields[1][3:].decode()
                     if marker in selected_markers:
                         ofn.write(line)
-                else:
+                elif line.startswith(b'@'):  # other header lines like @HD and @PG
+                    ofn.write(line)
+                else:  # mapping lines
                     if filter_mapping_line(line_fields, selected_markers):
                         ofn.write(line)
 
@@ -372,7 +374,7 @@ def read_params():
                    help="Restricts the reconstruction of the markers to the specified clades")
     p.add_argument('-f', '--input_format', type=str, default="bz2", help="The input samples format {bam, sam, bz2}")
     p.add_argument('--sorted', action='store_true', default=False, help="Whether the BAM input files are sorted")
-    p.add_argument('--min_reads_aligning', type=int, default=8, help="The minimum number of reads to cover a marker")
+    p.add_argument('--min_reads_aligning', type=int, default=SampleToMarkers.DEFAULTS.min_reads_aligning, help="The minimum number of reads to cover a marker")
     p.add_argument('--min_base_coverage', type=int, default=SampleToMarkers.DEFAULTS.min_base_coverage,
                    help="The minimum depth of coverage for a base to be considered")
     p.add_argument('--min_base_quality', type=int, default=SampleToMarkers.DEFAULTS.min_base_quality,
