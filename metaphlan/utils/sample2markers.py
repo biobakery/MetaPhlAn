@@ -200,7 +200,7 @@ class SampleToMarkers:
             list[ConsensusMarker]:
         """
         markers2ext = self.database_controller.get_markers2ext()
-        markers2clade = self.database_controller.get_markers2species()
+        markers2clade = self.database_controller.get_markers2clade()
         clade2nmarkers = Counter(markers2clade.values())
 
         markers_all = list(consensuses.keys())

@@ -6,6 +6,8 @@ __date__ = '23 Aug 2023'
 import os
 import pickle
 import bz2
+
+import pandas as pd
 from Bio import SeqIO
 try:
     from .external_exec import generate_markers_fasta
@@ -37,7 +39,7 @@ class MetaphlanDatabaseController:
         return self.database.split('/')[-1][:-4]
 
 
-    def get_markers2species(self):
+    def get_markers2clade(self):
         """Retrieve information from the MetaPhlAn database
 
         Returns:
@@ -45,6 +47,12 @@ class MetaphlanDatabaseController:
         """
         self.load_database()
         return {marker_name: marker_info['clade'] for marker_name, marker_info in self.database_pkl['markers'].items()}
+
+
+    def get_clade2markers(self):
+        markers2clade = self.get_markers2clade()
+        markers2clade = pd.Series(markers2clade)
+        return markers2clade.groupby(markers2clade).groups
 
 
     def get_markers_for_clade(self, clade):
