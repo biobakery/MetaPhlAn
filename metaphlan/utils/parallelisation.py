@@ -7,7 +7,8 @@ __version__ = '4.1.0'
 __date__ = '23 Aug 2023'
 
 
-from typing import Iterable, Callable, Any
+from typing import Iterable
+import itertools as it
 
 try:
     from .util_fun import error
@@ -51,25 +52,45 @@ def parallel_execution(arguments):
         terminating.set()
 
 
-def execute_pool(args, nprocs):
+def iterator_shorter_than(i, ln):
+    try:
+        for _ in range(ln):
+            next(i)
+    except StopIteration:
+        return True
+    return False
+
+
+def execute_pool_iter(args, nprocs):
+    try:
+        terminating = Event()
+        with Pool(initializer=init_terminating, initargs=(terminating,), processes=nprocs) as pool:
+            for r in pool.imap_unordered(parallel_execution, args, chunksize=CHUNKSIZE):
+                yield r
+    except Exception as e:
+        error('Parallel execution fails: {}'.format(e), exit=False)
+        raise e
+
+
+def execute_pool(args, nprocs, return_generator=False):
     """
     Creates a pool for a parallelized function and returns the results of each execution as a list
 
     Args:
         args (Iterable[tuple]): tuple with the function and its arguments
         nprocs (int): number of procs to use
+        return_generator (bool): Whether to return a non-blocking generator instead of list
 
     Returns:
         list: the list with the results of the parallel executions
     """
-    args = list(args)
-    if nprocs == 1 or len(args) <= 1:  # no need to initialize pool
-        return [function(*a) for function, *a in args]
+    args, args_tmp = it.tee(args)  # duplicate the iterator not to consume it
+    if nprocs == 1 or iterator_shorter_than(args_tmp, 2):  # no need to initialize pool
+        gen = (function(*a) for function, *a in args)
     else:
-        terminating = Event()
-        with Pool(initializer=init_terminating, initargs=(terminating,), processes=nprocs) as pool:
-            try:
-                return [_ for _ in pool.imap_unordered(parallel_execution, args, chunksize=CHUNKSIZE)]
-            except Exception as e:
-                error('Parallel execution fails: {}'.format(e), exit=False)
-                raise e
+        gen = execute_pool_iter(args, nprocs)
+        
+    if return_generator:
+        return gen
+    else:
+        return list(gen)

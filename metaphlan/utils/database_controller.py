@@ -159,9 +159,6 @@ class MetaphlanDatabaseController:
     def resolve_index(self):
         """Resolves the name to the MPA database
 
-        Args:
-            database (str): the name or path of the database
-
         Returns:
             str: the resolved name to the database
         """
@@ -180,7 +177,7 @@ class MetaphlanDatabaseController:
 
     def __init__(self, database, bowtie2db=None):
         self.mpa_script_folder = os.path.dirname(os.path.abspath(__file__))
-        if bowtie2db == None:
+        if bowtie2db is None:
             self.default_db_folder = os.path.join(
                 self.mpa_script_folder, "..", "metaphlan_databases")
             self.default_db_folder = os.environ.get(

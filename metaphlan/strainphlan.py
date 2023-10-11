@@ -25,10 +25,8 @@ from Bio import SeqIO, Seq
 
 try:
     from .utils import *
-    from .utils.external_exec import run_command
 except ImportError:
     from utils import *
-    from utils.external_exec import run_command
 
 
 class Strainphlan:
@@ -50,9 +48,8 @@ class Strainphlan:
             list: the list containing the samples-to-markers information
         """
 
-        markers_matrix = execute_pool(((Strainphlan.get_matrix_for_sample, sample, self.clade_markers_names,
-                                        self.breadth_thres) for sample in self.samples), self.nprocs)
-        return markers_matrix
+        return execute_pool(((Strainphlan.get_matrix_for_sample, sample, self.clade_markers_names,
+                              self.breadth_thres) for sample in self.samples), self.nprocs)
 
 
     @staticmethod
@@ -216,7 +213,8 @@ class Strainphlan:
 
         consensus_markers = ConsensusMarkers([ConsensusMarker(m, s) for m, s in ext_markers.items()])
         reference_name = cls.sample_path_to_name(reference_file)
-        consensus_markers.to_fasta(os.path.join(reference_markers_dir, f'{reference_name}.fna.bz2'), trim_ends=trim_sequences)
+        consensus_markers.to_fasta(os.path.join(reference_markers_dir, f'{reference_name}.fna.bz2'),
+                                   trim_ends=trim_sequences)
 
         markers_matrix = {'sample': reference_file}
         markers_matrix.update({m: int(m in ext_markers) for m in clade_markers})
@@ -236,7 +234,7 @@ class Strainphlan:
 
         """
         # load the raw fasta data
-        with util_fun.openrt(reference_file) as f:
+        with openrt(reference_file) as f:
             input_file_data = f.read()
 
         # parse the fasta
@@ -329,27 +327,28 @@ class Strainphlan:
         filtered_names = [self.sample_path_to_name(sample) for sample in markers_matrix.index]
         with open(os.path.join(self.output_dir, "{}.info".format(self.clade)), 'w') as info_file:
             info_file.write("Clade: {}\n".format(self.clade))
-            info_file.write(
-                "Number of samples: {}\n".format(len(self.samples)))
-            info_file.write(
-                "Number of references: {}\n".format(len(self.references)))
+            info_file.write("Number of samples: {}\n".format(len(self.samples)))
+            info_file.write("Number of references: {}\n".format(len(self.references)))
             info_file.write("Number of available markers for the clade: {}\n".format(len(self.clade_markers_names)))
             info_file.write("Filtering parameters:\n")
-            info_file.write("\tNumber of bases to remove when trimming markers: {}\n".format(
-                self.trim_sequences))
-            info_file.write(f"\tMinimum number of markers to make a sample primary: {self.sample_with_n_markers}\n")
-            info_file.write(f"\tMinimum percentage of markers to make a sample primary: {self.sample_with_n_markers_perc}\n")
-            info_file.write(f"\tMinimum number of markers to keep a sample after filtering: {self.sample_with_n_markers_after_filt}\n")
-            info_file.write(f"\tMinimum percentage of markers to keep a sample after filtering: {self.sample_with_n_markers_after_filt_perc}\n")
+            info_file.write("\tNumber of bases to remove when trimming markers: {}\n".format(self.trim_sequences))
+            info_file.write(f"\tMinimum number of markers to make a sample primary: "
+                            f"{self.sample_with_n_markers}\n")
+            info_file.write(f"\tMinimum percentage of markers to make a sample primary: "
+                            f"{self.sample_with_n_markers_perc}\n")
+            info_file.write(f"\tMinimum number of markers to keep a sample after filtering: "
+                            f"{self.sample_with_n_markers_after_filt}\n")
+            info_file.write(f"\tMinimum percentage of markers to keep a sample after filtering: "
+                            f"{self.sample_with_n_markers_after_filt_perc}\n")
             info_file.write(f"\tMinimum percentage of samples to keep a marker: {self.marker_in_n_samples_perc}\n")
             info_file.write("Number of markers selected after filtering: {}\n".format(len(markers_matrix.columns)))
-            info_file.write("Number of samples after filtering: {}\n".format(len(
-                [sample for sample in self.samples if sample in markers_matrix.index])))
-            info_file.write("Number of references after filtering: {}\n".format(len([reference for reference in self.references if self.sample_path_to_name(reference) in filtered_names])))
-            info_file.write(
-                "PhyloPhlan phylogenetic precision mode: {}\n".format(self.phylophlan_mode))
-            info_file.write(
-                "Number of processes used: {}\n".format(self.nprocs))
+            n_samples = len([sample for sample in self.samples if sample in markers_matrix.index])
+            info_file.write("Number of samples after filtering: {}\n".format(n_samples))
+            n_refs = len([reference for reference in self.references
+                          if self.sample_path_to_name(reference) in filtered_names])
+            info_file.write("Number of references after filtering: {}\n".format(n_refs))
+            info_file.write("PhyloPhlan phylogenetic precision mode: {}\n".format(self.phylophlan_mode))
+            info_file.write("Number of processes used: {}\n".format(self.nprocs))
 
 
     def detect_clades(self):
@@ -363,7 +362,8 @@ class Strainphlan:
         sample2markers = {}
         clades_to_check = set()
         info('Processing samples...')
-        consensus_markers = execute_pool([(ConsensusMarkers.from_file, sample_path) for sample_path in self.samples], nprocs=self.nprocs)
+        consensus_markers = execute_pool(((ConsensusMarkers.from_file, sample_path) for sample_path in self.samples),
+                                         nprocs=self.nprocs, return_generator=True)
         for sample_path, cm in zip(self.samples, consensus_markers):
             markers = [marker.name for marker in cm.consensus_markers
                        if (marker.name in markers2clade and marker.breadth >= self.breadth_thres)]
@@ -371,7 +371,8 @@ class Strainphlan:
             clades_to_check.update((markers2clade[m] for m in markers))
 
         info('Constructing the big marker matrix')
-        markers_matrix_big = [pd.Series({m: 1 for m in markers}, name=sample) for sample, markers in sample2markers.items()]
+        markers_matrix_big = [pd.Series({m: 1 for m in markers}, name=sample)
+                              for sample, markers in sample2markers.items()]
         markers_matrix_big = pd.concat(markers_matrix_big, axis=1).fillna(0)
 
         info(f'Checking {len(clades_to_check)} species')
@@ -405,8 +406,7 @@ class Strainphlan:
             info("The clade has been specified at the species level, starting interactive clade selection...")
         species2sgbs = self.database_controller.get_species2sgbs()
         if self.clade not in species2sgbs:
-            error('The specified species "{}" is not present in the database. Exiting...'.format(
-                self.clade), exit=True)
+            error('The specified species "{}" is not present in the database. Exiting...'.format(self.clade), exit=True)
         sgbs_in_species = dict(sorted(
             species2sgbs[self.clade].items(), key=lambda item: item[1], reverse=True))
         if self.non_interactive or len(sgbs_in_species) == 1:
@@ -455,7 +455,8 @@ class Strainphlan:
             markers_matrix += self.get_markers_from_references()
             info("Done.")
         info("Removing markers / samples...")
-        markers_matrix = pd.DataFrame.from_records(markers_matrix, index='sample')  # df with index samples and columns markers
+        # df with index samples and columns markers
+        markers_matrix = pd.DataFrame.from_records(markers_matrix, index='sample')
         markers_matrix_filtered = self.filter_markers_matrix(markers_matrix, messages=True)
         info("Done.")
 
@@ -626,8 +627,8 @@ def main():
     strainphlan_runner = Strainphlan(args)
     strainphlan_runner.run_strainphlan()
     exec_time = time.time() - t0
-    info("Finish StrainPhlAn {} execution ({} seconds): Results are stored at \"{}\"".format(
-        __version__, round(exec_time, 2), args.output_dir))
+    info("Finish StrainPhlAn {} execution ({} seconds): Results are stored at "
+         "\"{}\"".format(__version__, round(exec_time, 2), args.output_dir))
 
 
 if __name__ == '__main__':

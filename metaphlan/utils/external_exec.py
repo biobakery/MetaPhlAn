@@ -228,6 +228,7 @@ def compose_command(params, check=False, input_file=None, database=None, output_
             environment.update(new_environment)
 
     # find string sourrunded with " and make them as one string
+    # TODO: we should use shlex.split for this or drop this ugly function altogether (Michal)
     quotes = [j for j, e in enumerate(command_line) if e == '"']
 
     for s, e in zip(quotes[0::2], quotes[1::2]):
@@ -255,13 +256,14 @@ def run_command(cmd, shell=False, **kwargs):
     else:
         cmd_s = cmd
 
-    r = sb.run(cmd_s, capture_output=True, **kwargs)
+    r = sb.run(cmd_s, shell=shell, capture_output=True, **kwargs)
 
     if r.returncode != 0:
         stdout = r.stdout
         stderr = r.stderr
-        if 'text' not in kwargs or not kwargs['text']:
+        if isinstance(stdout, bytes):
             stdout = stdout.decode()
+        if isinstance(stderr, bytes):
             stderr = stderr.decode()
         error('Execution failed for command', cmd)
         print('stdout: ')

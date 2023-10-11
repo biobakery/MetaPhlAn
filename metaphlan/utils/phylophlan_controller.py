@@ -54,8 +54,7 @@ class Phylophlan3Controller(PhylophlanController):
         """
         if not self.phylophlan_configuration:
             info("\tGenerating PhyloPhlAn configuration file...")
-            self.phylophlan_configuration = generate_phylophlan_config_file(
-                tmp_dir, self.get_phylophlan_configuration())
+            self.phylophlan_configuration = generate_phylophlan_config_file(tmp_dir, self.get_phylophlan_configuration())
             info("\tDone.")
         info("\tExecuting PhyloPhlAn...")
         self.execute_phylophlan(samples_markers_dir, tmp_dir)

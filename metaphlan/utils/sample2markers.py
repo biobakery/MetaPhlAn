@@ -25,13 +25,13 @@ import scipy.stats as sps
 
 try:
     from .external_exec import samtools_sam_to_bam, samtools_sort_bam_v1, decompress_bz2
-    from .util_fun import info, error
+    from .util_fun import info, error, warning
     from .parallelisation import execute_pool
     from .database_controller import MetaphlanDatabaseController
     from .consensus_markers import ConsensusMarker, ConsensusMarkers
 except ImportError:
     from external_exec import samtools_sam_to_bam, samtools_sort_bam_v1, decompress_bz2
-    from util_fun import info, error
+    from util_fun import info, error, warning
     from parallelisation import execute_pool
     from database_controller import MetaphlanDatabaseController
     from consensus_markers import ConsensusMarker, ConsensusMarkers
@@ -45,13 +45,18 @@ class SampleToMarkers:
         depth_avg_q = 0.2
         quasi_marker_frac = 0.33
         min_breadth = 80
-        pileup_stepper = 'nofilter'
-        poly_error_rate = 0.001
         min_base_coverage = 1
         min_base_quality = 30
         min_mapping_quality = 10
         poly_dominant_frq_thrsh = 0.8
+
+    class CONSTANTS:
+        """Settings not modifiable through arguments"""
+        allowed_bases = set(list('ACTGactg'))
+        pileup_stepper = 'nofilter'
+        poly_error_rate = 0.001
         poly_pvalue_threshold = 0.05
+
 
     def decompress_from_bz2(self):
         """ Decompressed SAM.BZ2 files
@@ -59,8 +64,8 @@ class SampleToMarkers:
         Returns:
             (list, str): tuple with the list of decompressed files and their format
         """
-        results = execute_pool(
-            ((SampleToMarkers.decompress_bz2_file, i, self.tmp_dir) for i in self.input), self.nprocs)
+        results = execute_pool(((SampleToMarkers.decompress_bz2_file, i, self.tmp_dir)
+                                for i in self.input), self.nprocs)
         decompressed = [r[0] for r in results]
         decompressed_format = [r[1] for r in results]
         if decompressed_format[1:] == decompressed_format[:-1]:
@@ -95,17 +100,14 @@ class SampleToMarkers:
             info("\tDone.")
         if self.input_format.lower() == "sam":
             info("\tConverting samples to BAM format...")
-            self.input = execute_pool(
-                ((samtools_sam_to_bam, i, self.tmp_dir) for i in self.input), self.nprocs)
+            self.input = execute_pool(((samtools_sam_to_bam, i, self.tmp_dir) for i in self.input), self.nprocs)
             info("\tDone.")
             info("\tSorting BAM samples...")
-            self.input = execute_pool(
-                ((samtools_sort_bam_v1, i, self.tmp_dir) for i in self.input), self.nprocs)
+            self.input = execute_pool(((samtools_sort_bam_v1, i, self.tmp_dir) for i in self.input), self.nprocs)
             info("\tDone.")
         elif not self.sorted:
             info("\tSorting BAM samples...")
-            self.input = execute_pool(
-                ((samtools_sort_bam_v1, i, self.tmp_dir) for i in self.input), self.nprocs)
+            self.input = execute_pool(((samtools_sort_bam_v1, i, self.tmp_dir) for i in self.input), self.nprocs)
             info("\tDone.")
 
         info('\tIndexing BAM samples...')
@@ -122,6 +124,8 @@ class SampleToMarkers:
             info("\tProcessing sample: {}".format(i))
             consensuses, coverages = self.get_consensuses_for_sample(i)
             consensuses_filtered = self.filter_consensuses(consensuses, coverages)
+            if len(consensuses_filtered) == 0:
+                warning(f'\t\tSkipping sample as it contains no markers after filtering')
 
             consensus_markers = ConsensusMarkers(consensuses_filtered, self.database_controller.get_database_name())
             output_filename = f'{os.path.splitext(os.path.basename(i))[0]}{filtered}.json.bz2'
@@ -130,30 +134,31 @@ class SampleToMarkers:
             info("\tDone.")
 
 
-    def get_consensuses_for_sample(self, input_bam, stepper=DEFAULTS.pileup_stepper,
-                                   error_rate=DEFAULTS.poly_error_rate,
-                                   poly_pvalue_threshold=DEFAULTS.poly_pvalue_threshold):
+    def get_consensuses_for_sample(self, input_bam):
         """Pileup on the specified BAM file
 
         Args:
             input_bam (str): the path to the input BAM file
-            stepper (str): stepper to use in the pileup
-            error_rate (float): the sequencing error rate
-            poly_pvalue_threshold (float): the p-value threshold to call polymorphic position
 
         Returns:
             tuple[dict[str, str], dict[str, np.ndarray[int]]]: the list with the marker names and consensus sequences
         """
 
+        stepper = SampleToMarkers.CONSTANTS.pileup_stepper
+        error_rate = SampleToMarkers.CONSTANTS.poly_error_rate
+        poly_pvalue_threshold = SampleToMarkers.CONSTANTS.poly_pvalue_threshold
+
         info('\t\tLoading the bam file and extracting information...')
-        sam_file = pysam.AlignmentFile(input_bam)
+        sam_file = pysam.AlignmentFile(input_bam, check_sq=False)
+        if not sam_file.references:
+            warning(f'\t\t\tSample {input_bam} has empty BAM file, skipping')
+            return {}, {}
+
 
         all_markers = sam_file.references
         marker_lengths = sam_file.lengths
         marker_to_length = dict(zip(all_markers, marker_lengths))
         info('\t\tDone.')
-
-        ACTGactg = set(list('ACTGactg'))
 
         info('\t\tRunning the pileup...')
         consensuses = {m: bytearray(b'-' * marker_to_length[m]) for m in all_markers}
@@ -161,7 +166,8 @@ class SampleToMarkers:
         for base_pileup in sam_file.pileup(contig=None, stepper=stepper, min_base_quality=self.min_base_quality):
             marker = base_pileup.reference_name
             pos = base_pileup.pos
-            bases = [b.upper() for b in base_pileup.get_query_sequences() if b in ACTGactg]
+            bases = [b.upper() for b in base_pileup.get_query_sequences()
+                     if b in SampleToMarkers.CONSTANTS.allowed_bases]
             base_coverage = len(bases)
 
             coverages[marker][pos] = base_coverage
@@ -235,7 +241,8 @@ class SampleToMarkers:
 
 
     @staticmethod
-    def parallel_filter_sam(input_file, tmp_dir, input_format, min_mapping_quality, min_reads_aligning, filtered_markers, all_markers):
+    def parallel_filter_sam(input_file, tmp_dir, input_format, min_mapping_quality, min_reads_aligning,
+                            filtered_markers, all_markers):
         """
         Filters an input SAM file
             * filters out viral markers (VDB)
@@ -327,8 +334,7 @@ class SampleToMarkers:
         self.convert_inputs()
         info("Done.")
         info("Getting consensus markers from samples...")
-        self.build_consensus_markers(
-            filtered='_filtered' if len(self.clades) > 0 else '')
+        self.build_consensus_markers(filtered='_filtered' if len(self.clades) > 0 else '')
         info("Done.")
         if not self.debug:
             info("Removing temporary files...")
@@ -374,7 +380,8 @@ def read_params():
                    help="Restricts the reconstruction of the markers to the specified clades")
     p.add_argument('-f', '--input_format', type=str, default="bz2", help="The input samples format {bam, sam, bz2}")
     p.add_argument('--sorted', action='store_true', default=False, help="Whether the BAM input files are sorted")
-    p.add_argument('--min_reads_aligning', type=int, default=SampleToMarkers.DEFAULTS.min_reads_aligning, help="The minimum number of reads to cover a marker")
+    p.add_argument('--min_reads_aligning', type=int, default=SampleToMarkers.DEFAULTS.min_reads_aligning,
+                   help="The minimum number of reads to cover a marker")
     p.add_argument('--min_base_coverage', type=int, default=SampleToMarkers.DEFAULTS.min_base_coverage,
                    help="The minimum depth of coverage for a base to be considered")
     p.add_argument('--min_base_quality', type=int, default=SampleToMarkers.DEFAULTS.min_base_quality,
@@ -388,12 +395,12 @@ def read_params():
     p.add_argument('--depth_avg_q', type=float, default=SampleToMarkers.DEFAULTS.depth_avg_q,
                    help="A quantile to cut from both ends of the coverage distributions to calculate robust average.")
     p.add_argument('--tmp', type=str, default=None,
-                   help="If specified, the directory where to store the temporal files. "
+                   help="If specified, the directory where to store the temporary files. "
                         "Otherwise the output directory will be used.")
     p.add_argument('-b', '--breadth_threshold', type=int, default=SampleToMarkers.DEFAULTS.min_breadth,
                    help="The breadth of coverage threshold for the consensus markers")
     p.add_argument('--debug', action='store_true', default=False,
-                   help="If specified, StrainPhlAn will not remove the temporal folder. "
+                   help="If specified, StrainPhlAn will not remove the temporary folder. "
                         "Not available with inputs in BAM format")
     p.add_argument('-n', '--nprocs', type=int, default=1, help="The number of threads to execute the script")
 
@@ -464,8 +471,8 @@ def main():
     sampletomarkers = SampleToMarkers(args)
     sampletomarkers.run_sample2markers()
     exec_time = time.time() - t0
-    info("Finish samples to markers execution ({} seconds): Results are stored at \"{}\"".format(
-        round(exec_time, 2), args.output_dir))
+    info("Finish samples to markers execution ({} seconds): Results are stored at "
+         "\"{}\"".format(round(exec_time, 2), args.output_dir))
 
 
 if __name__ == '__main__':
