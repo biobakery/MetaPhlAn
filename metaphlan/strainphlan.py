@@ -338,8 +338,9 @@ class Strainphlan:
     def calculate_polymorphic_rates(self):
         """Generates a file with the polymorphic rates of the species for each sample"""
         rows = []
-        for sample_path in self.samples:
-            sample = ConsensusMarkers.from_file(sample_path)
+        consensus_markers = execute_pool(((ConsensusMarkers.from_file, sample_path) for sample_path in self.samples),
+                                         nprocs=self.nprocs, return_generator=True)
+        for sample_path, sample in zip(self.samples, consensus_markers):
             p_stats, p_count, m_len = [], 0, 0
             for marker in sample.consensus_markers:
                 if marker.name in self.clade_markers_names:
