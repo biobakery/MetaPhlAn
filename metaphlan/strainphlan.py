@@ -307,8 +307,8 @@ class Strainphlan:
             df.loc[idx, 'ext_s'] = ext_s
 
         def segments_overlap(sa, sb):
-            """Intervals are open at the right, e.g. s = [s0, s1)"""
-            if sa[0] >= sb[1] or sb[0] >= sa[1]:
+            """Intervals are closed, i.e. s = [s0, s1]"""
+            if sa[0] > sb[1] or sb[0] > sa[1]:
                 return False
             return True
 
@@ -328,9 +328,8 @@ class Strainphlan:
                 covered_regions.append(reg)
                 assert all('-' in [a, b] for a, b in zip(ext_s, row['ext_s']))  # make sure they really don't overlap
                 ext_s = [a if b == '-' else b for a, b in zip(ext_s, row['ext_s'])]
-            ext_s = ''.join(ext_s)
 
-            ext_markers[query] = ext_s
+            ext_markers[query] = ''.join(ext_s)
 
         return ext_markers
 
