@@ -12,7 +12,7 @@ import time
 import bz2
 import re
 import os
-from glob import glob
+from glob import glob, iglob
 import sys
 import stat
 import random
@@ -20,6 +20,9 @@ import tempfile
 import argparse as ap
 import subprocess as subp
 import numpy as np 
+import hashlib
+import urllib.request
+import tarfile
 from collections import defaultdict as defdict
 try:
     from .utils import *
@@ -338,6 +341,285 @@ class MappingController:
     def __init__(self):
         pass
     
+class MetaphlanDatabaseController(): #here should be a function to prepare running the download and actual doqload
+    """MetaphlanDatabaseController class"""
+    def prepare_bwt_indexes(self):
+        """Prepare for building BowTie indexes"""
+        if not glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+            self.build_bwt_indexes()
+        else:
+            try:
+                subp.check_call(['bowtie2-inspect', '-n', os.path.join(self.bowtie2db, self.index)], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
+            except Exception as e:
+                sys.stderr.write('Downloaded indexes are not compatible with the installed version of Bowtie2\n')
+                sys.stderr.write('Building indexes from the FASTA files\n')
+                for btw_file in iglob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+                    os.remove(btw_file)
+                self.build_bwt_indexes()
+        try:
+            for bt2 in glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+                os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
+        except PermissionError as e:
+            sys.stderr.write('Cannot change permission for {}. Make sure the files are readable.'.format(os.path.join(self.bowtie2db, self.self.index + "*.bt2l")))
+        
+        #remove all the individual FASTA files but ViralDB
+        sys.stderr.write('Removing uncompressed databases\n')
+        for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
+            if not fna_file.endswith('_VSG.fna'):
+                os.remove(fna_file)
+
+
+    def build_bwt_indexes(self):
+        """Build BowTie indexes"""
+        sys.stderr.write('\n\nJoining FASTA databases\n')
+        with open(os.path.join(self.bowtie2db, self.index + ".fna"), 'w') as fna_h:
+            for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
+                with open(fna_file, 'r') as fna_r:
+                    for line in fna_r:
+                        fna_h.write(line)
+        fna_file = os.path.join(self.bowtie2db, self.index + ".fna")
+        
+        bt2_base = os.path.join(self.bowtie2db, self.index)
+        bt2_cmd = [self.bowtie2_build, '--quiet']
+
+        if self.nproc > 1:
+            bt2_build_output = subp.check_output([self.bowtie2_build, '--usage'], stderr=subp.STDOUT)
+
+            if 'threads' in str(bt2_build_output):
+                bt2_cmd += ['--threads', str(self.nproc)]
+
+        bt2_cmd += ['-f', fna_file, bt2_base]
+
+        sys.stderr.write('\nBuilding Bowtie2 indexes\n')
+
+        try:
+            subp.check_call(bt2_cmd)
+        except Exception as e:
+            sys.stderr.write("Fatal error running '{}'\nError message: '{}'\n\n".format(' '.join(bt2_cmd), e))
+            sys.exit(1)
+
+
+    def report(self, blocknum, block_size, total_size):
+        """Print download progress message"""
+        if blocknum == 0:
+            self.start_time = time.time()
+            if total_size > 0:
+                sys.stderr.write("Downloading file of size: {:.2f} MB\n"
+                                 .format(byte_to_megabyte(total_size)))
+        else:
+            total_downloaded = blocknum * block_size
+            status = "{:3.2f} MB ".format(byte_to_megabyte(total_downloaded))
+
+            if total_size > 0:
+                percent_downloaded = total_downloaded * 100.0 / total_size
+                # use carriage return plus sys.stderr to overwrite stderr
+                download_rate = total_downloaded / (time.time() - self.start_time)
+                estimated_time = (total_size - total_downloaded) / download_rate
+                estimated_minutes = int(estimated_time / 60.0)
+                estimated_seconds = estimated_time - estimated_minutes * 60.0
+                status += ("{:3.2f} %  {:5.2f} MB/sec {:2.0f} min {:2.0f} sec "
+                           .format(percent_downloaded,
+                                   byte_to_megabyte(download_rate),
+                                   estimated_minutes, estimated_seconds))
+
+            status += "        \r"
+            sys.stderr.write(status)
+
+
+    def calculate_md5(self, file_path, md5):
+        """Calculate md5 of .tar.bz2 and read md5"""
+        if os.path.isfile(file_path):
+            # read md5
+            if md5:
+                with open(file_path) as f:
+                    for row in f:
+                        md5_md5 = row.strip().split(' ')[0]
+                        return md5_md5
+            # calculate md5 of .tar.bz2
+            else:
+                hash_md5 = hashlib.md5()
+                with open(file_path, "rb") as f:
+                    for chunk in iter(lambda: f.read(4096), b""):
+                        hash_md5.update(chunk)
+                return hash_md5.hexdigest()[:32]
+        else:
+            sys.stderr.write('File "{}" not found!\n'.format(file_path))
+
+
+    def download(self, url, download_file, force=False):
+        """Download a file from a url"""
+        if not os.path.isfile(download_file) or force:
+            try:
+                sys.stderr.write("\nDownloading " + url + "\n")
+                file, headers = urllib.request.urlretrieve(url, download_file,
+                                            reporthook=self.report)
+            except EnvironmentError:
+                sys.stderr.write("\nWarning: Unable to download " + url + "\n")
+        else:
+            sys.stderr.write("\nFile {} already present!\n".format(download_file))
+
+
+    def download_and_untar(self, download_file_name, folder, origin):
+        """Download a file and untar it"""
+        # local path of the tarfile and md5file
+        tar_file = os.path.join(folder, download_file_name + ".tar")
+        md5_file = os.path.join(folder, download_file_name + ".md5")
+        # download the list of all the files in the FPT    
+        url_tar_file = "{}/{}.tar".format(origin, download_file_name)
+        url_md5_file = "{}/{}.md5".format(origin, download_file_name)
+        # download tar and MD5 checksum
+        self.download(url_tar_file, tar_file)
+        self.download(url_md5_file, md5_file)
+
+        # compute MD5 of .tar.bz2
+        md5_md5 = self.calculate_md5(md5_file, md5 = True)
+        md5_tar = self.calculate_md5(tar_file, md5 = False)
+
+        if (md5_tar is None) or (md5_md5 is None):
+            sys.exit("MD5 checksums not found, something went wrong!")
+
+        # compare checksums
+        if md5_tar != md5_md5:
+            sys.exit("MD5 checksums do not correspond! If this happens again, you should remove the database files and "
+                     "rerun MetaPhlAn so they are re-downloaded")
+
+        # untar
+        try:
+            tarfile_handle = tarfile.open(tar_file)
+            tarfile_handle.extractall(path=folder)
+            tarfile_handle.close()
+            os.remove(tar_file)
+            os.remove(md5_file)
+        except EnvironmentError:
+            sys.stderr.write("Warning: Unable to extract {}.\n".format(tar_file))
+
+
+    def download_unpack_tar(self):
+        """Download the url to the file and decompress into the folder"""
+        # Create the folder if it does not already exist
+        if not os.path.isdir(self.bowtie2db):
+            try:
+                os.makedirs(self.bowtie2db)
+            except EnvironmentError:
+                sys.exit("ERROR: Unable to create folder for database install: " + self.bowtie2db)
+
+        # Check the directory permissions
+        if not os.access(self.bowtie2db, os.W_OK):
+            sys.exit("ERROR: The directory is not writeable: " + self.bowtie2db + ". "
+                    "Please modify the permissions.")
+            
+        sys.stderr.write('\n\Downloading and uncompressing indexes\n')
+        self.download_and_untar("{}_bt2".format(self.index), self.bowtie2db, os.path.join(DB_URL,"bowtie2_indexes"))
+        sys.stderr.write('\nDownloading and uncompressing additional files\n')
+        self.download_and_untar(self.index, self.bowtie2db, DB_URL)
+
+        # uncompress sequences
+        for bz2_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna.bz2")):
+            fna_file = bz2_file[:-4]
+
+            if not os.path.isfile(fna_file):
+                sys.stderr.write('\n\nDecompressing {} into {}\n'.format(bz2_file, fna_file))
+
+                with open(fna_file, 'wb') as fna_h, \
+                    bz2.BZ2File(bz2_file, 'rb') as bz2_h:
+                    for data in iter(lambda: bz2_h.read(100 * 1024), b''):
+                        fna_h.write(data)
+            os.remove(bz2_file)  
+
+
+    def check_and_install_database(self):
+        # Create the folder if it does not already exist
+        if not os.path.isdir(self.bowtie2db):
+            try:
+                os.makedirs(self.bowtie2db)
+            except EnvironmentError:
+                sys.exit("ERROR: Unable to create folder for database install: " + self.bowtie2db)
+
+        # database index already present locally
+        if self.index != 'latest' and len(glob(os.path.join(self.bowtie2db, "*{}*".format(self.index)))) >= 6 and not self.force_download:
+            return self.index
+
+        # check internet connection
+        try:
+            if not self.offline and urllib.request.urlopen(os.path.join(DB_URL,'mpa_latest')).getcode() != 200:
+                pass
+        except:
+            print('WARNING: It seems that you do not have Internet access.')
+            # if you do not have internet access
+            if os.path.exists(os.path.join(self.bowtie2db,'mpa_latest')):
+                print('WARNING: Cannot connect to the database server. The latest available local database will be used.')
+                with open(os.path.join(self.bowtie2db,'mpa_latest')) as mpa_latest:
+                    latest_db_version = [line.strip() for line in mpa_latest if not line.startswith('#')]
+            else:
+                print("""ERROR: Cannot find a local database. Please run MetaPhlAn using option "-x <database_name>".
+                You can download the MetaPhlAn database from \n {} 
+                    """.format(DB_URL))
+                sys.exit()
+
+        if not self.offline and os.path.exists(os.path.join(self.bowtie2db,'mpa_previous')):         
+            with open(os.path.join(self.bowtie2db,'mpa_previous')) as mpa_previous:
+                previous_db_version = ''.join([line.strip() for line in mpa_previous if not line.startswith('#')])
+            
+            if self.index != previous_db_version:
+                choice = ''
+                while choice.upper() not in ['Y','N']:
+                    choice = input('A newer version of the database ({}) is available. Do you want to download it and replace the current one ({})?\t[Y/N]'.format(self.index, previous_db_version))
+
+                if choice.upper() == 'N':
+                    os.rename(os.path.join(self.bowtie2db,'mpa_previous'),os.path.join(self.bowtie2db,'mpa_latest'))
+                    self.index = previous_db_version
+        
+        if len(glob(os.path.join(self.bowtie2db, "*{}*".format(self.index)))) >= 7 and not self.force_download:
+            return self.index
+        
+        if self.offline:
+            print("Database cannot be downloaded with the --offline option activated")
+            sys.exit()
+
+        sys.stderr.write("\nDownloading MetaPhlAn database\nPlease note due to "
+                    "the size this might take a few minutes\n")
+        # download
+        self.download_unpack_tar()
+        # install
+        self.prepare_bwt_indexes()
+      
+        sys.stderr.write("\nDownload complete\n")
+        
+        return self.index
+    
+
+    def resolve_index(self):
+        '''Find out what is the index of the latest mpa DB available online'''      
+        if self.index == 'latest':
+            if not self.offline:
+                if not os.path.exists(os.path.join(self.bowtie2db,'mpa_latest')):
+                    self.download(os.path.join(DB_URL,'mpa_latest'), os.path.join(self.bowtie2db,'mpa_latest'), force=True)
+                else:
+                    # if older than one year rename to mpa_previous and download a new mpa_latest
+                    ctime_latest_db = int(os.path.getctime(os.path.join(self.bowtie2db,'mpa_latest')))
+                    if int(time.time()) - ctime_latest_db > 31536000:         #1 year in epoch
+                        os.rename(os.path.join(self.bowtie2db,'mpa_latest'),os.path.join(self.bowtie2db,'mpa_previous'))
+                        self.download(os.path.join(DB_URL,'mpa_latest'), os.path.join(self.bowtie2db,'mpa_latest'), force=True)
+            else:
+                if not os.path.exists(os.path.join(self.bowtie2db,'mpa_latest')):
+                    print("Database cannot be downloaded with the --offline option activated")
+                    sys.exit() 
+
+            with open(os.path.join(self.bowtie2db,'mpa_latest')) as mpa_latest:
+                latest_db_version = [line.strip() for line in mpa_latest if not line.startswith('#')]
+            latest_db_version = ''.join(latest_db_version)
+            self.index = latest_db_version
+ 
+        return self.index
+    
+
+    def __init__(self, args):
+        self.index = args.index
+        self.bowtie2db = args.bowtie2db
+        self.nproc = args.nproc
+        self.force_download = args.force_download
+        self.offline = args.offline
+
 
 class Bowtie2Controller(MappingController):
     """Bowtie2Controller class"""
@@ -869,20 +1151,19 @@ class Metaphlan:
 
     def run_metaphlan(self):
         """Runs the MetaPhlAn pipeline"""        
-        #    pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'], pars['offline'])
         if self.install:
+            self.index=self.database_controller.check_and_install_database()
             info('The database has been installed', stderr=True, exit=True)
-        if self.input_type in ['fastq', 'fasta']:            
-            self.mapping_controller.run_mapping()        
-        self.parse_mapping()
-        self.metaphlan_analysis.report_results(self.tree, self.n_metagenome_reads, self.avg_read_length)
+        # if self.input_type in ['fastq', 'fasta']:            
+        #     self.mapping_controller.run_mapping()        
+        # self.parse_mapping()
+        # self.metaphlan_analysis.report_results(self.tree, self.n_metagenome_reads, self.avg_read_length)
 
 
     def __init__(self, args):
         self.verbose = args.verbose
-        self.database_controller = MetaphlanDatabaseController(
-            args.index, bowtie2db=args.bowtie2db)
-        self.database_controller.load_database(verbose=False)
+        self.database_controller = MetaphlanDatabaseController(args)
+        #self.database_controller.load_database(verbose=False)
         self.index = self.database_controller.resolve_index()
         #here should be the code choosing the mapping controller in the future
         self.mapping_controller = Bowtie2Controller(args, self.index)
@@ -911,7 +1192,7 @@ class Metaphlan:
 
 DEFAULT_DB_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "metaphlan_databases")
 DEFAULT_DB_FOLDER = os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
-
+DB_URL = 'http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases'
 
 def read_params():
     """ Reads and parses the command line arguments of the script
