@@ -61,18 +61,23 @@ def iterator_shorter_than(i, ln):
     return False
 
 
-def execute_pool_iter(args, nprocs):
+def execute_pool_iter(args, nprocs, ordered):
     try:
         terminating = Event()
         with Pool(initializer=init_terminating, initargs=(terminating,), processes=nprocs) as pool:
-            for r in pool.imap_unordered(parallel_execution, args, chunksize=CHUNKSIZE):
+            if ordered:
+                f = pool.imap
+            else:
+                f = pool.imap_unordered
+
+            for r in f(parallel_execution, args, chunksize=CHUNKSIZE):
                 yield r
     except Exception as e:
         error('Parallel execution fails: {}'.format(e), exit=False)
         raise e
 
 
-def execute_pool(args, nprocs, return_generator=False):
+def execute_pool(args, nprocs, return_generator=False, ordered=False):
     """
     Creates a pool for a parallelized function and returns the results of each execution as a list
 
@@ -80,6 +85,7 @@ def execute_pool(args, nprocs, return_generator=False):
         args (Iterable[tuple]): tuple with the function and its arguments
         nprocs (int): number of procs to use
         return_generator (bool): Whether to return a non-blocking generator instead of list
+        ordered (bool): Whether the returning results should be in the same order as the input arguments
 
     Returns:
         list: the list with the results of the parallel executions
@@ -88,7 +94,7 @@ def execute_pool(args, nprocs, return_generator=False):
     if nprocs == 1 or iterator_shorter_than(args_tmp, 2):  # no need to initialize pool
         gen = (function(*a) for function, *a in args)
     else:
-        gen = execute_pool_iter(args, nprocs)
+        gen = execute_pool_iter(args, nprocs, ordered)
         
     if return_generator:
         return gen

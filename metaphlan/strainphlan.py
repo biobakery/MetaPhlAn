@@ -291,20 +291,29 @@ class Strainphlan:
         input_seqs = {seq.id: seq for seq in SeqIO.parse(io.StringIO(input_file_data), 'fasta')}
 
         # we need the additional btop column
-        columns = 'qseqid sseqid pident length mismatch gapopen qstart qend qlen sstart send evalue bitscore btop'
-        cmd = f'blastn -query {clade_markers_file} -subject - -num_threads {1} -outfmt "6 {columns}"'
+        columns = 'qseqid sseqid pident length mismatch gapopen qstart qend qlen sstart send sstrand evalue bitscore btop'
+        blast_params = '-task megablast ' \
+                       '-word_size 28 ' \
+                       '-reward 1 -penalty -3 ' \
+                       '-gapopen 5 -gapextend 2 ' \
+                       '-perc_identity 90 -qcov_hsp_perc 10'
+        cmd = f'blastn -query {clade_markers_file} -subject - {blast_params} -num_threads {1} -outfmt "6 {columns}"'
 
         # run blastn and pass the raw data to stdin
         r = run_command(cmd, input=input_file_data, text=True)
 
         # load the blast output
         df = pd.read_csv(io.StringIO(r.stdout), sep='\t', names=columns.split(' '), dtype={'btop': str})
+        # df['qcov'] = (df['qend'] - df['qstart'] + 1) / df['qlen']
+        # df = df.query('qcov >= .1 and pident >= 90').copy()
+        df = df.sort_values('bitscore', ascending=False)
 
-        df['ext_s'] = ''
+        ext_ss = []
         for idx, row in df.iterrows():
             sseq = str(input_seqs[row['sseqid']].seq)
             ext_s = cls.extract_with_btop(sseq, **row[['btop', 'qstart', 'qend', 'qlen', 'sstart', 'send']])
-            df.loc[idx, 'ext_s'] = ext_s
+            ext_ss.append(ext_s)
+        df['ext_s'] = ext_ss
 
         def segments_overlap(sa, sb):
             """Intervals are closed, i.e. s = [s0, s1]"""
@@ -312,22 +321,51 @@ class Strainphlan:
                 return False
             return True
 
+        def segments_intersection(sa, sb):
+            return max(sa[0], sb[0]), min(sa[1], sb[1])
+
+        def segment_difference(sa, sb):
+            si = segments_intersection(sa, sb)
+            if si[0] > si[1]:
+                return sa
+            return (sa[0], sb[0] - 1) if sa[0] < sb[0] else (sb[1] + 1, sa[1])
+
         ext_markers = {}
         for query, idx in df.groupby('qseqid').groups.items():  # for each query/marker
             df_query = df.loc[idx]
-            best_ref = df_query.iloc[0]['sseqid']  # take the best hit and consider only that contig/reference
-            df_query = df_query.query(f'sseqid=="{best_ref}"')
+
+            # take the best hit and consider only that contig/reference and that strand
+            best_ref = df_query.iloc[0]['sseqid']
+            best_strand = df_query.iloc[0]['sstrand']
+            df_query = df_query.query(f'sseqid=="{best_ref}" and sstrand=="{best_strand}"')
+
             covered_regions = []
             ext_s = ['-'] * df_query.iloc[0]['qlen']
             for _, row in df_query.iterrows():
                 reg = (row['qstart'], row['qend'])
-                if any(segments_overlap(reg, cr) for cr in covered_regions):
+
+                # trim by already covered regions
+                for cr in covered_regions:
+                    reg = segment_difference(reg, cr)
+
+                if reg[0] > reg[1]:  # nothing left of the region
                     continue
 
-                # non-overlaping hit => expand
                 covered_regions.append(reg)
-                assert all('-' in [a, b] for a, b in zip(ext_s, row['ext_s']))  # make sure they really don't overlap
-                ext_s = [a if b == '-' else b for a, b in zip(ext_s, row['ext_s'])]
+
+                for i, b in enumerate(row['ext_s']):
+                    if i + 1 < reg[0] or i + 1 > reg[1]:
+                        continue
+                    assert ext_s[i] == '-'  # make sure the trimming works
+                    ext_s[i] = b
+
+                # if any(segments_overlap(reg, cr) for cr in covered_regions):
+                #     continue
+                #
+                # # non-overlaping hit => expand
+                # covered_regions.append(reg)
+                # assert all('-' in [a, b] for a, b in zip(ext_s, row['ext_s']))  # make sure they really don't overlap
+                # ext_s = [a if b == '-' else b for a, b in zip(ext_s, row['ext_s'])]
 
             ext_markers[query] = ''.join(ext_s)
 
@@ -338,10 +376,10 @@ class Strainphlan:
         """Generates a file with the polymorphic rates of the species for each sample"""
         rows = []
         consensus_markers = execute_pool(((ConsensusMarkers.from_file, sample_path) for sample_path in self.samples),
-                                         nprocs=self.nprocs, return_generator=True)
-        for sample_path, sample in zip(self.samples, consensus_markers):
+                                         nprocs=self.nprocs, return_generator=True, ordered=True)
+        for sample_path, cm in zip(self.samples, consensus_markers):
             p_stats, p_count, m_len = [], 0, 0
-            for marker in sample.consensus_markers:
+            for marker in cm.consensus_markers:
                 if marker.name in self.clade_markers_names:
                     p_count += marker.get_polymorphisms()
                     m_len += marker.get_sequence_length()
@@ -404,7 +442,7 @@ class Strainphlan:
         clades_to_check = set()
         info('Processing samples...')
         consensus_markers = execute_pool(((ConsensusMarkers.from_file, sample_path) for sample_path in self.samples),
-                                         nprocs=self.nprocs, return_generator=True)
+                                         nprocs=self.nprocs, return_generator=True, ordered=True)
         for sample_path, cm in zip(self.samples, consensus_markers):
             markers = [marker.name for marker in cm.consensus_markers
                        if (marker.name in markers2clade and marker.breadth >= self.breadth_thres)]
@@ -537,12 +575,29 @@ class Strainphlan:
             info("Done.")
 
 
+    @staticmethod
+    def get_input_samples(args_samples):
+        samples = []
+        for s in args_samples:
+            if os.path.isfile(s):
+                samples.append(s)
+            elif os.path.isdir(s):
+                dir_files = [os.path.join(s, f) for f in os.listdir(s)]
+                samples.extend([f for f in dir_files if os.path.isfile(f)])
+            elif not os.path.exists(s):
+                error(f'Sample file/folder {s} does not exist', exit=True)
+            else:
+                error(f'Neither file nor directory: {s}', exit=True)
+
+        return samples
+
+
     def __init__(self, args):
         self.clade_markers_names = None
         self.database_controller = MetaphlanDatabaseController(args.database)
         self.clade_markers_file = args.clade_markers
-        self.samples = args.samples
-        self.references = args.references
+        self.samples = Strainphlan.get_input_samples(args.samples)
+        self.references = Strainphlan.get_input_samples(args.references)
         self.clade = args.clade
         self.output_dir = args.output_dir
         self.trim_sequences = args.trim_sequences
@@ -659,7 +714,7 @@ def check_params(args):
     sample_names = [Strainphlan.sample_path_to_name(s) for s in args.samples]
     ref_names = [Strainphlan.sample_path_to_name(s) for s in args.references]
     if len(sample_names) + len(ref_names) != len(set(sample_names + ref_names)):
-        error('Some sample or reference names are duplicated')
+        error('Some sample or reference names are duplicated', exit=True)
 
 
 def main():
