@@ -64,7 +64,7 @@ def error(message, init_new_line=True, exit=False, exit_value=1):
         sys.stdout.write('\n')
 
     if exit:
-        sys.stderr.write('{}: Stop StrainPhlAn execution.\n'.format(
+        sys.stderr.write('{}: Stop execution.\n'.format(
             time.ctime(int(time.time()))))
         sys.exit(exit_value)
 
