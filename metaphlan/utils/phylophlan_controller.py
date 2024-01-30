@@ -34,7 +34,6 @@ class PhylophlanController(abc.ABC):
         configuration = {
             'map': 'blastn',
             'aligner': 'mafft',
-            'trim': 'trimal',
             'tree1': 'raxml'
         }
         return configuration

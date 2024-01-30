@@ -57,7 +57,7 @@ def generate_phylophlan_config_file(output_dir, configuration):
     conf_file = os.path.join(output_dir, "phylophlan.cfg")
     params = {
         "program_name": "phylophlan_write_config_file",
-        "params": "-d n --db_dna makeblastdb --map_dna {} --msa {} --trim {} --tree1 {}".format(configuration['map'], configuration['aligner'], configuration['trim'], configuration['tree1']),
+        "params": "-d n --db_dna makeblastdb --map_dna {} --msa {} --tree1 {}".format(configuration['map'], configuration['aligner'], configuration['tree1']),
         "output": "-o",
         "command_line": "#program_name# #output# #params#"
     }
@@ -265,11 +265,9 @@ def run_command(cmd, shell=False, **kwargs):
             stdout = stdout.decode()
         if isinstance(stderr, bytes):
             stderr = stderr.decode()
-        error('Execution failed for command', cmd)
-        print('stdout: ')
-        print(stdout)
-        print('stderr: ')
-        print(stderr)
+        error(f'Execution failed for command {cmd}', exit=False)
+        error(f'stdout:\n{stdout}', exit=False)
+        error(f'stderr:\n{stderr}', exit=False)
         error('Exiting', exit=True)
 
     return r
