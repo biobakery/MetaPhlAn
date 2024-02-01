@@ -368,6 +368,8 @@ class MetaphlanDatabaseController():
             if not fna_file.endswith('_VSG.fna'):
                 os.remove(fna_file)
 
+    def set_bowtie2db(self, value):
+        self.set_bowtie2db = value
 
     def build_bwt_indexes(self):
         """Build BowTie indexes"""
@@ -616,8 +618,218 @@ class MetaphlanDatabaseController():
         self.offline = args.offline
 
 
+
+class VSCController():
+
+    def extract_viral_mappings_line(self, o):
+        """"Extraction of reads mapping to viral markers"""
+        mCluster = o[2]
+        mGroup = o[2].split('|')[2].split('-')[0]
+                            
+        if (hex(int(o[1]) & 0x10) == '0x0'): #front read
+            rr=SeqRecord(Seq(o[9]),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
+        else:
+            rr=SeqRecord(Seq(o[9]).reverse_complement(),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
+
+        return mCluster, mGroup, rr
+    
+
+    def extract_viral_mappings(self):
+        """"Line by line extraction of reads mapping to viral markers"""
+        CREAD=[] 
+        if self.sam_input.endswith(".bz2"):
+            ras, ras_line, inpf = read_and_split, read_and_split_line, bz2.BZ2File(self.inp, "r")
+        else:
+            ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, open(self.inp)
+        
+        for line in inpf:
+            sam_line = ras_line(line)
+            if self.check_hq_mapping(sam_line): #redo this in case sam file?
+                if sam_line[2].startswith('VDB|'):
+                    mGroup, mCluster, rr = self.extract_viral_mappings_line(sam_line)
+                    self.marker_file.write(mGroup+'\t'+mCluster+'\n')
+                    CREAD.append(rr) 
+                    
+        inpf.close()                
+        SeqIO.write(CREAD,self.reads_file,'fastq')
+        self.marker_file.close()       
+
+
+    def process_mpa_mapping(self):
+        """From reads detected in the first bowtie2 run, extracts the reads/markers for a second bowtie2 run"""
+        self.extract_viral_mappings()
+        VSCs_markers = SeqIO.index(self.vsc_fna, "fasta")
+
+        with open(self.marker_file) as marker_file_to_remap:
+
+            allViralMarkers = {}
+            for vmarker in marker_file_to_remap:
+                group,marker = vmarker.strip().split()
+                if group not in allViralMarkers:
+                    allViralMarkers[group] = [marker]
+                else:
+                    allViralMarkers[group].append(marker)
+
+            selectedMarkers=[]
+            for grp,v in allViralMarkers.items():
+
+                cv=Counter(v)
+                if (len(cv) > 1):
+                    normalized_occurrencies=sorted([(mk,mk_occurrencies,len(VSCs_markers[mk].seq)) for (mk,mk_occurrencies) in cv.items()],key=lambda x: x[1]/x[2],reverse=True)
+                    topMarker= VSCs_markers[normalized_occurrencies[0][0]] #name of the viralGenome
+                else:
+                    topMarker=VSCs_markers[v[0]] # the only hitted viralGenome is the winning one
+
+                selectedMarkers.append(topMarker)
+
+            SeqIO.write(selectedMarkers, self.top_marker_file, 'fasta')
+
+
+    def vsc_parsing(self):
+        """Parsing of theoutput sam file from mapping viral markers to reads"""
+        try:
+            bamHandle = pysam.AlignmentFile(self.vscBamFile, "rb")
+        except Exception as e:
+            error('Error: "{}"\nCheck PySam is correctly working\n'.format(e), exit = True)
+
+        VSC_report=[]
+
+        for c, length in zip(bamHandle.references,bamHandle.lengths):
+            coverage_positions = {}
+            for pileupcolumn in bamHandle.pileup(c):
+                tCoverage = 0
+                for pileupread in pileupcolumn.pileups:
+                    if not pileupread.is_del and not pileupread.is_refskip \
+                            and pileupread.alignment.query_qualities[pileupread.query_position] >= 20 \
+                            and pileupread.alignment.query_sequence[pileupread.query_position].upper() in ('A','T','C','G'):
+                            tCoverage +=1
+                if tCoverage >= 1:
+                    coverage_positions[pileupcolumn.pos] = tCoverage
+            breadth = float(len(coverage_positions.keys()))/float(length)
+            if breadth > 0:
+                cvals=list(coverage_positions.values())
+                VSC_report.append({'M-Group/Cluster':c.split('|')[2].split('-')[0], 'genomeName':c, 'len':length, 'breadth_of_coverage':breadth, 'depth_of_coverage_mean': np.mean(cvals), 'depth_of_coverage_median': np.median(cvals)})
+        
+        if bamHandle:
+            bamHandle.close()
+
+        create_vsc_report(VSC_report)
+
+
+    def create_vsc_report(self, VSC_report):
+        """Create a report of the VSC that mapped"""
+        with open(self.vsc_out,'w') as outf:
+            outf.write('#{}\n'.format(self.mapping_controller.get_index()))
+            outf.write('#{}\n'.format(' '.join(sys.argv)))
+            outf.write('#SampleID\t{}\n'.format(self.mapping_controller.sample_id()))
+            vsc_out_df = pd.DataFrame.from_dict(VSC_report).query('breadth_of_coverage >= {}'.format(pars['vsc_breadth']))
+            vsc_info_df = pd.read_table(self.vsc_vinfo, sep='\t')
+            vsc_out_df = vsc_out_df.merge(vsc_info_df, on='M-Group/Cluster').sort_values(by='breadth_of_coverage', ascending=False).set_index('M-Group/Cluster')
+            vsc_out_df.to_csv(outf,sep='\t',na_rep='-')
+
+
+    def vsc_bowtie2(self):
+        """Run bowtie2 only on viral markers and interested reads"""
+        if not os.path.exists(self.marker_file) or not os.path.exists(self.reads_file):
+
+            error('Error:\nThere was an error in the VSCs file lookup.\n \
+                It may be that there are not enough reads to profile (not enough depth).\n \
+                Passing without reporting any virus.', init_new_line = True)
+            return []
+
+        if os.stat(self.marker_file).st_size == 0:
+            error('Warning:\nNo reads aligning to VSC markers in this file.', init_new_line = True)        
+            #return an empty list. MetaPhlAn will continue as normal, without VSCs
+            return []
+
+        # set parameters for bowtie mapping
+        self.mapping_controller.set_inp(self.reads_file)
+        self.mapping_controller.set_bowtie2db(self.top_marker_file)
+        self.mapping_controller.set_input_type('fasta')
+        self.mapping_controller.set_samout(self.vsc_out)
+        self.mapping_controller.set_bowtie2out(None)
+        self.mapping_controller.set_mapping_parameters(None)
+
+        try:
+            stv_command = ['samtools','view','-bS','-','-@',str(self.nproc)]
+            sts_command = ['samtools','sort','-','-@',str(self.nproc),'-o',self.vscBamFile]
+            sti_command = ['samtools','index',self.vscBamFile]
+
+            p3 = subp.Popen(sts_command, stdin=subp.PIPE)
+            p2 = subp.Popen(stv_command, stdin=subp.PIPE, stdout=p3.stdin)
+
+            p2.communicate()
+            p3.communicate()
+
+            #index
+            subp.check_call(sti_command)
+
+        except Exception as e:
+            error('Error: "{}"\nFatal error running BowTie2 for Viruses\n'.format(e), init_new_line = True, exit = True) 
+
+        if not os.path.exists(self.vscBamFile):
+            error('Error:\nUnable to create BAM FILE for viruses.', init_new_line = True, exit = True) 
+
+ 
+    
+    def vsc_analysis(self):
+        self.process_mpa_mapping()
+        self.mapping_controller.run_mapping()
+        self.vsc_parsing()
+
+
+    def __init__(self, args, mapping_controller, database_controller):
+        # parsing previous bowtie2out run
+        self.tmp_dir = tempfile.TemporaryDirectory(dir=args.tmp_dir).name
+        self.marker_file = os.path.join(self.tmp_dir,'v_markers.fa')
+        self.top_marker_file = os.path.join(self.tmp_dir,'v_top_markers.fa')
+        self.reads_file=  os.path.join(self.tmp_dir,'v_reads.fq')
+        self.sam_input = args.input_type if args.input_type == 'sam' else args.s 
+
+        #database  
+        self.bowtie2db = args.bowtie2db
+        self.vsc_fna = os.path.join(self.bowtie2db,"{}_VSG.fna".format(self.index))
+        self.vsc_vinfo = os.path.join(self.bowtie2db,"{}_VINFO.csv".format(self.index))
+  
+        # mapping 
+        self.vsc_out = args.vsc_out
+        self.vsc_breadth = args.vsc_breadth     
+        self.vscBamFile = os.path.join(self.tmp_dir,'v_align.bam') 
+        self.mapping_controller = mapping_controller
+        self.database_controller = database_controller
+
+
+
 class Bowtie2Controller(MappingController):
     """Bowtie2Controller class"""
+
+    def set_inp(self, value):
+        self.inp = value
+
+    def set_bowtie2db(self, value):
+        self.bowtie2db = value
+
+    def set_input_type(self, value):
+        self.input_type = value    
+    
+    def set_samout(self, value):
+        self.samout = value
+
+    def set_bowtie2out(self, value):
+        self.bowtie2out = value 
+    
+    def set_mapping_parameters(self, value):
+        self.min_alignment_len = value 
+        self.nreads = value 
+        self.min_mapq_val = value 
+        self.no_map = value 
+
+    def get_index(self):
+        return self.index
+    
+    def get_sample_id(self):
+        return self.sample_id
+
     def check_bowtie2_database(self):
         """Checks the presence and consistency of the Bowtie2 database"""
         if glob(os.path.join(self.bowtie2db, "{}*.{}".format(self.index, 'bt2l'))):
@@ -634,15 +846,15 @@ class Bowtie2Controller(MappingController):
             error('Partial MetaPhlAn BowTie2 database found at {}. Please remove and rebuild the database'.format(
                 self.bowtie2db), exit=True)
 
-    def set_mapping_arguments(self):
+    def init_mapping_arguments(self):
         """Automatically set the mapping arguments"""
         if (self.bt2_ps in ["sensitive-local", "very-sensitive-local"]) and (self.min_alignment_len is None):
             self.min_alignment_len = 100
             warning(
                 'bt2_ps is set to local mode, and min_alignment_len is None, min_alignment_len has automatically been set to 100')
-        self.set_bowtie2out()
+        self.init_bowtie2out()
 
-    def set_bowtie2out(self):
+    def init_bowtie2out(self):
         """Inits the Bowtie2 output file"""
         if self.no_map:
             self.bowtie2out = tempfile.NamedTemporaryFile(
@@ -684,6 +896,7 @@ class Bowtie2Controller(MappingController):
             readin.stdout.close()
             lmybytes, outf = (mybytes, bz2.BZ2File(self.bowtie2out, "w")) if self.bowtie2out.endswith(
                 ".bz2") else (str, open(self.bowtie2out, "w"))
+            
             try:
                 if self.samout:
                     if self.samout[-4:] == '.bz2':
@@ -700,6 +913,7 @@ class Bowtie2Controller(MappingController):
                 if self.check_hq_mapping(o):
                     outf.write(
                         lmybytes("\t".join([o[0], o[2].split('/')[0]]) + "\n"))
+
             if self.samout:
                 sam_file.close()
             p.communicate()
@@ -723,7 +937,7 @@ class Bowtie2Controller(MappingController):
         """Checks whether a hit in the SAM file is of high quality
 
         Args:
-            o (list): SAM file line as a list
+            sam_line (list): SAM file line as a list
 
         Returns:
             bool: Whether the hit was of HQ
@@ -748,7 +962,7 @@ class Bowtie2Controller(MappingController):
         Returns:
             bool: whether the hit passed the mapq filter
         """
-        if 'GeneID:' in marker_name:
+        if 'GeneID:' in marker_name  or 'VDB' in marker_name:
             return True
         else:
             if mapq_value > min_mapq_val:
@@ -809,7 +1023,7 @@ class Bowtie2Controller(MappingController):
     def run_mapping(self):
         """Runs all the steps of the Bowtie2 mapping"""
         self.check_bowtie2_database()
-        self.set_mapping_arguments()
+        self.init_mapping_arguments()
         self.run_bowtie2()
 
     def __init__(self, args, index):
@@ -828,6 +1042,7 @@ class Bowtie2Controller(MappingController):
         self.nproc = args.nproc
         self.no_map = args.no_map
         self.read_min_len = args.read_min_len
+        self.tmp_dir = args.tmp_dir
 
 class MetaphlanAnalysis:
     def get_mapped_fraction(self):
@@ -1149,13 +1364,17 @@ class Metaphlan:
         if self.install:
             self.index=self.database_controller.check_and_install_database()
             info('The database has been installed ({})'.format(self.index), stderr=True, exit=True)
-        #if self.input_type in ['fastq', 'fasta']:            
-        #     self.mapping_controller.run_mapping()        
-        #self.parse_mapping()
-        #self.metaphlan_analysis.report_results(self.tree, self.n_metagenome_reads, self.avg_read_length)
-
+        
+        self.database_controller.check_database()    
+        if self.input_type in ['fastq', 'fasta']:            
+             self.mapping_controller.run_mapping()        
+        self.parse_mapping()
+        self.metaphlan_analysis.report_results(self.tree, self.n_metagenome_reads, self.avg_read_length)
+        if self.profile_vsc:
+            self.vsc_controller.run_analysis()
 
     def __init__(self, args):
+        
         self.verbose = args.verbose
         self.database_controller = MetaphlanDatabaseController(args)
         self.index = self.database_controller.resolve_index()
@@ -1182,6 +1401,9 @@ class Metaphlan:
         self.tree = None
         self.n_metagenome_reads = None
         self.avg_read_length = None
+        if args.profile_vsc:
+            self.virus_controller = VSCController(args, self.index, self.mapping_controller, 
+                                                  self.database_controller)
 
 
 DEFAULT_DB_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "metaphlan_databases")
@@ -1312,10 +1534,8 @@ def read_params():
         " * marker_ab_table: normalized marker counts (only when > 0.0 and normalized by metagenome size if --nreads is specified)\n"
         " * marker_pres_table: list of markers present in the sample (threshold at 1.0 if not differently specified with --pres_th\n"
         "[default 'rel_ab']")
-    arg('--nreads', metavar="NUMBER_OF_READS", type=int, default=None, help="The total number of reads in the original metagenome. It is used only when \n"
-        "-t marker_table is specified for normalizing the length-normalized counts \n"
-        "with the metagenome size as well. No normalization applied if --nreads is not \n"
-        "specified")
+    arg('--nreads', metavar="NUMBER_OF_READS", type=int, default=None, help="The total number of reads in the original metagenome. \n"
+        "It is mandatory when the --input_type is a SAM file.")
     arg('--pres_th', metavar="PRESENCE_THRESHOLD", type=int, default=1.0,
         help='Threshold for calling a marker present by the -t marker_pres_table option')
     g = p.add_argument_group('Output arguments')
@@ -1341,6 +1561,12 @@ def read_params():
         help="If requesting biom file output: The name of the output file in biom format \n")
     arg('--mdelim', '--metadata_delimiter_char',  metavar="mdelim", type=str, default="|",
         help="Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria \n")
+    g = p.add_argument_group('Viral Sequence Clusters Analisys')
+    arg = g.add_argument
+    arg("--profile_vsc", action="store_true",help="Add this parameter to profile Viruses with VSCs approach.")
+    arg("--vsc_out", help="Path to the VSCs breadth-of-coverage output file", default="mp3_viruses.csv")
+    arg("--vsc_breadth", help="Minimum Breadth of Coverage for a Viral Group to be reported.\n"
+    "Default is 0.75 (at least 75 percent breadth to report)", default=0.75,type=float)
     g = p.add_argument_group('Other arguments')
     arg = g.add_argument
     arg('--nproc', metavar="N", type=int, default=4,
@@ -1389,7 +1615,11 @@ def check_params(args):
         error('The --CAMI_format_output parameter can only be used with the default analysis type (rel_ab)', exit=True)               
     if args.force and os.path.exists(args.bowtie2out):
         os.remove(args.bowtie2out)
-        warning("Previous Bowtie2 output file has been removed from: {}".format(args.bowtie2out))
+        warning("Previous Bowtie2 output file has been removed from: {}".format(args.bowtie2out)) 
+    if args.profile_vsc and args.input_type == 'bowtie2out':
+        error("The Viral Sequence Clusters mode requires fasta or sam input!", init_new_line = True, exit = True)
+        #
+
 
 
 def main():
