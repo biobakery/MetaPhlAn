@@ -1,3 +1,28 @@
+## Version 4.1.0 (TBD TBD, 2024)
+### Database updates
+* We just released the new vJun23 database
+  * Addition of ~45k reference genomes from NCBI
+  * Addition of ~50k MAGs from ocean, ~40k MAGs from soil, ~30k MAGs from domestic animals and non-human primates, ~4k MAGs from giant turtles, ~7.5k MAGs from skin microbiome, ~20k MAGs from dental plaque, ~15k MAGs from Asian populations, ~2.7k MAGs from ancient and modern Bolivians and other small datasets from diverse sources
+  * Expansion of the markers database with 36,822 SGBs (6,272 more SGBs than in vOct22)
+* Inclusion of the new Viral Sequence Clusters (VSCs) database
+  * Containing 3,944 VSCs clustered into 1,345 Viral Sequence Groups (VSGs).
+  * Including a total of 45,872 representative VSGs sences.
+  * Each cluster/group is labeled as known (kVSG) or unknown (uVSG) depending on the presence of at least a viral RefSeq reference genome within the cluster/group.
+### New features
+* [MetaPhlAn] The new `--profile_vsc` parameter (together with  `--vsc_out` and  `--vsc_breadth`) enables the profiling of viral sequence clusters.
+* [MetaPhlAn] The `--subsampling` now subsamples the FASTQ files and not the mapping results
+* [MetaPhlAn] The new `--mapping_subsampling` parameter enables the previous mapping subsampling behaviour
+* [MetaPhlAn] The new `--subsampling_output` parameter enables to save the subsampled FASTQ file
+* [MetaPhlAn] The new `create_toy_database.py` script enables the custom filtering of the MetaPhlAn databases
+### Changed features
+* [MetaPhlAn] The average read length is included in the output header with the -t rel_ab_w_read_stats parameter
+* [StrainPhlAn] Quasi-markers behaviour in line with that of MetaPhlAn
+* [StrainPhlAn] sample2markers.py output is now in JSON format
+* [StrainPhlAn] Simplified sample and marker filtering parameters, integrated with primary/secondary samples
+* [StrainPhlAn] Faster inference of small and medium phylogenies
+* [StrainPhlAn] Faster execution of the parameter –-print_clades_only
+<br/>
+
 ## Version 4.0.6 (Mar 1st, 2023)
 ### Changed features
 * [MetaPhlAn] The GTDB taxonomic assignment for the vOct22 database is now available.
