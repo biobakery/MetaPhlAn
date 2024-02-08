@@ -6,7 +6,7 @@
   * Expansion of the markers database with 36,822 SGBs (6,272 more SGBs than in vOct22)
 * Inclusion of the new Viral Sequence Clusters (VSCs) database
   * Containing 3,944 VSCs clustered into 1,345 Viral Sequence Groups (VSGs).
-  * Including a total of 45,872 representative VSGs sences.
+  * Including a total of 45,872 representative VSGs sequences.
   * Each cluster/group is labeled as known (kVSG) or unknown (uVSG) depending on the presence of at least a viral RefSeq reference genome within the cluster/group.
 ### New features
 * [MetaPhlAn] The new `--profile_vsc` parameter (together with  `--vsc_out` and  `--vsc_breadth`) enables the profiling of viral sequence clusters.
