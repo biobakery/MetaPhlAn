@@ -1,4 +1,4 @@
-## Version 4.1.0 (TBD TBD, 2024)
+## Version 4.1.0 (Feb 20th, 2024)
 ### Database updates
 * We just released the new vJun23 database
   * Addition of ~45k reference genomes from NCBI
