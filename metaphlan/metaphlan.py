@@ -23,6 +23,15 @@ import numpy as np
 import hashlib
 import urllib.request
 import tarfile
+import pickle as pkl
+from collections import Counter
+from Bio.Seq import Seq
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+import pysam
+import pandas as pd
+import shutil
+
 from collections import defaultdict as defdict
 try:
     from .utils import *
@@ -75,7 +84,7 @@ class TaxClade:
         """Normalizes the clade coverage based on the selected stat
 
         Args:
-            rat_nreads (list): the list of the filtered makers as a tuple marker length and number of reads mapping
+            rat_nreads (list): the list of the filtered markers as a tuple marker length and number of reads mapping
         """
         rat_nreads = sorted(rat_nreads, key = lambda x: x[1])            
         rat_v,nreads_v = zip(*rat_nreads)                
@@ -345,6 +354,7 @@ class MetaphlanDatabaseController():
     """MetaphlanDatabaseController class"""
     def prepare_bwt_indexes(self):
         """Prepare for building BowTie indexes"""
+
         if not glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
             self.build_bwt_indexes()
         else:
@@ -369,16 +379,20 @@ class MetaphlanDatabaseController():
                 os.remove(fna_file)
 
     def set_bowtie2db(self, value):
-        self.set_bowtie2db = value
+        self.bowtie2db = value
+
+    def set_index(self, value):
+        self.index = value
 
     def build_bwt_indexes(self):
         """Build BowTie indexes"""
         info('Joining FASTA databases', init_new_line = True )
-        with open(os.path.join(self.bowtie2db, self.index + ".fna"), 'w') as fna_h:
-            for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
-                with open(fna_file, 'r') as fna_r:
-                    for line in fna_r:
-                        fna_h.write(line)
+        if len(glob(os.path.join(self.bowtie2db, self.index + "*.fna"))) > 1:
+            with open(os.path.join(self.bowtie2db, self.index + ".fna"), 'w') as fna_h:
+                for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
+                    with open(fna_file, 'r') as fna_r:
+                        for line in fna_r:
+                            fna_h.write(line)
         fna_file = os.path.join(self.bowtie2db, self.index + ".fna")
         
         bt2_base = os.path.join(self.bowtie2db, self.index)
@@ -550,6 +564,27 @@ class MetaphlanDatabaseController():
         info("Download complete.", init_new_line = True)
         
         return self.index
+
+    def set_pkl(self):
+        #mpa_pkl = 'mpa_pkl'
+        #bowtie2db = 'bowtie2db'
+        bt2_ext = 'bt2l'  
+
+        if os.path.isfile(os.path.join(self.bowtie2db, "{}.pkl".format(self.index))):
+            mpa_pkl = os.path.join(self.bowtie2db, "{}.pkl".format(self.index))
+        else:
+            error('Unable to find the mpa_pkl file at {}'.format(os.path.isfile(os.path.join(self.bowtie2db, "{}.pkl".format(self.index)))), exit=True)
+
+        with bz2.BZ2File(mpa_pkl, 'r') as handle:
+            database_pkl = pkl.load(handle)
+
+        #if glob(os.path.join(self.bowtie2db, "{}*.{}".format(self.index, bt2_ext))):
+        #    bowtie2db = os.path.join(self.bowtie2db, "{}".format(self.index))
+
+        return database_pkl 
+    
+    def get_index(self):
+        return self.index
     
 
     def resolve_index(self):
@@ -607,6 +642,8 @@ class MetaphlanDatabaseController():
             latest_db_version = ''.join([line.strip() for line in mpa_latest if not line.startswith('#')])
             self.index = latest_db_version
 
+        self.database_pkl = self.set_pkl()
+
         return self.index
     
 
@@ -616,7 +653,8 @@ class MetaphlanDatabaseController():
         self.nproc = args.nproc
         self.force_download = args.force_download
         self.offline = args.offline
-
+        self.database_pkl = None
+        self.bowtie2_build = args.bowtie2_build
 
 
 class VSCController():
@@ -631,31 +669,30 @@ class VSCController():
         else:
             rr=SeqRecord(Seq(o[9]).reverse_complement(),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
 
-        return mCluster, mGroup, rr
+        return mGroup, mCluster, rr
     
 
     def extract_viral_mappings(self):
         """"Line by line extraction of reads mapping to viral markers"""
         CREAD=[] 
-        if self.sam_input.endswith(".bz2"):
+        if self.inp.startswith(".bz2"):
             ras, ras_line, inpf = read_and_split, read_and_split_line, bz2.BZ2File(self.inp, "r")
         else:
             ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, open(self.inp)
         
-        for line in inpf:
-            sam_line = ras_line(line)
-            if self.check_hq_mapping(sam_line): #redo this in case sam file?
+        with open(self.marker_file, 'w') as outf:
+            for line in inpf:
+                sam_line = ras_line(line)
+                #if self.check_hq_mapping(sam_line): #redo this in case sam file as input? it has never been filtered?to check
                 if sam_line[2].startswith('VDB|'):
                     mGroup, mCluster, rr = self.extract_viral_mappings_line(sam_line)
-                    self.marker_file.write(mGroup+'\t'+mCluster+'\n')
+                    outf.write(mGroup+'\t'+mCluster+'\n')
                     CREAD.append(rr) 
-                    
-        inpf.close()                
-        SeqIO.write(CREAD,self.reads_file,'fastq')
-        self.marker_file.close()       
+                        
+            inpf.close()                
+            SeqIO.write(CREAD,self.reads_file,'fastq')
 
-
-    def process_mpa_mapping(self):
+    def process_SGB_mapping(self):
         """From reads detected in the first bowtie2 run, extracts the reads/markers for a second bowtie2 run"""
         self.extract_viral_mappings()
         VSCs_markers = SeqIO.index(self.vsc_fna, "fasta")
@@ -684,6 +721,57 @@ class VSCController():
 
             SeqIO.write(selectedMarkers, self.top_marker_file, 'fasta')
 
+    def check_vsc_files(self):
+        """Check if files are present to map to viral database"""
+        if not os.path.exists(self.marker_file) or not os.path.exists(self.reads_file):
+            error('There was an error in the VSCs file lookup.\n \
+                It may be that there are not enough reads to profile (not enough depth).\n \
+                Passing without reporting any virus.', init_new_line = True, exit=True)
+
+        if os.stat(self.marker_file).st_size == 0:
+            warning('No reads aligning to VSC markers in this file.', init_new_line = True, exit=True)        
+
+    
+    def initialize_mapping(self):
+        """Initialize parameters for mapping to viral database"""
+        self.database_controller.set_bowtie2db(self.tmp_dir)
+        self.database_controller.set_index(os.path.basename(self.top_marker_file).split('.')[0])
+        self.database_controller.prepare_bwt_indexes()
+
+        # set parameters for bowtie mapping
+        self.mapping_controller.set_inp(self.reads_file)
+        self.mapping_controller.set_bowtie2db(self.tmp_dir)
+        self.mapping_controller.set_index(os.path.basename(self.top_marker_file).split('.')[0])        
+        self.mapping_controller.set_input_type('fastq')
+        self.mapping_controller.set_samout(os.path.basename(self.vscBamFile).split('.')[0]+'.sam')
+        self.mapping_controller.set_bowtie2out(None)
+        self.mapping_controller.set_mapping_parameters(None)
+        self.mapping_controller.run_mapping()
+
+    def vsc_bowtie2(self):
+        """Run bowtie2 only on viral markers and interested reads"""
+
+        self.check_vsc_files()        
+        self.initialize_mapping()
+
+        try:
+            stv_command = ['samtools','view','-bS', os.path.basename(self.vscBamFile).split('.')[0]+'.sam','-@',str(self.nproc)]
+            sts_command = ['samtools','sort','-','-@',str(self.nproc),'-o',self.vscBamFile]
+            sti_command = ['samtools','index',self.vscBamFile]
+
+            p3 = subp.Popen(sts_command, stdin=subp.PIPE)
+            p2 = subp.Popen(stv_command, stdin=subp.PIPE, stdout=p3.stdin)
+
+            p2.communicate()
+            p3.communicate()
+
+            subp.check_call(sti_command)
+
+        except Exception as e:
+            error('Error: "{}"\nFatal error running BowTie2 for Viruses\n'.format(e), init_new_line = True, exit = True) 
+
+        if not os.path.exists(self.vscBamFile):
+            error('Error:\nUnable to create BAM FILE for viruses.', init_new_line = True, exit = True) 
 
     def vsc_parsing(self):
         """Parsing of theoutput sam file from mapping viral markers to reads"""
@@ -713,90 +801,51 @@ class VSCController():
         if bamHandle:
             bamHandle.close()
 
-        create_vsc_report(VSC_report)
+        self.create_vsc_report(VSC_report)
+        shutil.rmtree(self.tmp_dir)
+
 
 
     def create_vsc_report(self, VSC_report):
         """Create a report of the VSC that mapped"""
         with open(self.vsc_out,'w') as outf:
-            outf.write('#{}\n'.format(self.mapping_controller.get_index()))
+            outf.write('#{}\n'.format(self.index))
             outf.write('#{}\n'.format(' '.join(sys.argv)))
-            outf.write('#SampleID\t{}\n'.format(self.mapping_controller.sample_id()))
-            vsc_out_df = pd.DataFrame.from_dict(VSC_report).query('breadth_of_coverage >= {}'.format(pars['vsc_breadth']))
+            outf.write('#SampleID\t{}\n'.format(self.sample_id))
+            vsc_out_df = pd.DataFrame.from_dict(VSC_report).query('breadth_of_coverage >= {}'.format(self.vsc_breadth))
             vsc_info_df = pd.read_table(self.vsc_vinfo, sep='\t')
             vsc_out_df = vsc_out_df.merge(vsc_info_df, on='M-Group/Cluster').sort_values(by='breadth_of_coverage', ascending=False).set_index('M-Group/Cluster')
             vsc_out_df.to_csv(outf,sep='\t',na_rep='-')
 
-
-    def vsc_bowtie2(self):
-        """Run bowtie2 only on viral markers and interested reads"""
-        if not os.path.exists(self.marker_file) or not os.path.exists(self.reads_file):
-
-            error('Error:\nThere was an error in the VSCs file lookup.\n \
-                It may be that there are not enough reads to profile (not enough depth).\n \
-                Passing without reporting any virus.', init_new_line = True)
-            return []
-
-        if os.stat(self.marker_file).st_size == 0:
-            error('Warning:\nNo reads aligning to VSC markers in this file.', init_new_line = True)        
-            #return an empty list. MetaPhlAn will continue as normal, without VSCs
-            return []
-
-        # set parameters for bowtie mapping
-        self.mapping_controller.set_inp(self.reads_file)
-        self.mapping_controller.set_bowtie2db(self.top_marker_file)
-        self.mapping_controller.set_input_type('fasta')
-        self.mapping_controller.set_samout(self.vsc_out)
-        self.mapping_controller.set_bowtie2out(None)
-        self.mapping_controller.set_mapping_parameters(None)
-
-        try:
-            stv_command = ['samtools','view','-bS','-','-@',str(self.nproc)]
-            sts_command = ['samtools','sort','-','-@',str(self.nproc),'-o',self.vscBamFile]
-            sti_command = ['samtools','index',self.vscBamFile]
-
-            p3 = subp.Popen(sts_command, stdin=subp.PIPE)
-            p2 = subp.Popen(stv_command, stdin=subp.PIPE, stdout=p3.stdin)
-
-            p2.communicate()
-            p3.communicate()
-
-            #index
-            subp.check_call(sti_command)
-
-        except Exception as e:
-            error('Error: "{}"\nFatal error running BowTie2 for Viruses\n'.format(e), init_new_line = True, exit = True) 
-
-        if not os.path.exists(self.vscBamFile):
-            error('Error:\nUnable to create BAM FILE for viruses.', init_new_line = True, exit = True) 
-
- 
-    
-    def vsc_analysis(self):
-        self.process_mpa_mapping()
-        self.mapping_controller.run_mapping()
+    def run_analysis(self):
+        """All the steps to run analysis on VSC"""
+        self.process_SGB_mapping()
+        self.vsc_bowtie2()
         self.vsc_parsing()
 
 
     def __init__(self, args, mapping_controller, database_controller):
         # parsing previous bowtie2out run
-        self.tmp_dir = tempfile.TemporaryDirectory(dir=args.tmp_dir).name
+        self.nproc = args.nproc
+        self.sample_id = args.sample_id
+        self.tmp_dir = tempfile.mkdtemp(dir=args.tmp_dir) 
         self.marker_file = os.path.join(self.tmp_dir,'v_markers.fa')
-        self.top_marker_file = os.path.join(self.tmp_dir,'v_top_markers.fa')
-        self.reads_file=  os.path.join(self.tmp_dir,'v_reads.fq')
-        self.sam_input = args.input_type if args.input_type == 'sam' else args.s 
-
-        #database  
-        self.bowtie2db = args.bowtie2db
-        self.vsc_fna = os.path.join(self.bowtie2db,"{}_VSG.fna".format(self.index))
-        self.vsc_vinfo = os.path.join(self.bowtie2db,"{}_VINFO.csv".format(self.index))
-  
+        self.top_marker_file = os.path.join(self.tmp_dir,'v_top_markers.fna')
+        self.reads_file= os.path.join(self.tmp_dir,'v_reads.fq')
+        self.inp = args.input_type if args.input_type == 'sam' else args.samout
+        
         # mapping 
         self.vsc_out = args.vsc_out
         self.vsc_breadth = args.vsc_breadth     
-        self.vscBamFile = os.path.join(self.tmp_dir,'v_align.bam') 
+        self.vscBamFile = os.path.join(self.tmp_dir,'v_align.bam')
         self.mapping_controller = mapping_controller
+        self.index = self.mapping_controller.get_index()
         self.database_controller = database_controller
+
+        #database  
+        self.bowtie2db = args.bowtie2db
+        self.vsc_fna = os.path.join(self.bowtie2db,"{}_VSG.fna".format(self.database_controller.get_index()))
+        self.vsc_vinfo = os.path.join(self.bowtie2db,"{}_VINFO.csv".format(self.database_controller.get_index()))
 
 
 
@@ -827,18 +876,27 @@ class Bowtie2Controller(MappingController):
     def get_index(self):
         return self.index
     
+    def set_index(self, value):
+        self.index = value
+    
     def get_sample_id(self):
         return self.sample_id
 
     def check_bowtie2_database(self):
         """Checks the presence and consistency of the Bowtie2 database"""
-        if glob(os.path.join(self.bowtie2db, "{}*.{}".format(self.index, 'bt2l'))):
-            self.bowtie2db = os.path.join(
-                self.bowtie2db, "{}".format(self.index))
+        if glob(os.path.join(self.bowtie2db, "{}*.{}".format(self.index, 'bt2*'))):
+            
+            if glob(os.path.join(self.bowtie2db, "{}*.{}".format(self.index, 'bt2*')))[0].endswith('l'):
+                bt2_ext = 'bt2l'
+            else:
+                bt2_ext = 'bt2'
+
+            self.bowtie2db = os.path.join(self.bowtie2db, "{}".format(self.index))
+
         else:
             error('No MetaPhlAn BowTie2 database was found at: {}'.format(
                 self.bowtie2db), exit=True)
-        bt2_ext = 'bt2l'
+        #bt2_ext = 'bt2l'
         if not all([os.path.exists(".".join([str(self.bowtie2db), p]))
                     for p in ["1." + bt2_ext, "2." + bt2_ext, "3." + bt2_ext, "4." + bt2_ext, "rev.1." + bt2_ext, "rev.2." + bt2_ext]]):
             error('No MetaPhlAn BowTie2 database found (--index option)!\nExpecting location {}'.format(self.bowtie2db), exit=True)
@@ -887,9 +945,9 @@ class Bowtie2Controller(MappingController):
         try:
             if self.inp:
                 readin = subp.Popen(
-                    ['read_fastx.py', '-l', str(self.read_min_len), self.inp], stdout=subp.PIPE, stderr=subp.PIPE)
+                    ['/shares/CIBIO-Storage/CM/scratch/users/claudia.mengoni/tools/MetaPhlAn/metaphlan/utils/read_fastx.py', '-l', str(self.read_min_len), self.inp], stdout=subp.PIPE, stderr=subp.PIPE)
             else:
-                readin = subp.Popen(['read_fastx.py', '-l', str(self.read_min_len)],
+                readin = subp.Popen(['/shares/CIBIO-Storage/CM/scratch/users/claudia.mengoni/tools/MetaPhlAn/metaphlan/utils/read_fastx.py', '-l', str(self.read_min_len)],
                                     stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
             p = subp.Popen(self.get_bowtie2cmd(),
                            stdout=subp.PIPE, stdin=readin.stdout)
@@ -952,7 +1010,7 @@ class Bowtie2Controller(MappingController):
         return False
 
     def mapq_filter(self, marker_name, mapq_value, min_mapq_val):
-        """Checks whether a mapping hit pass a mpaq quality filter
+        """Checks whether a mapping hit pass a mapq quality filter
 
         Args:
             marker_name (str): the marker name of the hit
@@ -1281,9 +1339,9 @@ class Metaphlan:
             dict: the subsampled reads to markers dictionary
         """
         if self.subsampling >= self.n_metagenome_reads:
-            warning("The specified subsampling ({}) is higher than the original number of reads ({}).".format(self.subsampling, self.n_metagenome_reads))
+            warning("WARNING: The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.".format(self.subsampling, self.n_metagenome_reads), init_new_line=True)
         elif self.subsampling < 10000:
-            warning("The specified subsampling ({}) is below the recommended minimum of 10,000 reads.".format(self.subsampling))
+            warning("The specified subsampling ({}) is below the recommended minimum of 10,000 reads.".format(self.subsampling), init_new_line=True)
         else:
             reads2markers =  dict(sorted(reads2markers.items()))
             if self.subsampling_seed.lower() != 'random':
@@ -1365,7 +1423,7 @@ class Metaphlan:
             self.index=self.database_controller.check_and_install_database()
             info('The database has been installed ({})'.format(self.index), stderr=True, exit=True)
         
-        self.database_controller.check_database()    
+        #self.database_controller.check_database()    
         if self.input_type in ['fastq', 'fasta']:            
              self.mapping_controller.run_mapping()        
         self.parse_mapping()
@@ -1401,8 +1459,9 @@ class Metaphlan:
         self.tree = None
         self.n_metagenome_reads = None
         self.avg_read_length = None
+        self.profile_vsc = args.profile_vsc
         if args.profile_vsc:
-            self.virus_controller = VSCController(args, self.index, self.mapping_controller, 
+            self.vsc_controller = VSCController(args, self.mapping_controller, 
                                                   self.database_controller)
 
 
@@ -1573,8 +1632,12 @@ def read_params():
         help="The number of CPUs to use for parallelizing the mapping [default 4]")
     arg('--subsampling', type=int, default=None,
         help="Specify the number of reads to be considered from the input metagenomes [default None]")
+    arg('--mapping_subsampling', action='store_true',
+        help="If used, the subsamping will be done on the mapping results instead of on the reads.")
     arg('--subsampling_seed', type=str, default='1992',
         help="Random seed to use in the selection of the subsampled reads. Choose \"random\r for a random behaviour")
+    arg('--subsampling_output', type=str, default=None,
+        help="The output file for the subsampled reads. If not specified the subsampled reads will not be saved.")
     arg('--install', action='store_true',
         help="Only checks if the MetaPhlAn DB is installed and installs it if not. All other parameters are ignored.")
     arg('--offline', action='store_true',
@@ -1603,7 +1666,7 @@ def check_params(args):
         error("The --subsampling_seed parameter is not accepted. It should contain an integer number or \"random\".", exit=True)
     if args.inp and ',' in args.inp and not args.bowtie2out:
         error("--bowtie2out needs to be specified when multiple FASTQ or FASTA files (comma separated) are provided", exit=True)
-    if args.bowtie2out and os.path.exists(args.bowtie2out) and not args.force:
+    if args.bowtie2out and os.path.exists(args.bowtie2out) and not args.force and not args.profile_vsc:
         error("BowTie2 output file detected: {}\n. Please use it as input or remove it if you want to re-perform the BowTie2 run".format(args.bowtie2out), exit=True)
     if not (args.subsampling_seed.lower() == 'random' or args.subsampling_seed.isdigit()):
         error('The --subsampling_seed parameter is not accepted. It should contain an integer number or \"random\"', exit=True) 
@@ -1618,7 +1681,8 @@ def check_params(args):
         warning("Previous Bowtie2 output file has been removed from: {}".format(args.bowtie2out)) 
     if args.profile_vsc and args.input_type == 'bowtie2out':
         error("The Viral Sequence Clusters mode requires fasta or sam input!", init_new_line = True, exit = True)
-        #
+    if args.profile_vsc and (args.input_type == 'fasta' or  args.input_type == 'fastq') and not args.samout:
+        error("The Viral Sequence Clusters mode with fasta files requires to specify a SAM output file with the -s parameter", init_new_line = True, exit = True)
 
 
 
