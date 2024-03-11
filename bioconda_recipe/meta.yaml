@@ -67,6 +67,7 @@ test:
     - run_treeshrink.py -h
     - treeshrink.py -h
     - create_toy_database.py -h
+    - fix_relab_mpa4.py -h
 
 about:
   home: https://github.com/biobakery/metaphlan
