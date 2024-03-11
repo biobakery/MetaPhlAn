@@ -48,7 +48,7 @@ def fix_relab_mpa4(input, output):
         with open(output, 'w') as wf:
             for line in rf:
                 if line.startswith('#mpa_v'):
-                    wf.write('{}_fixed\n'.format(line.strip())
+                    wf.write('{}_fixed\n'.format(line.strip()))
                 elif line.startswith('#'):
                     wf.write(line)
                 else:
