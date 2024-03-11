@@ -3,8 +3,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.1.0'
-__date__ = '23 Aug 2023'
+__version__ = '4.1.1'
+__date__ = '11 Mar 2024'
 
 
 from typing import Iterable

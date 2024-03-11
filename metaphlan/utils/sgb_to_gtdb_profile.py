@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 __author__ = 'Aitor Blanco (aitor.blancomiguez@unitn.it'
-__version__ = '4.1.0'
-__date__ = '23 Aug 2023'
+__version__ = '4.1.1'
+__date__ = '11 Mar 2024'
 
 import os
 import time
