@@ -1,7 +1,7 @@
 ## Version 4.1.1 (Mar 11th, 2024)
 ### Database updates
 * We just released the new vJun23_202423 database
-  * Same SGBs as in the vJun23_202307 version
+  * Same SGBs as for the vJun23_202307 version
   * The NCBI taxonomy assignment has been fixed to keep the taxa consistent across the MPA4 taxnomic tree
   * The errors in the relative abundance estimation at higher taxonomic levels had been fixed
 ### New features
