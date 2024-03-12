@@ -1,6 +1,15 @@
+## Version 4.1.1 (Mar 11th, 2024)
+### Database updates
+* We just released the new vJun23_202423 database
+  * The NCBI taxonomy assignment has been fixed to keep the taxa consistent across the MPA4 taxnomic tree
+  * The errors in the relative abundance estimation at higher taxonomic levels had been fixed
+### New features
+* [MetaPhlAn] The new `fix_relab_mpa4.py` script enables to fix errors in the relative abundances in profiles generated with previous databases
+<br/>
+
 ## Version 4.1.0 (Feb 20th, 2024)
 ### Database updates
-* We just released the new vJun23 database
+* We just released the new vJun23_202307 database
   * Addition of ~45k reference genomes from NCBI
   * Addition of ~50k MAGs from ocean, ~40k MAGs from soil, ~30k MAGs from domestic animals and non-human primates, ~4k MAGs from giant turtles, ~7.5k MAGs from skin microbiome, ~20k MAGs from dental plaque, ~15k MAGs from Asian populations, ~2.7k MAGs from ancient and modern Bolivians and other small datasets from diverse sources
   * Expansion of the markers database with 36,822 SGBs (6,272 more SGBs than in vOct22)
