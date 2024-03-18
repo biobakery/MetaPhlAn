@@ -1384,17 +1384,17 @@ def main():
                         exe=pars['bowtie2_exe'], bt2build_exe=pars['bowtie2_build']) 
 
 
+            if not VSC_report == []:
+                with open(pars['vsc_out'],'w') as outf:
 
-            with open(pars['vsc_out'],'w') as outf:
+                    outf.write('#{}\n'.format(pars['index']))
+                    outf.write('#{}\n'.format(' '.join(sys.argv)))
+                    outf.write('#SampleID\t{}\n'.format(pars['sample_id']))
+                    vsc_out_df = pd.DataFrame.from_dict(VSC_report).query('breadth_of_coverage >= {}'.format(pars['vsc_breadth']))
+                    vsc_info_df = pd.read_table(vsc_vinfo, sep='\t')
+                    vsc_out_df = vsc_out_df.merge(vsc_info_df, on='M-Group/Cluster').sort_values(by='breadth_of_coverage', ascending=False).set_index('M-Group/Cluster')
 
-                outf.write('#{}\n'.format(pars['index']))
-                outf.write('#{}\n'.format(' '.join(sys.argv)))
-                outf.write('#SampleID\t{}\n'.format(pars['sample_id']))
-                vsc_out_df = pd.DataFrame.from_dict(VSC_report).query('breadth_of_coverage >= {}'.format(pars['vsc_breadth']))
-                vsc_info_df = pd.read_table(vsc_vinfo, sep='\t')
-                vsc_out_df = vsc_out_df.merge(vsc_info_df, on='M-Group/Cluster').sort_values(by='breadth_of_coverage', ascending=False).set_index('M-Group/Cluster')
-
-                vsc_out_df.to_csv(outf,sep='\t',na_rep='-')
+                    vsc_out_df.to_csv(outf,sep='\t',na_rep='-')
 
 
     tree.set_stat( pars['stat'], pars['stat_q'], pars['perc_nonzero'], avg_read_length, pars['avoid_disqm'])
