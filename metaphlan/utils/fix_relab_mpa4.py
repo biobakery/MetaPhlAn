@@ -48,21 +48,22 @@ def fix_relab_mpa4(input, output):
         with open(output, 'w') as wf:
             for line in rf:
                 if line.startswith('#mpa_v'):
+                    release = line.strip()[1:]
                     wf.write('{}_fixed\n'.format(line.strip()))
-                elif line.startswith('#'):
+                elif line.startswith('#') or line.startswith('UNCLASSIFIED'):
                     wf.write(line)
                 else:
                     if 't__' in line:
-                        if 'p__Bacillota' in line:
-                            line = line.replace('p__Bacillota', 'p__Firmicutes')
+                        if release == 'mpa_vJun23_CHOCOPhlAnSGB_202307':
+                            if 'p__Bacillota' in line:
+                                line = line.replace('p__Bacillota', 'p__Firmicutes')
+                            elif 'f__Saccharomycetales_unclassified' in line:
+                                line = line.replace('f__Saccharomycetales_unclassified','f__Debaryomycetaceae')
+                        elif release == 'mpa_vOct22_CHOCOPhlAnSGB_202212':
+                            pass
                         line = line.strip().split('\t') 
                         taxa_levs[-1][line[0]] = [line[1], float(line[2]), line[3] if len(line)==4 else '']
-                    elif 's__' in line:
-                        if 'p__Bacillota' in line:
-                            line = line.replace('p__Bacillota', 'p__Firmicutes')
-                        line = line.strip().split('\t')
-                        taxa_levs[-2][line[0]] = [line[1], float(line[2]), '']
-            for i in range(2,8):
+            for i in range(1,8):
                 j = i+1
                 for ss in taxa_levs[-i]:
                     gg = ss.replace('|{}'.format(ss.split('|')[-1]), '')
