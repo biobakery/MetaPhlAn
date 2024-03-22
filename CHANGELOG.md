@@ -3,7 +3,7 @@
 * We just released the new vJun23_202403 database
   * Same SGBs as for the vJun23_202307 version, but the NCBI taxonomy assignment has been fixed to keep the taxa consistent across the MetaPhlAn taxonomic tree
   * The errors in the relative abundance estimation at higher taxonomic levels had been fixed
-  * Fixed a bug that would halt MetaPhlAn execution when the option `--profile_vscs` was used but had no viral hits
+  * Fixed a bug that would halt MetaPhlAn execution when the option `--profile_vsc` was used but had no viral hits
 ### New features
 * [MetaPhlAn] The new `fix_relab_mpa4.py` script enables to fix errors in the relative abundances in profiles generated with previous databases
 <br/>
