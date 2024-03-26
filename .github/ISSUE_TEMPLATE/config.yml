@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Please proceed to the bioBakery Forum to make a bug report or feature request
+    url: https://forum.biobakery.org/
+    about: Thanks for your interest in the bioBakery! We use a Discourse forum (https://forums.biobakery.org) for interaction with our user community, including fielding bug reports and feature requests. Please submit your comment (including all relevant details) as a new post under 1) an appropriate method-specific forum topic (e.g. "MetaPhlAn") or 2) the generic "Feature/Pull Request" topic. Doing a search for related posts before starting a new post is greatly appreciated. We look forward to hearing from you.
+  
