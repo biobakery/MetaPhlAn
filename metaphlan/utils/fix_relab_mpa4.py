@@ -61,6 +61,7 @@ def fix_relab_mpa4(input, output):
             for line in rf:
                 if line.startswith('#mpa_v'):
                     release = line.strip()[1:]
+                    line = '_'.join(line.split('_')[:-1])
                     wf.write('{}_202403\n'.format(line.strip()))
                 elif line.startswith('#') or line.startswith('UNCLASSIFIED'):
                     wf.write(line)
