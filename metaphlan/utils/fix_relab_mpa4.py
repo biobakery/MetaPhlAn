@@ -79,7 +79,7 @@ def fix_relab_mpa4(input, output):
                                 if line[0] in oct_fixes:
                                     line[0],line[1] = oct_fixes[line[0]]
                                     
-                        taxa_levs[-1][line[0]] = [line[1], round(float(line[2]),5), line[3] if len(line)==4 else '']
+                        taxa_levs[-1][line[0]] = [line[1], float(line[2]), line[3] if len(line)==4 else '']
 
             for i in range(1,8):
                 j = i+1
@@ -90,10 +90,19 @@ def fix_relab_mpa4(input, output):
                         taxa_levs[-j][gg] = [gg_n, taxa_levs[-i][ss][1], '']
                     else:
                         taxa_levs[-j][gg][1] += taxa_levs[-i][ss][1]
-            for level in taxa_levs:
-                for tax in level:
-                    wf.write(tax + '\t' + '\t'.join([str(x) for x in level[tax]]) + '\n')
-    
+
+            sum_level = dict()  
+            for level in range(len(taxa_levs)):
+                sum_level[level] = 0
+                for tax in taxa_levs[level]:
+                    sum_level[level] += taxa_levs[level][tax][1]
+
+            for level in range(len(taxa_levs)):
+                for tax in taxa_levs[level]:
+                    taxa_levs[level][tax][1] = round(100 * taxa_levs[level][tax][1]/sum_level[level], 5)
+                    wf.write(tax + '\t' + '\t'.join([str(x) for x in taxa_levs[level][tax]]) + '\n')
+
+
 def main():
     global oct_fixes
     t0 = time.time()
