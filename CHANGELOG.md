@@ -6,8 +6,8 @@
   * Fixed a bug that would halt MetaPhlAn execution when the option `--profile_vsc` was used but had no viral hits
 ### New features
 * [MetaPhlAn] The new `fix_relab_mpa4.py` script enables to fix errors in the relative abundances in profiles generated with previous databases
-<br/>
-* [MetaPhlAn] Implementation of the option --subsampling_paired [N_PAIRED_READS] to subsample paired-end input reads
+* [MetaPhlAn] Implementation of the option --subsampling_paired [N_PAIRED_READS] to subsample paired-end input reads. It needs to be used in conjunction with -1 [FORWARD_READS_FILE] and -2 [REVERSE_READS_FILE]
+  <br/>
 
 ## Version 4.1.0 (Feb 20th, 2024)
 ### Database updates
