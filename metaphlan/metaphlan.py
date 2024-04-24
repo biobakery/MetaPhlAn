@@ -4,7 +4,8 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
-              'Francesco Asnicar (f.asnicar@unitn.it)')
+              'Francesco Asnicar (f.asnicar@unitn.it), ' 
+              'Claudia Mengoni (claudia.mengoni@unitn.it)')
 __version__ = '4.1.1'
 __date__ = '11 Mar 2024'
 
@@ -12,7 +13,7 @@ import sys
 try:
     from metaphlan import mybytes, plain_read_and_split, plain_read_and_split_line, read_and_split, read_and_split_line, check_and_install_database, remove_prefix
 except ImportError:
-    sys.exit("CRITICAL ERROR: Unable to find the MetaPhlAn python package. Please check your install.") 
+        sys.exit("CRITICAL ERROR: Unable to find the MetaPhlAn python package. Please check your install.")
 
 if float(sys.version_info[0]) < 3.0:
     sys.stderr.write("MetaPhlAn requires Python 3, your current Python version is {}.{}.{}\n"
@@ -38,6 +39,10 @@ from Bio.Seq import Seq
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from collections import Counter
+try:
+    from .utils.parallelisation import execute_pool
+except ImportError:
+    from utils.parallelisation import execute_pool
 try:
     import pandas as pd
     import numpy as np
@@ -77,7 +82,7 @@ INDEX = 'latest'
 tax_units = "kpcofgst"
 
 def read_params(args):
-    p = ap.ArgumentParser( description=
+    p = ap.ArgumentParser( description =
             "DESCRIPTION\n"
             " MetaPhlAn version "+__version__+" ("+__date__+"): \n"
             " METAgenomic PHyLogenetic ANalysis for metagenomic taxonomic profiling.\n\n"
@@ -350,12 +355,18 @@ def read_params(args):
         help="The number of CPUs to use for parallelizing the mapping [default 4]")
     arg('--subsampling', type=int, default=None,
         help="Specify the number of reads to be considered from the input metagenomes [default None]")
+    arg('--subsampling_output', type=str, default=None,
+        help="The output file for the subsampled reads. If --subsampling_paired is specified two files are created with suffixes R1 and R2. If not specified the subsampled reads will not be saved.")
+    arg('--subsampling_paired',  type=int, default=None,
+        help="Specify the number of paired reads to be considered from the input metagenomes [default None]")
+    arg('-1', type=str, default=None, metavar='FORWARD_READS',
+        help="Specify the fastq file with forward reads of the input metagenomes. Reads are assumed to be in the same order in the forward and reverse files! [default None]")
+    arg('-2', type=str, default=None, metavar='REVERSE_READS',
+        help="Specify the fastq file with reverse reads of the input metagenomes. Reads are assumed to be in the same order in the forward and reverse files! [default None]")
     arg('--mapping_subsampling', action='store_true',
         help="If used, the subsamping will be done on the mapping results instead of on the reads.")
     arg('--subsampling_seed', type=str, default='1992',
-        help="Random seed to use in the selection of the subsampled reads. Choose \"random\r for a random behaviour")
-    arg('--subsampling_output', type=str, default=None,
-        help="The output file for the subsampled reads. If not specified the subsampled reads will not be saved.")
+        help="Random seed to use in the selection of the subsampled reads. Choose \"random\r for a random behaviour") 
     arg('--install', action='store_true',
         help="Only checks if the MetaPhlAn DB is installed and installs it if not. All other parameters are ignored.")
     arg('--offline', action='store_true',
@@ -1145,29 +1156,15 @@ def rawpycount(filename):
     f.close()
     return n_metagenome_reads
 
-def subsample_reads(inp, subsampling, subsampling_seed, subsampling_output, tmp_dir):
-    n_metagenome_reads = 0
-    
-    for inp_f in inp.split(','):
-        n_metagenome_reads += int(rawpycount(inp_f)/4)
-        
-    if subsampling >= n_metagenome_reads:
-        sys.stderr.write("WARNING: The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.\n".format(subsampling, n_metagenome_reads)) 
-        return inp, None
-    
-    if subsampling_seed.lower() != 'random':
-        random.seed(int(subsampling_seed))
-        
-    sample = set(random.sample(range(n_metagenome_reads), subsampling))
+def subsample_file(inp, paired, subsampling, out, sample):         
     length, read_num = 0, -1
-    
-    if subsampling_output is None:
-        out = tf.NamedTemporaryFile(dir=tmp_dir, mode='w', delete=False)
-        subsampling_output = out.name
-    else:
-        out = bz2.open(subsampling_output, 'wt') if subsampling_output.endswith(".bz2") else gzip.open(subsampling_output, 'wt') if subsampling_output.endswith('.gz') else open(subsampling_output, 'w')
-    
+    counter=0
+    out_l = out
     for inp_f in inp.split(','):
+        if paired:
+            length, read_num = 0, -1  
+            out=out_l[counter]
+            counter+=1
         line = 1
         reader = bz2.open(inp_f, 'rt') if inp_f.endswith(".bz2") else gzip.open(inp_f, 'rt') if inp_f.endswith('.gz') else open(inp_f, 'r')
         while (line and length < subsampling):
@@ -1183,6 +1180,58 @@ def subsample_reads(inp, subsampling, subsampling_seed, subsampling_output, tmp_
                     reader.readline()
         reader.close()
     out.close()
+    
+def subsample_reads(inp, subsampling, subsampling_seed, subsampling_output, tmp_dir, paired):
+
+    n_metagenome_reads = execute_pool(((rawpycount, inp_f) for inp_f in inp.split(',')), 2)
+    n_metagenome_reads = [int(n/4) for n in n_metagenome_reads]
+
+    if paired:
+        if n_metagenome_reads[0] != n_metagenome_reads[1]:
+            sys.stderr.write("Error: The specified reads file are not the same length! Make sure the forward and reverse reads are files are not damaged and reads are in the same order. Exiting ...\n\n") 
+            sys.exit(1)
+        n_metagenome_reads = n_metagenome_reads[0]
+    else:
+        n_metagenome_reads = sum(n_metagenome_reads)
+
+    if subsampling >= n_metagenome_reads:
+        sys.stderr.write("WARNING: The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.\n".format(subsampling, sum(n_metagenome_reads))) 
+        return inp, None
+
+    if subsampling_seed.lower() != 'random':
+        random.seed(int(subsampling_seed))
+        
+    sample = set(random.sample(range(n_metagenome_reads), subsampling))
+    
+    if subsampling_output is None:
+        if paired:
+            subsampling_output = list()
+            out=list()
+            for inp_f in inp.split(','):
+                out.append(tf.NamedTemporaryFile(dir=tmp_dir, mode='w', delete=False))
+                subsampling_output.append(out.name)
+        else:
+            out = tf.NamedTemporaryFile(dir=tmp_dir, mode='w', delete=False)
+            subsampling_output=out.name
+    else:
+        if paired:
+            r, ext = os.path.splitext(subsampling_output)
+
+            subsampling_output = list()
+            out = list()
+
+            subsampling_output.append('.'.join([r, 'R1'+ext]))
+            subsampling_output.append('.'.join([r, 'R2'+ext]))
+
+            for s in subsampling_output:
+                out.append(bz2.open(s, 'wt') if s.endswith(".bz2") else gzip.open(s, 'wt') if s.endswith('.gz') else open(s, 'w'))
+        else:
+            out = bz2.open(subsampling_output, 'wt') if subsampling_output.endswith(".bz2") else gzip.open(subsampling_output, 'wt') if subsampling_output.endswith('.gz') else open(subsampling_output, 'w')
+            
+    subsample_file(inp, paired, subsampling, out, sample)
+
+    if isinstance(subsampling_output, list):
+        subsampling_output = ','.join(subsampling_output)
         
     return subsampling_output, subsampling
 
@@ -1196,6 +1245,27 @@ def main():
     SGB_ANALYSIS = not pars['mpa3']
 
     ESTIMATE_UNK = pars['unclassified_estimation']
+
+    if pars['subsampling'] and pars['subsampling_paired']:
+        sys.stderr.write("Error: You specified both --subsampling and --subsampling_paired. Choose only one of the two options. Exiting...")
+        sys.exit(1)
+
+    if pars['subsampling']:
+        sys.stderr.write("WARNING: If you use --subsampling the reads will be subsampled NOT taking into account paired information. Use --subsampling_paired if you have paired ends reads.\n".format(pars['subsampling']))
+    
+    if pars['mapping_subsampling'] and pars['subsampling'] is None:
+        sys.stderr.write("Error: The --mapping_subsampling parameter should be used together with the --subsampling parameter. Exiting...\n\n")
+        sys.exit(1)
+
+    if pars['subsampling_paired']:
+        subsampling_paired=True
+        pars['subsampling']=pars['subsampling_paired']
+    else:
+        subsampling_paired=False
+
+    if subsampling_paired and (pars['1'] is None or pars['2'] is None):
+        sys.stderr.write("Error: If you specify --subsampling_paired you have to provide forward and reverse reads as -1 and -2 respectively. Reads are assumed to be in the same order in the two files.\n Exiting...\n\n".format(pars['subsampling']))
+        sys.exit(1)
     
     if pars['subsampling'] is not None and pars['subsampling'] < 10000:
         sys.stderr.write("WARNING: The specified subsampling ({}) is below the recommended minimum of 10,000 reads.\n".format(pars['subsampling']))
@@ -1203,19 +1273,25 @@ def main():
     if not (pars['subsampling_seed'].lower() == 'random' or pars['subsampling_seed'].isdigit()):
         sys.stderr.write("Error: The --subsampling_seed parameter is not accepted. It should contain an integer number or \"random\". Exiting...\n\n")
         sys.exit(1)
-    
-    if pars['mapping_subsampling'] and pars['subsampling'] is None:
-        sys.stderr.write("Error: The --mapping_subsampling parameter should be used together with the --subsampling parameter. Exiting...\n\n")
-        sys.exit(1)
         
     if not pars['mapping_subsampling'] and pars['subsampling'] is not None:
         if pars['input_type'] != 'fastq':
             sys.stderr.write("Error: The reads' subsampling procedure requires fastq input! Exiting...\n\n")
             sys.exit(1)
-        elif not pars['inp']:
+        elif (not pars['inp']) and (not subsampling_paired):
             sys.stderr.write("Error: Input reads for the subsampling must be provided as parameter. Stdin input is not allowed! Exiting...\n\n")
             sys.exit(1)
-        pars['inp'], pars['subsampling'] = subsample_reads(pars['inp'], pars['subsampling'], pars['subsampling_seed'], pars['subsampling_output'], pars['tmp_dir'])
+        
+        if subsampling_paired:
+            if not os.path.exists(pars['2']) or not os.path.exists(pars['1']):
+                sys.stderr.write("Error: Files passed with -1 ({}) or -2 ({}) not found. Exiting...\n\n".format(pars['1'],pars['2']))
+                sys.exit(1)
+
+            if pars['inp']:
+                sys.stderr.write("WARNING: since --subsampling_paired has been specified, reads are taken from -1 ({}) and -2 ({}), not from -inp.\n".format(pars['1'],pars['2']))
+            pars['inp'] = pars['1']+','+pars['2']
+
+        pars['inp'], pars['subsampling'] = subsample_reads(pars['inp'], pars['subsampling'], pars['subsampling_seed'], pars['subsampling_output'], pars['tmp_dir'], paired=subsampling_paired)
         
     # check if the database is installed, if not then install
     pars['index'] = check_and_install_database(pars['index'], pars['bowtie2db'], pars['bowtie2_build'], pars['nproc'], pars['force_download'], pars['offline'])
@@ -1231,6 +1307,11 @@ def main():
         if pars['input_type'] != 'fastq':
             sys.stderr.write("The Viral Sequence Clusters mode requires fastq input!\n")
             sys.exit(1)
+        
+        if not pars['vsc_out']:
+            sys.stderr.write("The Viral Sequence Clusters mode requires to specify an output file with the --vsc_out parameter\n")
+            sys.exit(1)
+
         tmpvirdir=tf.TemporaryDirectory(dir=pars['tmp_dir'])
         viralTempFolder=tmpvirdir.name
         
