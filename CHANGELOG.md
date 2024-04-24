@@ -7,6 +7,7 @@
 ### New features
 * [MetaPhlAn] The new `fix_relab_mpa4.py` script enables to fix errors in the relative abundances in profiles generated with previous databases
 <br/>
+* [MetaPhlAn] Implementation of the option --subsampling_paired [N_PAIRED_READS] to subsample paired-end input reads
 
 ## Version 4.1.0 (Feb 20th, 2024)
 ### Database updates
