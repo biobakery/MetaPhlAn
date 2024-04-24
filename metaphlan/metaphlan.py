@@ -13,7 +13,7 @@ import sys
 try:
     from metaphlan import mybytes, plain_read_and_split, plain_read_and_split_line, read_and_split, read_and_split_line, check_and_install_database, remove_prefix
 except ImportError:
-        sys.exit("CRITICAL ERROR: Unable to find the MetaPhlAn python package. Please check your install.")
+    sys.exit("CRITICAL ERROR: Unable to find the MetaPhlAn python package. Please check your install.")
 
 if float(sys.version_info[0]) < 3.0:
     sys.stderr.write("MetaPhlAn requires Python 3, your current Python version is {}.{}.{}\n"
@@ -1187,6 +1187,7 @@ def subsample_reads(inp, subsampling, subsampling_seed, subsampling_output, tmp_
     n_metagenome_reads = [int(n/4) for n in n_metagenome_reads]
 
     if paired:
+        subsampling //= 2
         if n_metagenome_reads[0] != n_metagenome_reads[1]:
             sys.stderr.write("Error: The specified reads file are not the same length! Make sure the forward and reverse reads are files are not damaged and reads are in the same order. Exiting ...\n\n") 
             sys.exit(1)
@@ -1207,9 +1208,10 @@ def subsample_reads(inp, subsampling, subsampling_seed, subsampling_output, tmp_
         if paired:
             subsampling_output = list()
             out=list()
-            for inp_f in inp.split(','):
-                out.append(tf.NamedTemporaryFile(dir=tmp_dir, mode='w', delete=False))
-                subsampling_output.append(out.name)
+            for _ in inp.split(','):
+                out_f = tf.NamedTemporaryFile(dir=tmp_dir, mode='w', delete=False)
+                out.append(out_f)
+                subsampling_output.append(out_f.name)
         else:
             out = tf.NamedTemporaryFile(dir=tmp_dir, mode='w', delete=False)
             subsampling_output=out.name
@@ -1409,7 +1411,8 @@ def main():
 
                                 min_alignment_len=pars['min_alignment_len'], read_min_len=pars['read_min_len'], min_mapq_val=pars['min_mapq_val'],profile_vsc_folder=viralTempFolder)
             if pars['subsampling_output'] is None and not pars['mapping_subsampling'] and pars['subsampling'] is not None:
-                os.remove(pars['inp'])
+                for inp_f in pars['inp'].split(','):
+                    os.remove(inp_f)
             pars['input_type'] = 'bowtie2out'
         pars['inp'] = pars['bowtie2out'] # !!!
     with bz2.BZ2File( pars['mpa_pkl'], 'r' ) as a:
