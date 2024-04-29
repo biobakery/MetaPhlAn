@@ -398,12 +398,16 @@ def set_mapping_arguments(index, bowtie2_db):
 
 
 def set_vsc_parameters(index, bowtie2_db):
+    vsc_fna = os.path.join(bowtie2_db, "{}_VSG.fna".format(index))
+    vsc_vinfo = os.path.join(bowtie2_db, "{}_VINFO.csv".format(index))
 
-    if os.path.isfile(os.path.join(bowtie2_db, "{}_VSG.fna".format(index))):
-        vsc_fna = os.path.join(bowtie2_db, "{}_VSG.fna".format(index))
+    if not os.path.isfile(vsc_fna):
+        sys.stderr.write("Error:\n {} file not found in bowtie2db folder ({}). Re-download MetaPhlAn database.".format("{}_VSG.fna".format(index, bowtie2_db)))
+        sys.exit(1)
 
-    if os.path.isfile(os.path.join(bowtie2_db, "{}_VINFO.csv".format(index))):
-        vsc_vinfo = os.path.join(bowtie2_db, "{}_VINFO.csv".format(index))
+    if not os.path.isfile(vsc_vinfo):
+        sys.stderr.write("Error:\n {} file not found in bowtie2db folder ({}). Re-download MetaPhlAn database.".format("{}_VINFO.csv".format(index, bowtie2_db)))
+        sys.exit(1)
 
     return(vsc_fna, vsc_vinfo)
 
