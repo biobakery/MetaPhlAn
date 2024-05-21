@@ -1,12 +1,13 @@
 ## Version 4.1.1 (Mar 11th, 2024)
 ### Database updates
-* We just released the new vJun23_202403 database
-  * Same SGBs as for the vJun23_202307 version, but the NCBI taxonomy assignment has been fixed to keep the taxa consistent across the MetaPhlAn taxonomic tree
-  * The errors in the relative abundance estimation at higher taxonomic levels had been fixed
-  * Fixed a bug that would halt MetaPhlAn execution when the option `--profile_vsc` was used but had no viral hits
+* We just released the new vJun23_202403 and vOct22_202403 databases
+  * Same SGBs as for the vJun23_202307 and vOct22_202212 versions, respectively, but the NCBI taxonomy assignment has been fixed to keep the taxa consistent across the MetaPhlAn taxonomic tree, allowing accurate relative abundance estimation also at higher taxonomic levels
 ### New features
 * [MetaPhlAn] The new `fix_relab_mpa4.py` script enables to fix errors in the relative abundances in profiles generated with previous databases
 * [MetaPhlAn] Implementation of the option `--subsampling_paired [N_PAIRED_READS]` to subsample paired-end input reads. It needs to be used in conjunction with `-1 [FORWARD_READS_FILE]` and `-2 [REVERSE_READS_FILE]`
+### Fixes
+* [MetaPhlAn] Fixed a bug that would halt MetaPhlAn execution when the option `--profile_vsc` was used but had no viral hits
+* [StrainPhlAn] Fixed a bug in the new implementation (since v4.1) of `–-print_clades_only`
   <br/>
 
 ## Version 4.1.0 (Feb 20th, 2024)
@@ -31,7 +32,7 @@
 * [StrainPhlAn] sample2markers.py output is now in JSON format
 * [StrainPhlAn] Simplified sample and marker filtering parameters, integrated with primary/secondary samples
 * [StrainPhlAn] Faster inference of small and medium phylogenies
-* [StrainPhlAn] Faster execution of the parameter –-print_clades_only
+* [StrainPhlAn] Faster execution of the parameter `–-print_clades_only`
 <br/>
 
 ## Version 4.0.6 (Mar 1st, 2023)
