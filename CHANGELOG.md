@@ -7,6 +7,7 @@
 * [MetaPhlAn] Implementation of the option `--subsampling_paired [N_PAIRED_READS]` to subsample paired-end input reads. It needs to be used in conjunction with `-1 [FORWARD_READS_FILE]` and `-2 [REVERSE_READS_FILE]`
 ### Fixes
 * [MetaPhlAn] Fixed a bug that would halt MetaPhlAn execution when the option `--profile_vsc` was used but had no viral hits
+* [MetaPhlAn] Fixed a bug that would halt MetaPhlAn execution when the number of reads to map was zero
 * [StrainPhlAn] Fixed a bug in the new implementation (since v4.1) of `–-print_clades_only`
   <br/>
 
