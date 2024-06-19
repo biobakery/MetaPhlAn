@@ -87,6 +87,8 @@ def assign_higher_taxonomic_levels(taxa_levs, merged):
 
 def fix_relab_mpa4(input, output, merged):
     taxa_levs = [{},{},{},{},{},{},{},{}] 
+    release = None
+    unclassified_fraction = 0
     with openrt(input) as rf:
         with open(output, 'w') as wf:
             for line in rf:
@@ -94,8 +96,15 @@ def fix_relab_mpa4(input, output, merged):
                     release = line.strip()[1:]
                     line = '_'.join(line.split('_')[:-1])
                     wf.write('{}_202403\n'.format(line.strip()))
-                elif line.startswith('#') or line.startswith('UNCLASSIFIED') or line.startswith('clade_name'):
+                elif line.startswith('#') or line.startswith('clade_name'):
                     wf.write(line)
+                elif line.startswith('UNCLASSIFIED'):
+                    wf.write(line)
+                    line = line.split('\t')
+                    if not merged:
+                        unclassified_fraction = float(line[2])
+                    else:
+                        unclassified_fraction = [float(l) for l in line[1:]]
                 else:
                     if 't__' in line:
                         if release == 'mpa_vJun23_CHOCOPhlAnSGB_202307':
@@ -112,7 +121,9 @@ def fix_relab_mpa4(input, output, merged):
                                         line[0],line[1] = oct_fixes[line[0]]
                                     else:
                                         line[0] = oct_fixes[line[0]][0]
-
+                        else:
+                           error('The release is not specified in the header or does not correspond to mpa_vJun23_CHOCOPhlAnSGB_202307 or mpa_vOct22_CHOCOPhlAnSGB_202212', exit=True)
+                            
                         if not merged:           
                             taxa_levs[-1][line[0]] = [line[1], float(line[2]), line[3] if len(line)==4 else '']
                         else:
@@ -128,12 +139,13 @@ def fix_relab_mpa4(input, output, merged):
                     sum_level[level] = 0
                     for tax in taxa_levs[level]:
                         sum_level[level] += taxa_levs[level][tax][1]
-
                 for level in range(len(taxa_levs)):
                     for tax in taxa_levs[level]:
-                        taxa_levs[level][tax][1] = round(100 * taxa_levs[level][tax][1]/sum_level[level], 5)
+                        taxa_levs[level][tax][1] = round((100 - unclassified_fraction) * taxa_levs[level][tax][1]/sum_level[level], 5)
                         wf.write(tax + '\t' + '\t'.join([str(x) for x in taxa_levs[level][tax]]) + '\n')
             else:
+                if unclassified_fraction == 0:
+                    unclassified_fraction = [0] * ncols
                 sum_level = dict()  
                 for level in range(len(taxa_levs)):
                     sum_level[level] = [0]*ncols
@@ -143,7 +155,7 @@ def fix_relab_mpa4(input, output, merged):
                 for level in range(len(taxa_levs)):
                     for tax in taxa_levs[level]:
                         for n in range(len(taxa_levs[level][tax])):
-                            taxa_levs[level][tax][n] = round(100 * taxa_levs[level][tax][n]/sum_level[level][n], 5)
+                            taxa_levs[level][tax][n] = round((100 - unclassified_fraction[n]) * taxa_levs[level][tax][n]/sum_level[level][n], 5)
                         wf.write(tax + '\t' + '\t'.join([str(x) for x in taxa_levs[level][tax]]) + '\n')
 
 
