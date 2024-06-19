@@ -114,10 +114,15 @@ def read_and_write_raw_int(fd, min_len=None, prefix_id=""):
     #         avg_read_length = len(l) + avg_read_length
     #         _ = sys.stdout.write(ignore_spaces(l))
 
+    if not idx:
+        sys.stderr.write('Error: no reads found.\n')
+        sys.exit(1)
+
     nreads = idx - discarded
 
     if not nreads:
-        nreads, avg_read_length = 0, 0
+        sys.stderr.write('Error: no reads longer than {} bp found.\n'.format(min_len))
+        sys.exit(1)
 
     return (nreads, avg_read_length)
 

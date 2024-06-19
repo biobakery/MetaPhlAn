@@ -7,7 +7,7 @@ __date__ = '11 Mar 2024'
 
 import os, time
 try:
-    from .util_fun import info, error, warning
+    from .util_fun import info, error, warning, openrt
 except ImportError:
     from util_fun import info, error, warning, openrt
 import argparse as ap
