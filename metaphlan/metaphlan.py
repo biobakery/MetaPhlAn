@@ -9,7 +9,7 @@ __date__ = '24 Oct 2022'
 
 
 import time
-import bz2
+import bz2, gzip
 import re
 import os
 from glob import glob, iglob
@@ -566,10 +566,6 @@ class MetaphlanDatabaseController():
         return self.index
 
     def set_pkl(self):
-        #mpa_pkl = 'mpa_pkl'
-        #bowtie2db = 'bowtie2db'
-        bt2_ext = 'bt2l'  
-
         if os.path.isfile(os.path.join(self.bowtie2db, "{}.pkl".format(self.index))):
             mpa_pkl = os.path.join(self.bowtie2db, "{}.pkl".format(self.index))
         else:
@@ -577,9 +573,6 @@ class MetaphlanDatabaseController():
 
         with bz2.BZ2File(mpa_pkl, 'r') as handle:
             database_pkl = pkl.load(handle)
-
-        #if glob(os.path.join(self.bowtie2db, "{}*.{}".format(self.index, bt2_ext))):
-        #    bowtie2db = os.path.join(self.bowtie2db, "{}".format(self.index))
 
         return database_pkl 
     
@@ -638,9 +631,9 @@ class MetaphlanDatabaseController():
                 if not os.path.exists(os.path.join(self.bowtie2db, 'mpa_latest')):
                     error("Database cannot be downloaded with the --offline option activated and no existing database was detected in {}".format(self.bowtie2db), init_new_line = True, exit = True) 
         
-        with open(os.path.join(self.bowtie2db, 'mpa_latest')) as mpa_latest:
-            latest_db_version = ''.join([line.strip() for line in mpa_latest if not line.startswith('#')])
-            self.index = latest_db_version
+            with open(os.path.join(self.bowtie2db, 'mpa_latest')) as mpa_latest:
+                latest_db_version = ''.join([line.strip() for line in mpa_latest if not line.startswith('#')])
+                self.index = latest_db_version
 
         self.database_pkl = self.set_pkl()
 
@@ -744,7 +737,7 @@ class VSCController():
         self.mapping_controller.set_index(os.path.basename(self.top_marker_file).split('.')[0])        
         self.mapping_controller.set_input_type('fastq')
         self.mapping_controller.set_samout(os.path.basename(self.vscBamFile).split('.')[0]+'.sam')
-        self.mapping_controller.set_bowtie2out(None)
+        self.mapping_controller.set_no_map(True)
         self.mapping_controller.set_mapping_parameters(None)
         self.mapping_controller.run_mapping()
 
@@ -864,8 +857,8 @@ class Bowtie2Controller(MappingController):
     def set_samout(self, value):
         self.samout = value
 
-    def set_bowtie2out(self, value):
-        self.bowtie2out = value 
+    def set_no_map(self, value):
+        self.no_map = value 
     
     def set_mapping_parameters(self, value):
         self.min_alignment_len = value 
@@ -1036,8 +1029,8 @@ class Bowtie2Controller(MappingController):
         try:
             nreads, avg_read_len = list(
                 map(float, read_fastx_stderr[0].decode().split()))
-            if not nreads:
-                error('Fatal error running MetaPhlAn. Total metagenome size was not estimated.\nPlease check your input files.', exit=True)
+            if not nreads or int(nreads)==0:
+                error('Fatal error running MetaPhlAn. Total metagenome size was not estimated or is zero.\nPlease check your input files.', exit=True)
             if not avg_read_len:
                 error('Fatal error running MetaPhlAn. The average read length was not estimated.\nPlease check your input files.', exit=True)
             return int(nreads), avg_read_len
@@ -1328,8 +1321,110 @@ class Metaphlan:
         """
         return {r: m for r, m in reads2markers.items() if ('SGB' in m or 'EUK' in m) and not 'VDB' in m}, {r: m for r, m in reads2markers.items() if 'VDB' in m and not ('SGB' in m or 'EUK' in m)}
 
+    def make_gen_fastq(self, reader):
+        b = reader(1024 * 1024) 
+        while (b):
+            yield b
+            b = reader(1024 * 1024)
+
+    def rawpycount(self, filename):
+        f = bz2.BZ2File(filename, 'rb') if filename.endswith(".bz2") else gzip.open(filename, 'rb') if filename.endswith('.gz') else open(filename, 'rb')
+        f_gen = self.make_gen_fastq(f.read)
+        n_metagenome_reads = sum( buf.count(b'\n') for buf in f_gen)
+        f.close()
+        return n_metagenome_reads
     
-    def subsample_reads(self, reads2markers):
+    def subsample_file(self, sample, out):         
+        length, read_num = 0, -1
+        counter=0
+        out_l = out
+        for inp_f in self.inp.split(','):
+            if self.subsampling_paired:
+                length, read_num = 0, -1  
+                out=out_l[counter]
+                counter+=1
+            line = 1
+            reader = bz2.open(inp_f, 'rt') if inp_f.endswith(".bz2") else gzip.open(inp_f, 'rt') if inp_f.endswith('.gz') else open(inp_f, 'r')
+            while (line and length < self.subsampling):
+                line = reader.readline()
+                read_num += 1
+                if read_num in sample:
+                    length += 1
+                    out.write(line)       
+                    for _ in range(3):
+                        out.write(reader.readline())
+                else:
+                    for _ in range(3):
+                        reader.readline()
+            reader.close()
+        out.close()
+
+    def prepare_subsample_output(self):
+        if self.subsampling_output is None:
+            if self.subsampling_paired:
+                self.subsampling_output = list()
+                out = list()
+                for _ in self.inp.split(','):
+                    out_f = tempfile.NamedTemporaryFile(dir=self.tmp_dir, mode='w', delete=False)
+                    out.append(out_f)
+                    self.subsampling_output.append(out_f.name)
+            else:
+                out= tempfile.NamedTemporaryFile(dir=self.tmp_dir, mode='w', delete=False)
+                self.subsampling_output = out.name
+        else:
+            if self.subsampling_paired:
+                r, ext = os.path.splitext(self.subsampling_output)
+
+                self.subsampling_output = list()
+                out = list()
+
+                self.subsampling_output.append('.'.join([r, 'R1'+ext]))
+                self.subsampling_output.append('.'.join([r, 'R2'+ext]))
+
+                for s in self.subsampling_output:
+                    out.append(bz2.open(s, 'wt') if s.endswith(".bz2") else gzip.open(s, 'wt') if s.endswith('.gz') else open(s, 'w'))
+            else:
+                out = bz2.open(self.subsampling_output, 'wt') if self.subsampling_output.endswith(".bz2") else gzip.open(self.subsampling_output, 'wt') if self.subsampling_output.endswith('.gz') else open(self.subsampling_output, 'w')
+        return out
+
+
+    def subsample_reads(self):
+        self.n_metagenome_reads = execute_pool(((self.rawpycount, inp_f) for inp_f in self.inp.split(',')), 2)
+        self.n_metagenome_reads = [int(n/4) for n in self.n_metagenome_reads]
+
+        if self.subsampling >= sum(self.n_metagenome_reads):
+            warning("The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.\n".format(self.subsampling, self.n_metagenome_reads)) 
+            self.n_metagenome_reads = sum(self.n_metagenome_reads)
+            self.subsampling_output = self.inp
+            return 
+
+        if self.subsampling_paired:
+            self.subsampling //= 2
+            if self.n_metagenome_reads[0] != self.n_metagenome_reads[1]:
+                error("The specified reads file are not the same length! Make sure the forward and reverse reads are files are not damaged and reads are in the same order.", init_new_line = True, exit = True) 
+            self.n_metagenome_reads = self.n_metagenome_reads[0]
+        else:
+            self.n_metagenome_reads = sum(self.n_metagenome_reads)
+
+
+        if self.subsampling_seed.lower() != 'random':
+            random.seed(int(self.subsampling_seed))
+
+        sample = set(random.sample(range(self.n_metagenome_reads), self.subsampling))
+
+        out = self.prepare_subsample_output()
+        self.subsample_file(sample, out)
+
+        if isinstance(self.subsampling_output, list):
+            self.subsampling_output = ','.join(self.subsampling_output)
+            self.subsampling = self.subsampling*2
+
+        # update number of reads and input file
+        self.n_metagenome_reads = self.subsampling
+        self.inp = self.subsampling_output
+        
+
+    def mapping_subsample_reads(self, reads2markers):
         """Subsamples the reads using the mapping results 
 
         Args:
@@ -1340,8 +1435,6 @@ class Metaphlan:
         """
         if self.subsampling >= self.n_metagenome_reads:
             warning("WARNING: The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.".format(self.subsampling, self.n_metagenome_reads), init_new_line=True)
-        elif self.subsampling < 10000:
-            warning("The specified subsampling ({}) is below the recommended minimum of 10,000 reads.".format(self.subsampling), init_new_line=True)
         else:
             reads2markers =  dict(sorted(reads2markers.items()))
             if self.subsampling_seed.lower() != 'random':
@@ -1356,6 +1449,7 @@ class Metaphlan:
             sgb_reads2markers.clear()
             viral_reads2markers.clear()
             self.n_metagenome_reads = self.subsampling
+
         return reads2markers
 
     def parse_mapping(self):
@@ -1366,10 +1460,10 @@ class Metaphlan:
         """
         self.n_metagenome_reads, self.avg_read_length, reads2markers = self.mapping_controller.get_reads2markers()   
         self.build_taxonomy_tree()     
-        if self.subsampling is not None:
-            reads2markers = self.subsample_reads(reads2markers)
-        elif self.n_metagenome_reads < 10000:
-            warning("The number of reads in the sample ({}) is below the recommended minimum of 10,000 reads.".format(self.n_metagenome_reads))            
+        if self.subsampling is not None and self.mapping_subsampling:
+            reads2markers = self.mapping_subsample_reads(reads2markers)
+        elif self.subsampling is None and self.n_metagenome_reads < 10000:
+            warning("The number of reads in the sample ({}) is below the recommended minimum of 10,000 reads.".format(self.n_metagenome_reads))  
         markers2reads = defdict(set)   
         for r, m in reads2markers.items():
             markers2reads[m].add(r)
@@ -1419,20 +1513,22 @@ class Metaphlan:
 
     def run_metaphlan(self):
         """Runs the MetaPhlAn pipeline"""        
-        if self.install:
-            self.index=self.database_controller.check_and_install_database()
-            info('The database has been installed ({})'.format(self.index), stderr=True, exit=True)
         
-        #self.database_controller.check_database()    
+        self.index=self.database_controller.check_and_install_database()
+        info('The database is installed ({})'.format(self.index), stderr=True, exit=self.install)
+        if (self.subsampling_paired or self.subsampling) and not self.mapping_subsampling:
+            self.subsample_reads()
+            self.mapping_controller.set_inp(self.inp)
+
         if self.input_type in ['fastq', 'fasta']:            
-             self.mapping_controller.run_mapping()        
+             self.mapping_controller.run_mapping()       
         self.parse_mapping()
         self.metaphlan_analysis.report_results(self.tree, self.n_metagenome_reads, self.avg_read_length)
         if self.profile_vsc:
             self.vsc_controller.run_analysis()
 
     def __init__(self, args):
-        
+        self.inp = args.inp
         self.verbose = args.verbose
         self.database_controller = MetaphlanDatabaseController(args)
         self.index = self.database_controller.resolve_index()
@@ -1452,6 +1548,9 @@ class Metaphlan:
         self.ignore_markers = self.get_markers_to_ignore(args.ignore_markers)
         self.avoid_disqm = args.avoid_disqm
         self.subsampling = args.subsampling
+        self.subsampling_paired = args.subsampling_paired
+        self.subsampling_output = args.subsampling_output
+        self.mapping_subsampling = args.mapping_subsampling
         self.subsampling_seed = args.subsampling_seed
         self.install = args.install
         self.offline = args.offline
@@ -1638,6 +1737,12 @@ def read_params():
         help="Random seed to use in the selection of the subsampled reads. Choose \"random\r for a random behaviour")
     arg('--subsampling_output', type=str, default=None,
         help="The output file for the subsampled reads. If not specified the subsampled reads will not be saved.")
+    arg('--subsampling_paired',  type=int, default=None,
+        help="Specify the number of paired reads to be considered from the input metagenomes [default None]")
+    arg('-1', type=str, default=None, metavar='FORWARD_READS', dest='forward',
+        help="Specify the fastq file with forward reads of the input metagenomes. Reads are assumed to be in the same order in the forward and reverse files! [default None]")
+    arg('-2', type=str, default=None, metavar='REVERSE_READS', dest='reverse',
+        help="Specify the fastq file with reverse reads of the input metagenomes. Reads are assumed to be in the same order in the forward and reverse files! [default None]")
     arg('--install', action='store_true',
         help="Only checks if the MetaPhlAn DB is installed and installs it if not. All other parameters are ignored.")
     arg('--offline', action='store_true',
@@ -1668,8 +1773,6 @@ def check_params(args):
         error("--bowtie2out needs to be specified when multiple FASTQ or FASTA files (comma separated) are provided", exit=True)
     if args.bowtie2out and os.path.exists(args.bowtie2out) and not args.force and not args.profile_vsc:
         error("BowTie2 output file detected: {}\n. Please use it as input or remove it if you want to re-perform the BowTie2 run".format(args.bowtie2out), exit=True)
-    if not (args.subsampling_seed.lower() == 'random' or args.subsampling_seed.isdigit()):
-        error('The --subsampling_seed parameter is not accepted. It should contain an integer number or \"random\"', exit=True) 
     if args.input_type == 'sam' and not args.nreads:
         error('The --nreads parameter must be specified when using input files in SAM format', exit=True)
     if args.input_type not in ['fasta', 'fastq'] and args.no_map:
@@ -1683,15 +1786,41 @@ def check_params(args):
         error("The Viral Sequence Clusters mode requires fasta or sam input!", init_new_line = True, exit = True)
     if args.profile_vsc and (args.input_type == 'fasta' or  args.input_type == 'fastq') and not args.samout:
         error("The Viral Sequence Clusters mode with fasta files requires to specify a SAM output file with the -s parameter", init_new_line = True, exit = True)
+    if args.profile_vsc and not args.vsc_out:
+        error("The Viral Sequence Clusters mode requires to specify a profiling output file with the --vsc_out parameter", init_new_line = True, exit = True)    
+    if args.mapping_subsampling and args.subsampling is None:
+        error("The --mapping_subsampling parameter should be used together with the --subsampling parameter.", init_new_line = True, exit = True)
+    if args.subsampling and args.subsampling_paired:
+        error("You specified both --subsampling and --subsampling_paired. Choose only one of the two options.", init_new_line = True, exit = True) 
+    if (args.subsampling or args.subsampling_paired) and args.subsampling_paired < 10000:
+        warning("The specified subsampling is below the recommended minimum of 10,000 reads.", init_new_line = True) 
+    if not args.mapping_subsampling and ((args.subsampling is not None) or (args.subsampling_paired is not None)):
+        if args.input_type != 'fastq':
+            error("The --subsampling/--subsampling_paired parameter requires FASTQ input or --mapping_subsampling", init_new_line = True, exit = True)
+        if args.subsampling is not None:
+            warning("If you use --subsampling the reads will be subsampled NOT taking into account paired information. Use --subsampling_paired if you have paired ends reads.", init_new_line = True)
+            args.subsampling_paired=False
+            if not args.inp:
+                error("Input reads for the subsampling must be provided as parameter. Stdin input is not allowed.", init_new_line = True, exit = True)
+        elif args.subsampling_paired is not None:
+            args.subsampling = args.subsampling_paired
+            args.subsampling_paired = True
 
-
+            if args.forward is None or args.reverse is None:
+                error("If you specify --subsampling_paired you have to provide forward and reverse reads as -1 and -2 respectively. \n Reads are assumed to be in the same order in the two files.", init_new_line = True, exit = True)
+            if not os.path.exists(args.forward) or not os.path.exists(args.reverse):
+                error("Error: Files passed with -1 ({}) or -2 ({}) not found.".format(args.forward, args.reverse), init_new_line = True, exit = True)
+            if args.inp is not None:
+                warning("Since --subsampling_paired has been specified, reads are taken from -1 ({}) and -2 ({}), not from -inp.".format(args.forward, args.reverse), init_new_line = True)
+            args.inp = args.forward + ',' + args.reverse
+    return args
 
 def main():
     t0 = time.time()
     args = read_params()
     if args.verbose:
         info("Start MetaPhlAn execution", stderr=True)
-    check_params(args)
+    args = check_params(args)
     metaphlan_runner = Metaphlan(args)
     metaphlan_runner.run_metaphlan()
     exec_time = time.time() - t0    
