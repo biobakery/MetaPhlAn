@@ -1190,6 +1190,10 @@ def subsample_reads(inp, subsampling, subsampling_seed, subsampling_output, tmp_
     n_metagenome_reads = execute_pool(((rawpycount, inp_f) for inp_f in inp.split(',')), 2)
     n_metagenome_reads = [int(n/4) for n in n_metagenome_reads]
 
+    if subsampling >= sum(n_metagenome_reads):
+        sys.stderr.write("WARNING: The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.\n".format(subsampling, sum(n_metagenome_reads))) 
+        return inp, None
+
     if paired:
         subsampling //= 2
         if n_metagenome_reads[0] != n_metagenome_reads[1]:
@@ -1199,9 +1203,6 @@ def subsample_reads(inp, subsampling, subsampling_seed, subsampling_output, tmp_
     else:
         n_metagenome_reads = sum(n_metagenome_reads)
 
-    if subsampling >= n_metagenome_reads:
-        sys.stderr.write("WARNING: The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.\n".format(subsampling, sum(n_metagenome_reads))) 
-        return inp, None
 
     if subsampling_seed.lower() != 'random':
         random.seed(int(subsampling_seed))
@@ -1238,7 +1239,9 @@ def subsample_reads(inp, subsampling, subsampling_seed, subsampling_output, tmp_
 
     if isinstance(subsampling_output, list):
         subsampling_output = ','.join(subsampling_output)
-        
+        subsampling = subsampling*2
+
+
     return subsampling_output, subsampling
 
 def main():
