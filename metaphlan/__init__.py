@@ -37,27 +37,29 @@ def byte_to_megabyte(byte):
     return byte / (1024.0**2)
 
 class ReportHook():
+    update_interval = 0.5
     def __init__(self):
         self.start_time = time.time()
+        self.last_update = time.time()
 
     def report(self, blocknum, block_size, total_size):
         """
         Print download progress message
         """
-
+        now = time.time()
         if blocknum == 0:
             self.start_time = time.time()
             if total_size > 0:
                 sys.stderr.write("Downloading file of size: {:.2f} MB\n"
                                  .format(byte_to_megabyte(total_size)))
-        else:
+        elif (now - self.last_update) > self.update_interval:
             total_downloaded = blocknum * block_size
             status = "{:3.2f} MB ".format(byte_to_megabyte(total_downloaded))
 
             if total_size > 0:
                 percent_downloaded = total_downloaded * 100.0 / total_size
                 # use carriage return plus sys.stderr to overwrite stderr
-                download_rate = total_downloaded / (time.time() - self.start_time)
+                download_rate = total_downloaded / (now - self.start_time)
                 estimated_time = (total_size - total_downloaded) / download_rate
                 estimated_minutes = int(estimated_time / 60.0)
                 estimated_seconds = estimated_time - estimated_minutes * 60.0
@@ -68,6 +70,7 @@ class ReportHook():
 
             status += "        \r"
             sys.stderr.write(status)
+            self.last_update = now
 
 def download(url, download_file, force=False):
     """
