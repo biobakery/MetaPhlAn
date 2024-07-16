@@ -55,7 +55,7 @@ def merge( aaastrIn, ostm, options ):
             listmpaVersion.add(mpaVersion[0])
 
         if len(listmpaVersion) > 1:
-            print('merge_metaphlan_tables found tables made with different versions of the MetaPhlAn2 database.\nPlease re-run MetaPhlAn2 with the same database.\n')
+            print('merge_vsc_tables found tables made with different versions of the MetaPhlAn2 database.\nPlease re-run MetaPhlAn2 with the same database.\n')
             return
          
         iIn = pd.read_csv(f,sep='\t',skiprows=len(headers)).assign(sampleID = smpl_name).fillna('')
@@ -65,7 +65,7 @@ def merge( aaastrIn, ostm, options ):
         else:
             merged_tables = pd.concat([iIn, merged_tables])
 
-    indexes_for_pivot = 'M-Group/Cluster' if suppress_info else ['M-Group/Cluster','M-Group-Type [k|u]','First Genome in Cluster','Other Genomes']
+    indexes_for_pivot = 'M-Group/Cluster' if suppress_info else ['M-Group/Cluster','M-Group-Type [k|u]','First Genome in Cluster','Other Genomes','Annotation']
     out_table = pd.pivot_table(merged_tables, index = indexes_for_pivot, columns = 'sampleID', values = groupby_field)
 
     if listmpaVersion:
@@ -78,7 +78,7 @@ argp.add_argument( "aistms",    metavar = "input.txt", nargs = "+",
     help = "One or more tab-delimited text tables to join" )
 argp.add_argument( '-o',    metavar = "output.txt", nargs = 1,
     help = "Name of output file in which joined tables are saved" )
-argp.add_argument( '-g',  choices=['breadth_of_coverage','depth_of_coverage_mean','depth_of_coverage_median'],
+argp.add_argument( '-g',  choices=['breadth_of_coverage','depth_of_coverage_mean','depth_of_coverage_median','RPKM'],
     help = "Value to group by (default is 'breadth_of_coverage')",
     default = "breadth_of_coverage")
 argp.add_argument( '--no_info',  action='store_true',

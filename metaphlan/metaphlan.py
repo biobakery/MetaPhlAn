@@ -412,7 +412,7 @@ def set_vsc_parameters(index, bowtie2_db):
     return(vsc_fna, vsc_vinfo)
 
 def vsc_bowtie2(profile_vsc_folder, nproc, file_format="fasta",
-                exe=None,bt2build_exe=None, min_alignment_len=None, read_min_len=0):
+                exe=None,bt2build_exe=None, min_alignment_len=None, read_min_len=0,nreads=None):
 
     try:
         subp.check_call([exe if exe else 'bowtie2', "-h"], stdout=DEVNULL)
@@ -491,6 +491,7 @@ def vsc_bowtie2(profile_vsc_folder, nproc, file_format="fasta",
         for pileupcolumn in bamHandle.pileup(c):
 
             tCoverage = 0
+            
             for pileupread in pileupcolumn.pileups:
 
                 if not pileupread.is_del and not pileupread.is_refskip \
@@ -500,12 +501,24 @@ def vsc_bowtie2(profile_vsc_folder, nproc, file_format="fasta",
 
             if tCoverage >= 1:
                 coverage_positions[pileupcolumn.pos] = tCoverage
-        
+
+
+        reads_mapping = bamHandle.count(c)
+        print("    Contig {} has count {}".format(c,reads_mapping))
+
         breadth = float(len(coverage_positions.keys()))/float(length)
-        
+        rpkm = reads_mapping / ((length/(10**3)) * (nreads / (10**6)))
+
         if breadth > 0:
             cvals=list(coverage_positions.values())
-            VSC_report.append({'M-Group/Cluster':c.split('|')[2].split('-')[0], 'genomeName':c, 'len':length, 'breadth_of_coverage':breadth, 'depth_of_coverage_mean': np.mean(cvals), 'depth_of_coverage_median': np.median(cvals)})
+            VSC_report.append({'M-Group/Cluster':c.split('|')[2].split('-')[0], \
+                'genomeName':c,                                                 \
+                'len':length,                                                   \
+                'breadth_of_coverage':breadth,                                  \
+                'mapping_reads_count':reads_mapping,                                  \
+                'RPKM': rpkm,                                                    \
+                'depth_of_coverage_mean': np.mean(cvals),                       \
+                'depth_of_coverage_median': np.median(cvals)})
 
     if bamHandle:
         bamHandle.close()
@@ -1472,7 +1485,7 @@ def main():
             SeqIO.write( selectedMakrers,viralTempFolder+'/v_mks.fa','fasta' )
 
             VSC_report = vsc_bowtie2(viralTempFolder, pars['nproc'], file_format=pars['input_type'],
-                        exe=pars['bowtie2_exe'], bt2build_exe=pars['bowtie2_build']) 
+                        exe=pars['bowtie2_exe'], bt2build_exe=pars['bowtie2_build'],nreads=n_metagenome_reads) 
 
 
             if not VSC_report == []:
