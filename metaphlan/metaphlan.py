@@ -310,7 +310,7 @@ def read_params(args):
     arg( '--min_ab', metavar="", default=0.1, type=float, help =
          "The minimum percentage abundance for the clade in the clade_specific_strain_tracker analysis\n"  )
 
-    g = p.add_argument_group('Viral Sequence Clusters Analisys')
+    g = p.add_argument_group('Viral Sequence Clusters Analysis')
     arg = g.add_argument
     arg("--profile_vsc", action="store_true",help="Add this parameter to profile Viruses with VSCs approach.")
     arg("--vsc_out", help="Path to the VSCs breadth-of-coverage output file", default="mp3_viruses.csv")
