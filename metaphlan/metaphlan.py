@@ -398,18 +398,29 @@ def set_mapping_arguments(index, bowtie2_db):
 
 
 def set_vsc_parameters(index, bowtie2_db):
+    # The corresponding VSG file downloaded from metaphlan_databases site
+    # is actually a bz2 compressed file (as of version vJun23, 202403)
+    # http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/
     vsc_fna = os.path.join(bowtie2_db, "{}_VSG.fna".format(index))
+    vsc_fna_bz2 = os.path.join(bowtie2_db, "{}_VSG.fna.bz2".format(index))
     vsc_vinfo = os.path.join(bowtie2_db, "{}_VINFO.csv".format(index))
 
-    if not os.path.isfile(vsc_fna):
-        sys.stderr.write("Error:\n {} file not found in bowtie2db folder ({}). Re-download MetaPhlAn database.".format("{}_VSG.fna".format(index, bowtie2_db)))
+    if (not os.path.isfile(vsc_fna)) and (not os.path.isfile(vsc_fna_bz2)):
+        sys.stderr.write(
+            "Error:\n {1} file or {1}.bz2 file not found in bowtie2db folder ({2})."
+            "Re-download MetaPhlAn database.".format("{}_VSG.fna".format(index), bowtie2_db)
+        )
         sys.exit(1)
 
     if not os.path.isfile(vsc_vinfo):
-        sys.stderr.write("Error:\n {} file not found in bowtie2db folder ({}). Re-download MetaPhlAn database.".format("{}_VINFO.csv".format(index, bowtie2_db)))
+        sys.stderr.write(
+            "Error:\n {} file not found in bowtie2db folder ({}). "
+            "Re-download MetaPhlAn database.".format("{}_VINFO.csv".format(index), bowtie2_db)
+        )
         sys.exit(1)
 
     return(vsc_fna, vsc_vinfo)
+
 
 def vsc_bowtie2(profile_vsc_folder, nproc, file_format="fasta",
                 exe=None,bt2build_exe=None, min_alignment_len=None, read_min_len=0):
@@ -1441,6 +1452,14 @@ def main():
     if pars['profile_vsc']:
         
         try:
+            # vsc_fna might be a bz2 compressed file
+            if vsc_fna.endswith(".bz2"):
+                temp_vsc_fna = os.path.join(viralTempFolder, os.path.basename(vsc_fna)[:-4])
+                with bz2.open(vsc_fna, "rt") as infh, open(temp_vsc_fna, "wt") as outfh:
+                    SeqIO.write(SeqIO.parse(infh, "fasta"), outfh, "fasta")
+
+                vsc_fna = temp_vsc_fna
+
             VSCs_markers = SeqIO.index(vsc_fna, "fasta")
         except Exception as e:
             sys.stderr.write('Error: "{}"\nCould not access to {}.\n'.format(e,vsc_fna))
@@ -1469,6 +1488,7 @@ def main():
                 selectedMakrers.append(topMarker)
 
 
+            VSCs_markers.close()
             SeqIO.write( selectedMakrers,viralTempFolder+'/v_mks.fa','fasta' )
 
             VSC_report = vsc_bowtie2(viralTempFolder, pars['nproc'], file_format=pars['input_type'],
