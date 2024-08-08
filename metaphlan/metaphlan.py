@@ -256,9 +256,9 @@ class TaxTree:
         self.add_tree_markers()
             
     def add_reads(self, marker, nreads,
-                    ignore_eukaryotes = False,
-                    ignore_bacteria = False, ignore_archaea = False, 
-                    ignore_ksgbs = False, ignore_usgbs = False):
+                  ignore_eukaryotes = False,
+                  ignore_bacteria = False, ignore_archaea = False, 
+                  ignore_ksgbs = False, ignore_usgbs = False):
         """Assigns a number of reads to a marker in the database
 
         Args:
@@ -291,19 +291,19 @@ class TaxTree:
         """Compute the relative abundances for the taxa present in the sample
 
         Returns:
-            int: the number of mapped reads
+            int: the number of mapped reads (or bases for long reads)
         """
         total_ab = 0
-        total_reads = 0
+        total = 0 # total instead of total:reads because it is bases for long reads - linda
         for clade in self.all_clades.values():
             clade.compute_coverage()
             if len(clade.children) == 0 and clade.coverage > 0:
                 total_ab += clade.coverage
-                total_reads += clade.nreads        
+                total += clade.nreads        
         for clade in self.all_clades.values():
             if clade.coverage > 0:
                 clade.rel_abundance = round(100 * clade.coverage / total_ab, 5)
-        return total_reads
+        return total
     
     def clade_profiles(self):
         """Retrieves the clade profiles
@@ -322,7 +322,7 @@ class TaxTree:
     def __init__(self, database_pkl, ignore_markers, stat, stat_q, perc_nonzero, avoid_disqm, avg_read_length):
         self.mpa = database_pkl
         self.ignore_markers = ignore_markers
-        self.root = TaxClade('root', 0)
+        self.root = TaxClade('root', 0) #if not long_reads else TaxClade_longreads('root', 0)
         self.all_clades = {}
         self.markers2clades = {}
         self.markers2lens = {}
@@ -339,80 +339,14 @@ class TaxTree:
         TaxClade.avg_read_length = avg_read_length
 
 
-class MappingController:
-    """MappingController interface"""
-    def run_mapping(self):
-        pass
-    
-    def get_reads2markers(self):
-        pass
-    
-    def __init__(self):
-        pass
-    
 class MetaphlanDatabaseController(): 
     """MetaphlanDatabaseController class"""
-    def prepare_bwt_indexes(self):
-        """Prepare for building BowTie indexes"""
-
-        if not glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
-            self.build_bwt_indexes()
-        else:
-            try:
-                subp.check_call(['bowtie2-inspect', '-n', os.path.join(self.bowtie2db, self.index)], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
-            except Exception as e:
-                warning('Downloaded indexes are not compatible with the installed version of Bowtie2', init_new_line = True)
-                info('Building indexes from the FASTA files', init_new_line = True)
-                for btw_file in iglob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
-                    os.remove(btw_file)
-                self.build_bwt_indexes()
-        try:
-            for bt2 in glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
-                os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
-        except PermissionError as e:
-            error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.bowtie2db, self.self.index + "*.bt2l")))
-        
-        #remove all the individual FASTA files but ViralDB
-        info('Removing uncompressed databases', init_new_line = True)
-        for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
-            if not fna_file.endswith('_VSG.fna'):
-                os.remove(fna_file)
 
     def set_bowtie2db(self, value):
         self.bowtie2db = value
 
     def set_index(self, value):
         self.index = value
-
-    def build_bwt_indexes(self):
-        """Build BowTie indexes"""
-        info('Joining FASTA databases', init_new_line = True )
-        if len(glob(os.path.join(self.bowtie2db, self.index + "*.fna"))) > 1:
-            with open(os.path.join(self.bowtie2db, self.index + ".fna"), 'w') as fna_h:
-                for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
-                    with open(fna_file, 'r') as fna_r:
-                        for line in fna_r:
-                            fna_h.write(line)
-        fna_file = os.path.join(self.bowtie2db, self.index + ".fna")
-        
-        bt2_base = os.path.join(self.bowtie2db, self.index)
-        bt2_cmd = [self.bowtie2_build, '--quiet']
-
-        if self.nproc > 1:
-            bt2_build_output = subp.check_output([self.bowtie2_build, '--usage'], stderr=subp.STDOUT)
-
-            if 'threads' in str(bt2_build_output):
-                bt2_cmd += ['--threads', str(self.nproc)]
-
-        bt2_cmd += ['-f', fna_file, bt2_base]
-
-        info('Building Bowtie2 indexes', init_new_line = True)
-
-        try:
-            subp.check_call(bt2_cmd)
-        except Exception as e:
-            error("Fatal error running '{}'\nError message: '{}'\n\n".format(' '.join(bt2_cmd), e), exit = True)
-
 
     def report(self, blocknum, block_size, total_size):
         """Print download progress message"""
@@ -647,8 +581,132 @@ class MetaphlanDatabaseController():
         self.force_download = args.force_download
         self.offline = args.offline
         self.database_pkl = None
+        # self.bowtie2_build = args.bowtie2_build
+
+
+class Bowtie2DatabaseController(MetaphlanDatabaseController):
+    """Bowtie2DatabaseController class"""
+
+    def prepare_bwt_indexes(self):
+        """Prepare for building BowTie indexes"""
+
+        if not glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+            self.build_bwt_indexes()
+        else:
+            try:
+                subp.check_call(['bowtie2-inspect', '-n', os.path.join(self.bowtie2db, self.index)], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
+            except Exception as e:
+                warning('Downloaded indexes are not compatible with the installed version of Bowtie2', init_new_line = True)
+                info('Building indexes from the FASTA files', init_new_line = True)
+                for btw_file in iglob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+                    os.remove(btw_file)
+                self.build_bwt_indexes()
+        try:
+            for bt2 in glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+                os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
+        except PermissionError as e:
+            error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.bowtie2db, self.self.index + "*.bt2l")))
+        
+        #remove all the individual FASTA files but ViralDB
+        info('Removing uncompressed databases', init_new_line = True)
+        for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
+            if not fna_file.endswith('_VSG.fna'):
+                os.remove(fna_file)
+
+    def build_bwt_indexes(self):
+        """Build BowTie indexes"""
+        info('Joining FASTA databases', init_new_line = True )
+        if len(glob(os.path.join(self.bowtie2db, self.index + "*.fna"))) > 1:
+            with open(os.path.join(self.bowtie2db, self.index + ".fna"), 'w') as fna_h:
+                for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
+                    with open(fna_file, 'r') as fna_r:
+                        for line in fna_r:
+                            fna_h.write(line)
+        fna_file = os.path.join(self.bowtie2db, self.index + ".fna")
+        
+        bt2_base = os.path.join(self.bowtie2db, self.index)
+        bt2_cmd = [self.bowtie2_build, '--quiet']
+
+        if self.nproc > 1:
+            bt2_build_output = subp.check_output([self.bowtie2_build, '--usage'], stderr=subp.STDOUT)
+
+            if 'threads' in str(bt2_build_output):
+                bt2_cmd += ['--threads', str(self.nproc)]
+
+        bt2_cmd += ['-f', fna_file, bt2_base]
+
+        info('Building Bowtie2 indexes', init_new_line = True)
+
+        try:
+            subp.check_call(bt2_cmd)
+        except Exception as e:
+            error("Fatal error running '{}'\nError message: '{}'\n\n".format(' '.join(bt2_cmd), e), exit = True)
+
+    def __init__(self, args):
+        super().__init__(args)
         self.bowtie2_build = args.bowtie2_build
 
+class Minimap2DatabaseController(MetaphlanDatabaseController):
+    """Minimap2DatabaseController class"""
+
+    def prepare_mm2_indexes(self): ## TODO
+        """Prepare for building minimap2 indexes"""
+
+        # if not glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+        #     self.build_bwt_indexes()
+        # else:
+        #     try:
+        #         subp.check_call(['bowtie2-inspect', '-n', os.path.join(self.bowtie2db, self.index)], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
+        #     except Exception as e:
+        #         warning('Downloaded indexes are not compatible with the installed version of Bowtie2', init_new_line = True)
+        #         info('Building indexes from the FASTA files', init_new_line = True)
+        #         for btw_file in iglob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+        #             os.remove(btw_file)
+        #         self.build_bwt_indexes()
+        # try:
+        #     for bt2 in glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+        #         os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
+        # except PermissionError as e:
+        #     error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.bowtie2db, self.self.index + "*.bt2l")))
+        
+        # #remove all the individual FASTA files but ViralDB
+        # info('Removing uncompressed databases', init_new_line = True)
+        # for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
+        #     if not fna_file.endswith('_VSG.fna'):
+        #         os.remove(fna_file)
+
+    def build_bwt_indexes(self): ## TODO
+        """Build BowTie indexes"""
+        # info('Joining FASTA databases', init_new_line = True )
+        # if len(glob(os.path.join(self.bowtie2db, self.index + "*.fna"))) > 1:
+        #     with open(os.path.join(self.bowtie2db, self.index + ".fna"), 'w') as fna_h:
+        #         for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
+        #             with open(fna_file, 'r') as fna_r:
+        #                 for line in fna_r:
+        #                     fna_h.write(line)
+        # fna_file = os.path.join(self.bowtie2db, self.index + ".fna")
+        
+        # bt2_base = os.path.join(self.bowtie2db, self.index)
+        # bt2_cmd = [self.bowtie2_build, '--quiet']
+
+        # if self.nproc > 1:
+        #     bt2_build_output = subp.check_output([self.bowtie2_build, '--usage'], stderr=subp.STDOUT)
+
+        #     if 'threads' in str(bt2_build_output):
+        #         bt2_cmd += ['--threads', str(self.nproc)]
+
+        # bt2_cmd += ['-f', fna_file, bt2_base]
+
+        # info('Building Bowtie2 indexes', init_new_line = True)
+
+        # try:
+        #     subp.check_call(bt2_cmd)
+        # except Exception as e:
+        #     error("Fatal error running '{}'\nError message: '{}'\n\n".format(' '.join(bt2_cmd), e), exit = True)
+
+    def __init__(self, args):
+        super().__init__(args)
+        self.minimap2_exe = args.minimap2_exe
 
 class VSCController():
 
@@ -842,8 +900,8 @@ class VSCController():
 
 
 
-class Bowtie2Controller(MappingController):
-    """Bowtie2Controller class"""
+class MappingController:
+    """MappingController interface"""
 
     def set_inp(self, value):
         self.inp = value
@@ -858,13 +916,7 @@ class Bowtie2Controller(MappingController):
         self.samout = value
 
     def set_no_map(self, value):
-        self.no_map = value 
-    
-    def set_mapping_parameters(self, value):
-        self.min_alignment_len = value 
-        self.nreads = value 
-        self.min_mapq_val = value 
-        self.no_map = value 
+        self.no_map = value     
 
     def get_index(self):
         return self.index
@@ -874,6 +926,48 @@ class Bowtie2Controller(MappingController):
     
     def get_sample_id(self):
         return self.sample_id
+
+    def run_mapping(self):
+        pass
+    
+    def get_reads2markers(self):
+        pass
+    
+    def init_bowtie2out(self): ## TODO change name (mappingOut??)
+        """Inits the Bowtie2 output file"""
+        if self.no_map:
+            self.bowtie2out = tempfile.NamedTemporaryFile(
+                dir=self.tmp_dir).name
+        elif self.bowtie2out is None:
+            if self.inp is None:
+                self.bowtie2out = 'stdin_map.bowtie2out.txt'
+            elif stat.S_ISFIFO(os.stat(self.inp).st_mode):
+                self.bowtie2out = 'fifo_map.bowtie2out.txt'
+            else:
+                self.bowtie2out = 'fifo_map.bowtie2out.txt'.format(self.inp)
+    
+    def __init__(self, args, index):
+        self.inp = args.inp
+        self.input_type = args.input_type
+        self.bowtie2out = args.bowtie2out # TODO chage name
+        self.bowtie2db = args.bowtie2db # TODO change name
+        self.samout = args.samout
+        self.min_alignment_len = args.min_alignment_len
+        self.min_mapq_val = args.min_mapq_val
+        self.index = index
+        self.nproc = args.nproc
+        self.no_map = args.no_map
+        self.read_min_len = args.read_min_len
+        self.tmp_dir = args.tmp_dir
+    
+class Bowtie2Controller(MappingController):
+    """Bowtie2Controller class"""
+    
+    def set_mapping_parameters(self, value):
+        self.min_alignment_len = value 
+        self.nreads = value 
+        self.min_mapq_val = value 
+        self.no_map = value 
 
     def check_bowtie2_database(self):
         """Checks the presence and consistency of the Bowtie2 database"""
@@ -905,19 +999,6 @@ class Bowtie2Controller(MappingController):
                 'bt2_ps is set to local mode, and min_alignment_len is None, min_alignment_len has automatically been set to 100')
         self.init_bowtie2out()
 
-    def init_bowtie2out(self):
-        """Inits the Bowtie2 output file"""
-        if self.no_map:
-            self.bowtie2out = tempfile.NamedTemporaryFile(
-                dir=self.tmp_dir).name
-        elif self.bowtie2out is None:
-            if self.inp is None:
-                self.bowtie2out = 'stdin_map.bowtie2out.txt'
-            elif stat.S_ISFIFO(os.stat(self.inp).st_mode):
-                self.bowtie2out = 'fifo_map.bowtie2out.txt'
-            else:
-                self.bowtie2out = 'fifo_map.bowtie2out.txt'.format(self.inp)
-
     def get_bowtie2cmd(self):
         """Gets the command for Bowtie2 execution
 
@@ -936,17 +1017,16 @@ class Bowtie2Controller(MappingController):
     def run_bowtie2(self):
         """Runs Bowtie2"""
         try:
+            ## linda --> split reads option
+            # read_fastx = '/shares/CIBIO-Storage/CM/scratch/users/claudia.mengoni/tools/MetaPhlAn/metaphlan/utils/read_fastx.py'
+            read_fastx = "/shares/CIBIO-Storage/CM/scratch/users/linda.cova/tools/MetaPhlAn_refactored/metaphlan/utils/read_fastx.py"
             if self.inp:
-                readin = subp.Popen(
-                    ['/shares/CIBIO-Storage/CM/scratch/users/claudia.mengoni/tools/MetaPhlAn/metaphlan/utils/read_fastx.py', '-l', str(self.read_min_len), self.inp], stdout=subp.PIPE, stderr=subp.PIPE)
+                readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), '--split_reads', str(self.split_reads), self.inp], stdout=subp.PIPE, stderr=subp.PIPE)
             else:
-                readin = subp.Popen(['/shares/CIBIO-Storage/CM/scratch/users/claudia.mengoni/tools/MetaPhlAn/metaphlan/utils/read_fastx.py', '-l', str(self.read_min_len)],
-                                    stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
-            p = subp.Popen(self.get_bowtie2cmd(),
-                           stdout=subp.PIPE, stdin=readin.stdout)
+                readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), '--split_reads', str(self.split_reads)], stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
+            p = subp.Popen(self.get_bowtie2cmd(), stdout=subp.PIPE, stdin=readin.stdout)
             readin.stdout.close()
-            lmybytes, outf = (mybytes, bz2.BZ2File(self.bowtie2out, "w")) if self.bowtie2out.endswith(
-                ".bz2") else (str, open(self.bowtie2out, "w"))
+            lmybytes, outf = (mybytes, bz2.BZ2File(self.bowtie2out, "w")) if self.bowtie2out.endswith(".bz2") else (str, open(self.bowtie2out, "w"))
             
             try:
                 if self.samout:
@@ -955,23 +1035,20 @@ class Bowtie2Controller(MappingController):
                     else:
                         sam_file = open(self.samout, 'wb')
             except IOError as e:
-                error('IOError: "{}"\nUnable to open sam output file.\n'.format(
-                    e), exit=True)
+                error('IOError: "{}"\nUnable to open sam output file.\n'.format(e), exit=True)
             for line in p.stdout:
                 if self.samout:
                     sam_file.write(line)
                 o = read_and_split_line(line)
                 if self.check_hq_mapping(o):
-                    outf.write(
-                        lmybytes("\t".join([o[0], o[2].split('/')[0]]) + "\n"))
+                    outf.write(lmybytes("\t".join([o[0], o[2].split('/')[0]]) + "\n"))
 
             if self.samout:
                 sam_file.close()
             p.communicate()
             nreads, avg_read_len = self.get_nreads_and_avg_rlen(readin.stderr.readlines())
             outf.write(lmybytes('#nreads\t{}\n'.format(nreads)))
-            outf.write(
-                lmybytes('#avg_read_length\t{}'.format(avg_read_len)))
+            outf.write(lmybytes('#avg_read_length\t{}'.format(avg_read_len)))
             outf.close()
             self.input_type = 'bowtie2out'
             self.inp = self.bowtie2out
@@ -1042,7 +1119,7 @@ class Bowtie2Controller(MappingController):
         """Retrieves the reads to markers information from the mapping results
 
         Returns:
-            dict: dictionary containing the reads to mapping results
+            dict: dictionary containing the reads to mapping results (dict of lists)
         """
         if not self.inp:
             ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, sys.stdin
@@ -1050,7 +1127,7 @@ class Bowtie2Controller(MappingController):
             ras, ras_line, inpf = read_and_split, read_and_split_line, bz2.BZ2File(self.inp, "r")
         else:
             ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, open(self.inp)
-        reads2markers = {}
+        reads2markers = defdict(list) ## linda --> dict of lists to allow multiple markers per read (for long reads)
         if self.input_type == 'bowtie2out':
             for r, c in ras(inpf):
                 if r.startswith('#') and 'nreads' in r:
@@ -1058,18 +1135,19 @@ class Bowtie2Controller(MappingController):
                 elif r.startswith('#') and 'avg_read_length' in r:
                     avg_read_len = float(c)
                 else:
-                    reads2markers[r] = c
+                    reads2markers[r].append(c)
         elif self.input_type == 'sam':
             nreads = int(self.nreads)
             read_lengths = []
             for line in inpf:
                 sam_line = ras_line(line)
                 if self.check_hq_mapping(sam_line):
-                    reads2markers[sam_line[0]] = sam_line[2].split('/')[0]
+                    reads2markers[sam_line[0]].append(sam_line[2].split('/')[0])
+                    # Number of positions covered by the read (sum of the M and D of the CIGAR string)
                     read_lengths.append(len(sam_line[9]))
             avg_read_len = sum(read_lengths) / len(read_lengths)
         inpf.close()
-        return nreads, avg_read_len, reads2markers
+        return nreads, avg_read_len, reads2markers, None
 
     def run_mapping(self):
         """Runs all the steps of the Bowtie2 mapping"""
@@ -1078,31 +1156,261 @@ class Bowtie2Controller(MappingController):
         self.run_bowtie2()
 
     def __init__(self, args, index):
-        self.inp = args.inp
-        self.input_type = args.input_type
+        super().__init__(args, index)
         self.bt2_ps = args.bt2_ps
         self.bowtie2_exe = args.bowtie2_exe
         self.bowtie2_build = args.bowtie2_build
-        self.bowtie2out = args.bowtie2out
-        self.bowtie2db = args.bowtie2db
-        self.samout = args.samout
-        self.min_alignment_len = args.min_alignment_len
-        self.min_mapq_val = args.min_mapq_val
-        self.index = index
         self.nreads = args.nreads
-        self.nproc = args.nproc
-        self.no_map = args.no_map
-        self.read_min_len = args.read_min_len
-        self.tmp_dir = args.tmp_dir
+        self.split_reads = args.split_readlen if args.split_reads else 0
+
+class Minimap2Controller(MappingController):
+    """Minimap2Controller class"""
+    
+    # def set_mapping_parameters(self, value):
+    #     self.min_alignment_len = value 
+    #     self.nbases = value 
+    #     self.min_mapq_val = value 
+    #     self.no_map = value 
+
+    def set_nbases(self, value):
+        self.nbases = value
+
+    def check_mm2_database(self):
+        """Checks the presence and consistency of the mpa database""" # For now: full .fna mpa database
+        if glob(os.path.join(self.bowtie2db, "{}*.{}".format(self.index, 'fna'))):
+            self.bowtie2db = os.path.join(self.bowtie2db, "{}.fna".format(self.index))
+        else:
+            error('No MetaPhlAn .fna database was found at: {}'.format(self.bowtie2db), exit=True)
+
+    def init_mapping_arguments(self):
+        """Automatically set the mapping arguments"""
+        ## add here default changes in mapping arguments if needed for mm2
+        self.init_bowtie2out()
+
+    def get_minimap2cmd(self):
+        """Gets the command for Minimap2 execution
+
+        Returns:
+            list: the command for the Minimap2 execution
+        """
+        mm2_cmd = [self.minimap2_exe if self.minimap2_exe else 'minimap2', "-x", "asm20", "-B", "3", "-O", "3,12", "-a", self.bowtie2db, self.inp]
+        if int(self.nproc) > 3:
+            mm2_cmd += ["-t", str(self.nproc)]
+        return mm2_cmd
+    
+    def get_gscd(self, sam_line):
+        """Gets the GCSD value from the sam line
+        
+        Returns:
+            float: the GCSD value
+        """
+        gcsd = [float(x.split(":")[-1]) for x in sam_line[11:] if x.startswith("de")]
+        if len(gcsd):
+            return gcsd[0]
+        else:
+            error('Problem with the SAM file: --long_reads option is only tested for SAM produced by Minimap2', exit=True)
+
+
+    # To refactor?
+    def run_minimap2(self):
+        """Runs Minimap2"""
+        try:
+            # read_fastx = '/shares/CIBIO-Storage/CM/scratch/users/claudia.mengoni/tools/MetaPhlAn/metaphlan/utils/read_fastx.py'
+            # read_fastx = "/shares/CIBIO-Storage/CM/scratch/users/linda.cova/tools/MetaPhlAn_refactored/metaphlan/utils/read_fastx.py"
+            # if self.inp:
+            #     readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), self.inp], stdout=subp.PIPE, stderr=subp.PIPE)
+            # else:
+            #     readin = subp.Popen([read_fastx, '-l', str(self.read_min_len)], stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
+            p = subp.Popen(self.get_minimap2cmd(), stdout=subp.PIPE)
+            # readin.stdout.close()
+            lmybytes, outf = (mybytes, bz2.BZ2File(self.bowtie2out, "w")) if self.bowtie2out.endswith(".bz2") else (str, open(self.bowtie2out, "w"))
+            
+            try:
+                if self.samout:
+                    if self.samout[-4:] == '.bz2':
+                        sam_file = bz2.BZ2File(self.samout, 'w')
+                    else:
+                        sam_file = open(self.samout, 'wb')
+            except IOError as e:
+                error('IOError: "{}"\nUnable to open sam output file.\n'.format(e), exit=True)
+            for line in p.stdout:
+                if self.samout:
+                    sam_file.write(line)
+                o = read_and_split_line(line)
+                if self.check_hq_mapping(o):
+                    gcsd = self.get_gscd(o)
+                    nb = sum([int(x[:-1]) for x in re.findall("\d*[DM]", o[5])])
+                    outf.write(lmybytes("\t".join([o[0], o[2].split('/')[0], str(nb), str(gcsd), str(len(o[9]))]) + "\n"))
+                    ## outfile line: readname, marker, bases_covered, GCSD, read_length
+
+            if self.samout:
+                sam_file.close()
+            p.communicate()
+            outf.write(lmybytes('#\tnbases\t{}\t#\t#\n'.format(self.nbases)))
+            outf.close()
+            self.input_type = 'bowtie2out'
+            self.inp = self.bowtie2out
+        except OSError as e:
+            error('OSError: "{}"\nFatal error running Minimap2.'.format(e), exit=True)
+        except IOError as e:
+            error('IOError: "{}"\nFatal error running Minimap2.'.format(e), exit=True)
+        if p.returncode == 13:
+            error("Permission Denied Error: fatal error running Minimap2. Is the Minimap2 file in the path with execution and read permissions?", exit=True)
+        elif p.returncode != 0:
+            error("Error while running Minimap2.\n", exit=True)
+            
+    def check_hq_mapping(self, sam_line):
+        """Checks whether a hit in the SAM file is of high quality
+
+        Args:
+            sam_line (list): SAM file line as a list
+
+        Returns:
+            bool: Whether the hit was of HQ
+        """
+        if not sam_line[0].startswith('@'):
+            if not sam_line[2].endswith('*'):
+                if len(sam_line[9]) >= self.read_min_len: # check read length
+                    if (hex(int(sam_line[1]) & 0x100) == '0x0'):  # no secondary
+                        if self.mapq_filter(sam_line[2], int(sam_line[4]), self.min_mapq_val):  # filter low mapq reads
+                            if ((self.min_alignment_len is None) or (max([int(x.strip('M')) for x in re.findall(r'(\d*M)', sam_line[5]) if x]) >= self.min_alignment_len)): # check alignment length
+                                if self.get_gscd(sam_line) <= self.max_gcsd: # check GCSD
+                                    return True
+        return False
+
+    def mapq_filter(self, marker_name, mapq_value, min_mapq_val):
+        """Checks whether a mapping hit pass a mapq quality filter
+
+        Args:
+            marker_name (str): the marker name of the hit
+            mapq_value (int): the mapq value of the hit
+            min_mapq_val (int): the mapq threshold
+
+        Returns:
+            bool: whether the hit passed the mapq filter
+        """
+        if 'GeneID:' in marker_name  or 'VDB' in marker_name:
+            return True
+        else:
+            if mapq_value > min_mapq_val:
+                return True
+        return False
+    
+    def discard_multiple_clades(self, reads2markers, reads2gcsd, reads2nbases, m2c):
+        """Assigns reads to clades based on markers by majority vote, GCSD is used as tie-breaker.
+        Only markers of the same clade are kept for each read.
+
+        Args:
+            reads2markers (dict): dictionary containing the reads to markers
+            reads2gcsd (dict): dictionary containing the reads to GCSD values
+            reads2nbases (dict): dictionary containing the reads to number of bases
+            m2c (dict): dictionary containing the markers to clades information
+
+        Returns:
+            dict, dict: the reads to markers and reads to number of bases dictionaries, after removing markers from different clades
+        """ ## linda
+
+        for r, m in reads2markers.items():
+            clades = []
+            for marker in m:
+                ## if marker in mpa_pkl append the clade, otherwise keep the marker (viral markers)
+                ## problem: for viral markers: majority vote on markers, not clades
+                if marker in m2c.keys():
+                    clades.append(m2c[marker]['clade'])
+                else: clades.append(marker)
+                
+            top = pd.Series(clades).value_counts()
+            if len(top)>1 and top.iloc[0] == top.iloc[1]:
+                top = clades[reads2gcsd[r].index(min(reads2gcsd[r]))]
+            else:
+                top = top.index[0]
+
+            reads2markers[r] = [m[i] for i,c in enumerate(clades) if c == top]
+            reads2nbases[r] = [reads2nbases[r][i] for i,c in enumerate(clades) if c == top]
+
+        return reads2markers, reads2nbases
+    
+    def get_nbases(self, read_fastx_stderr):
+        """Gets the total number of bases from the readfastx execution
+
+        Args:
+            read_fastx_stderr (list): standard error from the readfastx execution
+        """
+        try:
+            _, _, nbases = list(map(float, read_fastx_stderr[0].decode().split()))
+            if not nbases or int(nbases)==0:
+                error('Fatal error running MetaPhlAn. Total metagenome size was not estimated or is zero.\nPlease check your input files.', exit=True)
+            return int(nbases)
+        except ValueError:
+            os.unlink(self.bowtie2out)
+            error(b''.join(read_fastx_stderr).decode(), exit=True)
+    
+    def get_reads2markers(self):
+        """Retrieves the reads to markers information from the mapping results
+
+        Returns:
+            dict: dictionary containing the reads to mapping results
+        """
+        if not self.inp:
+            ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, sys.stdin
+        elif self.inp.endswith(".bz2"):
+            ras, ras_line, inpf = read_and_split, read_and_split_line, bz2.BZ2File(self.inp, "r")
+        else:
+            ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, open(self.inp)
+        reads2markers = defdict(list) ## linda --> dict of lists to allow multiple markers per read (for long reads)
+        reads2gcsd = defdict(list) ## LONG READS: store GCSD values for long reads
+        reads2nbases = defdict(list) ## LONG READS: number of marker positions covered by the read
+        reads2readlen = defdict(int) if self.mapping_subsampling else 1 ## will be needed for mapping subsampling
+
+        if self.input_type == 'bowtie2out': ## TODO rename
+            # nbases = int(self.nbases) ## temporary
+            for r, m, b, g, l in ras(inpf):
+                if r.startswith('#') and 'nbases' in m:
+                    nbases = int(b)
+                else:
+                    reads2markers[r].append(m)
+                    reads2nbases[r].append(int(b))
+                    reads2gcsd[r].append(float(g))
+                    if self.mapping_subsampling and int(l) > reads2readlen[r]:
+                        reads2readlen[r] = int(l)
+        elif self.input_type == 'sam':
+            nbases = int(self.nbases)
+            for line in inpf:
+                sam_line = ras_line(line)
+                if self.check_hq_mapping(sam_line):
+                    gcsd = self.get_gscd(sam_line)
+                    reads2markers[sam_line[0]].append(sam_line[2].split('/')[0])
+                    reads2gcsd[sam_line[0]].append(gcsd)
+                    # Number of positions covered by the read (sum of the M and D of the CIGAR string)
+                    reads2nbases[sam_line[0]].append(sum([int(x[:-1]) for x in re.findall("\d*[DM]", sam_line[5])]))
+                    if self.mapping_subsampling and len(sam_line[9]) > reads2readlen[sam_line[0]]:
+                        reads2readlen[sam_line[0]] = len(sam_line[9])
+        inpf.close()
+        reads2markers, reads2nbases = self.discard_multiple_clades(reads2markers, reads2gcsd, reads2nbases, self.database_controller.database_pkl['markers'])
+        return nbases, reads2readlen, reads2markers, reads2nbases
+
+    def run_mapping(self):
+        """Runs all the steps of the Minimap2 mapping"""
+        self.check_mm2_database()
+        self.init_mapping_arguments()
+        self.run_minimap2()
+
+    def __init__(self, args, index, database_controller):
+        super().__init__(args, index)
+        self.minimap2_exe = args.minimap2_exe
+        self.max_gcsd = args.max_gcsd
+        self.nbases = args.nbases ## nbases instead of nreads for long reads
+        self.database_controller = database_controller ## linda --> needed to discard multiple clades
+        self.mapping_subsampling = args.mapping_subsampling ## linda --> needed to know if readlength is needed from sam
 
 class MetaphlanAnalysis:
     def get_mapped_fraction(self):
-        """Gets the estimated fraction of mapped reads"""
-        self.mapped_reads = self.tree.relative_abundances()
+        """Gets the estimated fraction of mapped reads (bases for long reads)""" ## linda
+        self.mapped = self.tree.relative_abundances()
         if self.unclassified_estimation:
-            self.fraction_mapped_reads = min(self.mapped_reads/float(self.n_metagenome_reads), 1.0)
+            self.fraction_mapped = min(self.mapped/float(self.total_metagenome), 1.0)
         else:
-            self.fraction_mapped_reads = 1.0
+            self.fraction_mapped = 1.0
             
     def write_common_headers(self, outf):
         """Writes the common headers of the MetaPhlAn output
@@ -1112,24 +1420,25 @@ class MetaphlanAnalysis:
         """
         outf.write('#{}\n'.format(self.index))
         outf.write('#{}\n'.format(' '.join(sys.argv)))
-        outf.write('#{} reads processed\n'.format(self.n_metagenome_reads))   
+        outf.write('#{} {} processed\n'.format(self.total_metagenome, 'bases' if self.avg_read_length == 1 else 'reads'))   
         outf.write('#{}\n'.format('\t'.join([self.sample_id_key, self.sample_id])))
     
-    def report_results(self, tree, n_metagenome_reads, avg_read_length):
+    def report_results(self, tree, total_metagenome, avg_read_length):
         """Reports the MetaPhlAn results"""
         self.tree = tree
-        self.n_metagenome_reads = n_metagenome_reads
+        self.total_metagenome = total_metagenome
         self.avg_read_length = avg_read_length
         
     def __init__(self, args, database_controller, index):
+        ## Linda --> n_metagenome_reads substituted with total_metagenome (n of reads for short reads and n of bases for long reads)
         self.output = args.output_file
         self.sample_id_key = args.sample_id_key
         self.sample_id = args.sample_id
         self.index = index
         self.database_controller = database_controller
-        self.n_metagenome_reads = None
-        self.fraction_mapped_reads = None
-        self.mapped_reads = None
+        self.total_metagenome = None
+        self.fraction_mapped = None
+        self.mapped = None
         self.avg_read_length = None        
         self.tree = None
         
@@ -1148,7 +1457,7 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
                     rank = ranks2code[clade.split('|')[-1][0]]       
                     leaf_taxid = taxid.split('|')[-1]
                     taxpathsh = '|'.join([re.sub(r'^[a-z]__', '', name) if '_unclassified' not in name else '' for name in clade.split('|')])
-                    outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(relab*self.fraction_mapped_reads) ] ) + '\n' )
+                    outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(relab*self.fraction_mapped) ] ) + '\n' )
                     
     def get_clade2abundance(self):
         """Gets the filtered clade to relative abundance dictionary
@@ -1161,12 +1470,12 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
             if clade.coverage > 0 and (self.tax_lev == 'a' or clade.name.startswith(self.tax_lev + '__')):
                 clade2abundance[clade.get_full_name()] = (clade.get_full_taxids(), clade.rel_abundance)
         if len(clade2abundance) > 0:
-            clade2abundance = dict(sorted(clade2abundance.items(), reverse=True, key=lambda x:x[1][1]+(100.0*(8-(x[0].count("|"))))))
+            clade2abundance =   dict(sorted(clade2abundance.items(), reverse=True, key=lambda x:x[1][1]+(100.0*(8-(x[0].count("|"))))))
         return clade2abundance
     
-    def report_results(self, tree, n_metagenome_reads, avg_read_length):
+    def report_results(self, tree, total_metagenome, avg_read_length):
         """Reports the MetaPhlAn results"""
-        super().report_results(tree, n_metagenome_reads, avg_read_length)
+        super().report_results(tree, total_metagenome, avg_read_length)
         self.get_mapped_fraction()
         if self.cami_output:
             self.report_cami_output()
@@ -1180,15 +1489,15 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
                 else:
                     outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
                 if self.unclassified_estimation:
-                    outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped_reads)*100,5)),""]) + "\n" )                   
+                    outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped)*100,5)),""]) + "\n" )                   
                 clade2abundance = self.get_clade2abundance()
                 for clade, values in clade2abundance.items():
                     taxid, relab = values
                     if (clade, taxid) in self.database_controller.database_pkl['merged_taxon'] and not self.use_group_representative:
                         add_repr = '{}'.format(','.join( [ n[0] for n in self.database_controller.database_pkl['merged_taxon'][(clade, taxid)]] ))
-                        outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped_reads), add_repr ] ) + "\n" )
+                        outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped), add_repr ] ) + "\n" )
                     else:                        
-                        outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped_reads)] ) + "\n" )                            
+                        outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped)] ) + "\n" )                            
             if add_repr is not None:
                 warning("The metagenome profile contains clades that represent multiple species merged into a single representant. "
                         "An additional column listing the merged species is added to the MetaPhlAn output.")
@@ -1216,21 +1525,22 @@ class RelativeAbundanceReadStatsAnalysis(MetaphlanAnalysis):
             clade2abundance = dict(sorted(clade2abundance.items(), reverse=True, key=lambda x:x[1][1]+(100.0*(8-(x[0].count("|"))))))
         return clade2abundance
     
-    def report_results(self, tree, n_metagenome_reads, avg_read_length):
+    def report_results(self, tree, total_metagenome, avg_read_length):
         """Reports the MetaPhlAn results"""
-        super().report_results(tree, n_metagenome_reads, avg_read_length)
+        super().report_results(tree, total_metagenome, avg_read_length)
         self.get_mapped_fraction()
+        unit = 'bases' if self.avg_read_length == 1 else 'reads'
         out_stream = open(self.output,"w") if self.output else sys.stdout
         with out_stream as outf:
             self.write_common_headers(outf)
-            outf.write( "#Estimated reads mapped to known clades: {}\n".format(int(self.mapped_reads)))
-            outf.write( "\t".join( ["#clade_name","clade_taxid","relative_abundance","coverage","estimated_number_of_reads_from_the_clade" ]) +"\n" )
+            outf.write( "#Estimated {} mapped to known clades: {}\n".format(unit, int(self.mapped)))
+            outf.write( "\t".join( ["#clade_name","clade_taxid","relative_abundance","coverage","estimated_number_of_{}_from_the_clade".format(unit) ]) +"\n" )
             if self.unclassified_estimation:
-                outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped_reads)*100,5)),"-", str(self.n_metagenome_reads - self.mapped_reads)]) + "\n" )                   
+                outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped)*100,5)),"-", str(self.total_metagenome - self.mapped)]) + "\n" )                   
             clade2abundance = self.get_clade2abundance()
             for clade, values in clade2abundance.items():
                 taxid, relab, coverage, nreads = values
-                outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped_reads), str(coverage), str(nreads)] ) + "\n" )         
+                outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped), str(coverage), str(nreads)] ) + "\n" )         
             
     def __init__(self, args, database_controller, index):
         super().__init__(args, database_controller, index)
@@ -1238,9 +1548,9 @@ class RelativeAbundanceReadStatsAnalysis(MetaphlanAnalysis):
         self.unclassified_estimation = args.unclassified_estimation
     
 class CladeProfilesAnalysis(MetaphlanAnalysis):
-    def report_results(self, tree, n_metagenome_reads, avg_read_length):
+    def report_results(self, tree, total_metagenome, avg_read_length):
         """Reports the MetaPhlAn results"""
-        super().report_results(tree, n_metagenome_reads, avg_read_length)
+        super().report_results(tree, total_metagenome, avg_read_length)
         clade2profiles = self.tree.clade_profiles()
         out_stream = open(self.output,"w") if self.output else sys.stdout
         with out_stream as outf:
@@ -1254,24 +1564,23 @@ class CladeProfilesAnalysis(MetaphlanAnalysis):
         super().__init__(args, database_controller, index)
     
 class MarkerAbundanceTableAnalysis(MetaphlanAnalysis):
-    def report_results(self, tree, n_metagenome_reads, avg_read_length):
+    def report_results(self, tree, total_metagenome, avg_read_length):
         """Reports the MetaPhlAn results"""
-        super().report_results(tree, n_metagenome_reads, avg_read_length)
+        super().report_results(tree, total_metagenome, avg_read_length)
         clade2profiles = self.tree.clade_profiles()
         out_stream = open(self.output,"w") if self.output else sys.stdout
         with out_stream as outf:
             self.write_common_headers(outf)     
             for v in clade2profiles.values():
-                outf.write( "\n".join(["\t".join([str(a),str(b/float(self.n_metagenome_reads)) if self.n_metagenome_reads else str(b)])
-                                for a,b in v if b > 0.0]) + "\n" )
+                outf.write( "\n".join(["\t".join([str(a),str(b/float(self.total_metagenome)) if self.total_metagenome else str(b)]) for a,b in v if b > 0.0]) + "\n" )
             
     def __init__(self, args, database_controller, index):
         super().__init__(args, database_controller, index)
     
 class MarkerPresenceTableAnalysis(MetaphlanAnalysis):
-    def report_results(self, tree, n_metagenome_reads, avg_read_length):
+    def report_results(self, tree, total_metagenome, avg_read_length):
         """Reports the MetaPhlAn results"""
-        super().report_results(tree, n_metagenome_reads, avg_read_length)
+        super().report_results(tree, total_metagenome, avg_read_length)
         clade2profiles = self.tree.clade_profiles()
         out_stream = open(self.output,"w") if self.output else sys.stdout
         with out_stream as outf:
@@ -1308,7 +1617,7 @@ class Metaphlan:
     def build_taxonomy_tree(self):
         """Build the MetaPhlAn taxonomy tree"""
         self.tree = TaxTree(self.database_controller.database_pkl, self.ignore_markers,
-                       self.stat, self.stat_q, self.perc_nonzero, self.avoid_disqm, self.avg_read_length)
+                       self.stat, self.stat_q, self.perc_nonzero, self.avoid_disqm, self.avg_read_length) #, self.long_reads)
             
     def separate_reads2markers(self, reads2markers):
         """Separates the viral hits from the reads to markers dictionary
@@ -1319,7 +1628,8 @@ class Metaphlan:
         Returns:
             (dict, dict): tuple of dictionaries for the SGBs/EUKs and viral contigs
         """
-        return {r: m for r, m in reads2markers.items() if ('SGB' in m or 'EUK' in m) and not 'VDB' in m}, {r: m for r, m in reads2markers.items() if 'VDB' in m and not ('SGB' in m or 'EUK' in m)}
+        ## linda --> changed to work with dict
+        return {r: m for r, m in reads2markers.items() if ('SGB' in m[0] or 'EUK' in m[0]) and not 'VDB' in m[0]}, {r: m for r, m in reads2markers.items() if 'VDB' in m[0] and not ('SGB' in m[0] or 'EUK' in m[0])}
 
     def make_gen_fastq(self, reader):
         b = reader(1024 * 1024) 
@@ -1328,11 +1638,41 @@ class Metaphlan:
             b = reader(1024 * 1024)
 
     def rawpycount(self, filename):
+        """Counts lines in a fastq file"""
         f = bz2.BZ2File(filename, 'rb') if filename.endswith(".bz2") else gzip.open(filename, 'rb') if filename.endswith('.gz') else open(filename, 'rb')
         f_gen = self.make_gen_fastq(f.read)
-        n_metagenome_reads = sum( buf.count(b'\n') for buf in f_gen)
+        total_metagenome = sum( buf.count(b'\n') for buf in f_gen)
         f.close()
-        return n_metagenome_reads
+        return total_metagenome
+    
+    def rawpycount_bases(self, filename, intype):
+        """Counts bases in a fastq file"""
+        f = bz2.BZ2File(filename, 'rb') if filename.endswith(".bz2") else gzip.open(filename, 'rb') if filename.endswith('.gz') else open(filename, 'rb')
+        f_gen = self.make_gen_fastq(f.read)
+        
+        # Determine which lines to count based on the input type
+        i = 4 if intype == 'fastq' else 2
+        j = 2 if intype == 'fastq' else 0
+
+        nbases = 0
+        line_num = 0
+        buffer = b''
+        
+        for chunk in f_gen:
+            lines = (buffer + chunk).split(b'\n')
+            buffer = lines[-1]  # Save the last incomplete line to be processed in the next chunk   
+            for line in lines[:-1]:  # Process all but the last line
+                line_num += 1
+                if line_num % i == j:
+                    nbases += len(line)
+        
+        # Check if there's remaining content in the buffer
+        if buffer:
+            line_num += 1
+            if line_num % i == j:
+                nbases += len(buffer)
+        f.close()
+        return nbases
     
     def subsample_file(self, sample, out):         
         length, read_num = 0, -1
@@ -1389,28 +1729,28 @@ class Metaphlan:
 
 
     def subsample_reads(self):
-        self.n_metagenome_reads = execute_pool(((self.rawpycount, inp_f) for inp_f in self.inp.split(',')), 2)
-        self.n_metagenome_reads = [int(n/4) for n in self.n_metagenome_reads]
+        self.total_metagenome = execute_pool(((self.rawpycount, inp_f) for inp_f in self.inp.split(',')), 2)
+        self.total_metagenome = [int(n/4) for n in self.total_metagenome]
 
-        if self.subsampling >= sum(self.n_metagenome_reads):
-            warning("The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.\n".format(self.subsampling, self.n_metagenome_reads)) 
-            self.n_metagenome_reads = sum(self.n_metagenome_reads)
+        if self.subsampling >= sum(self.total_metagenome):
+            warning("The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.\n".format(self.subsampling, self.total_metagenome)) 
+            self.total_metagenome = sum(self.total_metagenome)
             self.subsampling_output = self.inp
-            return 
+            return
 
         if self.subsampling_paired:
             self.subsampling //= 2
-            if self.n_metagenome_reads[0] != self.n_metagenome_reads[1]:
+            if self.total_metagenome[0] != self.total_metagenome[1]:
                 error("The specified reads file are not the same length! Make sure the forward and reverse reads are files are not damaged and reads are in the same order.", init_new_line = True, exit = True) 
-            self.n_metagenome_reads = self.n_metagenome_reads[0]
+            self.total_metagenome = self.total_metagenome[0]
         else:
-            self.n_metagenome_reads = sum(self.n_metagenome_reads)
+            self.total_metagenome = sum(self.total_metagenome)
 
 
         if self.subsampling_seed.lower() != 'random':
             random.seed(int(self.subsampling_seed))
 
-        sample = set(random.sample(range(self.n_metagenome_reads), self.subsampling))
+        sample = set(random.sample(range(self.total_metagenome), self.subsampling))
 
         out = self.prepare_subsample_output()
         self.subsample_file(sample, out)
@@ -1420,7 +1760,7 @@ class Metaphlan:
             self.subsampling = self.subsampling*2
 
         # update number of reads and input file
-        self.n_metagenome_reads = self.subsampling
+        self.total_metagenome = self.subsampling
         self.inp = self.subsampling_output
         
 
@@ -1433,24 +1773,67 @@ class Metaphlan:
         Returns:
             dict: the subsampled reads to markers dictionary
         """
-        if self.subsampling >= self.n_metagenome_reads:
-            warning("WARNING: The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.".format(self.subsampling, self.n_metagenome_reads), init_new_line=True)
+        if self.subsampling >= self.total_metagenome:
+            warning("WARNING: The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.".format(self.subsampling, self.total_metagenome), init_new_line=True)
         else:
             reads2markers =  dict(sorted(reads2markers.items()))
             if self.subsampling_seed.lower() != 'random':
                 random.seed(int(self.subsampling_seed))
             reads2filtmarkers = {}
             sgb_reads2markers, viral_reads2markers = self.separate_reads2markers(reads2markers)            
-            n_sgb_mapped_reads = int((len(sgb_reads2markers) * self.subsampling) / self.n_metagenome_reads)
+            n_sgb_mapped_reads = int((len(sgb_reads2markers) * self.subsampling) / self.total_metagenome)
             reads2filtmarkers = { r:sgb_reads2markers[r] for r in random.sample(list(sgb_reads2markers.keys()), n_sgb_mapped_reads) }         
-            n_viral_mapped_reads = int((len(viral_reads2markers) * self.subsampling) / self.n_metagenome_reads)
+            n_viral_mapped_reads = int((len(viral_reads2markers) * self.subsampling) / self.total_metagenome)
             reads2filtmarkers.update({ r:viral_reads2markers[r] for r in random.sample(list(viral_reads2markers.keys()), n_viral_mapped_reads) })            
             reads2markers = reads2filtmarkers
             sgb_reads2markers.clear()
             viral_reads2markers.clear()
-            self.n_metagenome_reads = self.subsampling
+            self.total_metagenome = self.subsampling
 
         return reads2markers
+    
+    def mapping_subsample_longreads(self, reads2readlen,reads2markers,reads2nbases):
+        """Subsamples the reads using the mapping results 
+
+        Args:
+            reads2readlen (dict): dictionary containing the reads to read length information
+            reads2markers (dict): full reads to markers dictionary
+            reads2nbases (dict): full reads to number of bases covered per marker
+
+        Returns:
+            dict: the subsampled reads to markers dictionary
+        """
+        if self.subsampling >= self.total_metagenome:
+            warning("WARNING: The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.".format(self.subsampling, self.total_metagenome), init_new_line=True)
+        else:
+            reads2markers =  dict(sorted(reads2markers.items()))
+            if self.subsampling_seed.lower() != 'random':
+                random.seed(int(self.subsampling_seed))
+            reads2keep = []
+            sgb_reads2markers, viral_reads2markers = self.separate_reads2markers(reads2markers)
+
+            n_sgb_mapped_bases = int((sum([reads2readlen[r] for r in  sgb_reads2markers.keys()]) * self.subsampling) / self.total_metagenome)
+            n_viral_mapped_bases = int((sum([reads2readlen[r] for r in viral_reads2markers.keys()]) * self.subsampling) / self.total_metagenome)
+            cur_bases = 0
+            while cur_bases < n_sgb_mapped_bases:
+                r = random.choice(list(sgb_reads2markers.keys()))
+                if r not in reads2keep:
+                    reads2keep.append(r)
+                    cur_bases += reads2readlen[r]
+            while cur_bases < (n_sgb_mapped_bases + n_viral_mapped_bases):
+                r = random.choice(list(viral_reads2markers.keys()))
+                if r not in reads2keep:
+                    reads2keep.append(r)
+                    cur_bases += reads2readlen[r]
+
+            reads2markers = {r:reads2markers[r] for r in reads2keep}
+            reads2nbases = {r:reads2nbases[r] for r in reads2keep}
+            sgb_reads2markers.clear()
+            viral_reads2markers.clear()
+            # self.total_metagenome = self.subsampling
+            self.total_metagenome = cur_bases
+
+        return reads2markers, reads2nbases
 
     def parse_mapping(self):
         """Parses the mapping results into a marker to reads dictionary
@@ -1458,29 +1841,40 @@ class Metaphlan:
         Returns:
             dict: marker to reads dictionary
         """
-        self.n_metagenome_reads, self.avg_read_length, reads2markers = self.mapping_controller.get_reads2markers()   
+        self.total_metagenome, self.avg_read_length, reads2markers, reads2nbases = self.mapping_controller.get_reads2markers()
         self.build_taxonomy_tree()     
-        if self.subsampling is not None and self.mapping_subsampling:
+        if not self.long_reads and self.subsampling is not None and self.mapping_subsampling:
             reads2markers = self.mapping_subsample_reads(reads2markers)
-        elif self.subsampling is None and self.n_metagenome_reads < 10000:
-            warning("The number of reads in the sample ({}) is below the recommended minimum of 10,000 reads.".format(self.n_metagenome_reads))  
-        markers2reads = defdict(set)   
-        for r, m in reads2markers.items():
-            markers2reads[m].add(r)
+        elif self.long_reads and self.subsampling is not None and self.mapping_subsampling:
+            reads2markers, reads2nbases = self.mapping_subsample_longreads(self.avg_read_length, reads2markers, reads2nbases)
+            self.avg_read_length = 1
+        elif not self.long_reads and self.subsampling is None and self.total_metagenome < 10000:
+            warning("The number of reads in the sample ({}) is below the recommended minimum of 10,000 reads.".format(self.total_metagenome))
+        elif self.long_reads and self.subsampling is None and self.total_metagenome < (10000*150):
+            warning("The number of bases in the sample ({}) is below the recommended minimum of 1,500,000 bases.".format(self.total_metagenome))  
+            ## TODO --> Check threshold for long reads - linda
+        markers2reads = defdict(list) ## list instead of set for long reads
+        for r, m in reads2markers.items(): ## changed to work with dict of lists - linda
+            for i in range(len(m)):
+                if not reads2nbases:
+                    markers2reads[m[i]].append(r) ## short reads --> append read names
+                else:
+                    # markers2nbases[m[i]] += reads2nbases[r][i]
+                    markers2reads[m[i]].append(reads2nbases[r][i]) ## long reads --> append number of bases covered by the read
         self.add_reads_to_tree(markers2reads)
         if self.no_map:
             os.remove(self.mapping_controller.inp)
-    
+
     def add_reads_to_tree(self, markers2reads):
         """Adds reads mapping to the markers to the tree structure
 
         Args:
             markers2reads (dict): dictionary with the markers to reads information
         """
-        for marker,reads in sorted(markers2reads.items(), key=lambda pars: pars[0]):
+        for marker,basesxread in sorted(markers2reads.items(), key=lambda pars: pars[0]):
             if marker not in self.tree.markers2lens:
                 continue
-            self.tree.add_reads( marker, len(reads),
+            self.tree.add_reads( marker, len(basesxread) if not self.long_reads else sum(basesxread), ## add number of reads if short reads , number of bases if long reads
                 ignore_eukaryotes = self.ignore_eukaryotes,
                 ignore_bacteria = self.ignore_bacteria,
                 ignore_archaea = self.ignore_archaea,
@@ -1519,21 +1913,27 @@ class Metaphlan:
         if (self.subsampling_paired or self.subsampling) and not self.mapping_subsampling:
             self.subsample_reads()
             self.mapping_controller.set_inp(self.inp)
+            if self.long_reads:
+                self.mapping_controller.set_nbases(self.total_metagenome)
 
-        if self.input_type in ['fastq', 'fasta']:            
-             self.mapping_controller.run_mapping()       
+        if self.input_type in ['fastq', 'fasta']:
+            if self.long_reads and not self.total_metagenome:
+                ## calculate nbases for long reads if needed because minimap skips read_fastx
+                self.mapping_controller.set_nbases(self.rawpycount_bases(self.inp, self.input_type))
+            self.mapping_controller.run_mapping()       
         self.parse_mapping()
-        self.metaphlan_analysis.report_results(self.tree, self.n_metagenome_reads, self.avg_read_length)
+        self.metaphlan_analysis.report_results(self.tree, self.total_metagenome, self.avg_read_length)
         if self.profile_vsc:
             self.vsc_controller.run_analysis()
 
     def __init__(self, args):
         self.inp = args.inp
         self.verbose = args.verbose
-        self.database_controller = MetaphlanDatabaseController(args)
+        self.long_reads = args.long_reads
+        self.database_controller = Bowtie2DatabaseController(args) if not self.long_reads else Minimap2DatabaseController(args)
         self.index = self.database_controller.resolve_index()
         #here should be the code choosing the mapping controller in the future
-        self.mapping_controller = Bowtie2Controller(args, self.index)
+        self.mapping_controller = Bowtie2Controller(args, self.index) if not self.long_reads else Minimap2Controller(args, self.index, self.database_controller)
         self.metaphlan_analysis = self.init_metaphlan_analysis(args)
         self.input_type = args.input_type
         self.ignore_eukaryotes = args.ignore_eukaryotes
@@ -1556,12 +1956,11 @@ class Metaphlan:
         self.offline = args.offline
         self.force_download = args.force_download
         self.tree = None
-        self.n_metagenome_reads = None
+        self.total_metagenome = None
         self.avg_read_length = None
         self.profile_vsc = args.profile_vsc
         if args.profile_vsc:
-            self.vsc_controller = VSCController(args, self.mapping_controller, 
-                                                  self.database_controller)
+            self.vsc_controller = VSCController(args, self.mapping_controller, self.database_controller)
 
 
 DEFAULT_DB_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "metaphlan_databases")
@@ -1625,8 +2024,8 @@ def read_params():
              "that 'bowtie2-build is present in the system path")
     arg('--bowtie2out', metavar="FILE_NAME", type=str, default=None,
         help="The file for saving the output of BowTie2")
-    arg('--min_mapq_val', type=int, default=5,
-        help="Minimum mapping quality value (MAPQ) [default 5]")
+    arg('--min_mapq_val', type=int, default=None,
+        help="Minimum mapping quality value (MAPQ) [default 5 for short reads, 50 for long reads]")
     arg('--no_map', action='store_true',
         help="Avoid storing the --bowtie2out map file")
     arg('--tmp_dir', metavar="", default=None, type=str,
@@ -1635,7 +2034,8 @@ def read_params():
     g = p.add_argument_group('Post-mapping arguments')
     arg = g.add_argument
     stat_choices = ['avg_g', 'avg_l', 'tavg_g',
-                    'tavg_l', 'wavg_g', 'wavg_l', 'med']
+                    'tavg_l', 'wavg_g', 'wavg_l', 'med',
+                    'npos_lr', 'nreads_lr']
     arg('--tax_lev', metavar='TAXONOMIC_LEVEL', type=str,
         choices='akpcofgst', default='a', help="The taxonomic level for the relative abundance output:\n"
         "'a' : all taxonomic levels\n"
@@ -1758,6 +2158,20 @@ def read_params():
         version="MetaPhlAn version {} ({})".format(__version__, __date__),
         help="Prints the current MetaPhlAn version and exit")
     arg("-h", "--help", action="help", help="show this help message and exit")
+    g = p.add_argument_group('Long reads arguments')
+    arg = g.add_argument
+    arg('--long_reads', action="store_true",help="Add this parameter to profile long reads.")
+    arg('--max_gcsd', type=float, default=0.10,
+        help="Specify the max gap-compressed sequence divergence (minimap2) allowed between marker and read, default value is 0.10")
+    arg('--minimap2_exe', type=str, default=None,
+        help='Full path and name of the Minimap2 executable. This option allows'
+             'MetaPhlAn to reach the executable even when it is not in the '
+             'system PATH or the system PATH is unreachable')
+    arg('--nbases', metavar="NUMBER_OF_BASES", type=int, default = None, help =
+         "The total number of bases in the original metagenome. It is mandatory when the --input_type is a SAM file from long reads mapping (--long_reads is selected)" )
+    arg('--split_reads', action="store_true",help="Add this parameter to profile long reads by splitting into short reads.")
+    arg('--split_readlen', type=int, default=150,
+        help="Specify length of the reads to be split into when using --split_reads, default value is 150")
     return p.parse_args()
 
 
@@ -1773,7 +2187,7 @@ def check_params(args):
         error("--bowtie2out needs to be specified when multiple FASTQ or FASTA files (comma separated) are provided", exit=True)
     if args.bowtie2out and os.path.exists(args.bowtie2out) and not args.force and not args.profile_vsc:
         error("BowTie2 output file detected: {}\n. Please use it as input or remove it if you want to re-perform the BowTie2 run".format(args.bowtie2out), exit=True)
-    if args.input_type == 'sam' and not args.nreads:
+    if args.input_type == 'sam' and not args.nreads and not args.long_reads:
         error('The --nreads parameter must be specified when using input files in SAM format', exit=True)
     if args.input_type not in ['fasta', 'fastq'] and args.no_map:
         error('The --no_map parameter can only be used with FASTA or FASTQ input formats', exit=True)
@@ -1792,7 +2206,7 @@ def check_params(args):
         error("The --mapping_subsampling parameter should be used together with the --subsampling parameter.", init_new_line = True, exit = True)
     if args.subsampling and args.subsampling_paired:
         error("You specified both --subsampling and --subsampling_paired. Choose only one of the two options.", init_new_line = True, exit = True) 
-    if (args.subsampling or args.subsampling_paired) and args.subsampling_paired < 10000:
+    if not args.mapping_subsampling and (args.subsampling or args.subsampling_paired) and args.subsampling_paired < 10000: ## changed for long reads (?) linda
         warning("The specified subsampling is below the recommended minimum of 10,000 reads.", init_new_line = True) 
     if not args.mapping_subsampling and ((args.subsampling is not None) or (args.subsampling_paired is not None)):
         if args.input_type != 'fastq':
@@ -1813,6 +2227,19 @@ def check_params(args):
             if args.inp is not None:
                 warning("Since --subsampling_paired has been specified, reads are taken from -1 ({}) and -2 ({}), not from -inp.".format(args.forward, args.reverse), init_new_line = True)
             args.inp = args.forward + ',' + args.reverse
+    if args.min_mapq_val is None:
+        args.min_mapq_val = 50 if args.long_reads else 5
+    ## checks for long reads
+    if args.long_reads:
+        if args.profile_vsc:
+            warning("Viral profiling is not implemented with long reads, the --profile_vsc parameter will be ignored", init_new_line = True)
+            args.profile_vsc = False
+        if args.inp is None and args.input_type in ['fastq', 'fasta']:
+            error("The input cannot be stdin is mandatory when using long reads, please provide the path to the fasta or fastq file", exit=True)
+        if args.split_reads:
+            error("The --split_reads parameter is not accepted with --long_reads", exit=True)
+        if args.input_type == 'sam' and not args.nbases:
+            error('The --nbases parameter must be specified when using input files in SAM format with long reads', exit=True)
     return args
 
 def main():
