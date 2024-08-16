@@ -442,8 +442,20 @@ def vsc_bowtie2(profile_vsc_folder, nproc, file_format="fasta",
 
     bt2build_call = bt2build_exe if bt2build_exe else 'bowtie2-build'
     dbpath = profile_vsc_folder+'/v_mks'
-    subp.check_call( [bt2build_call, markerfile, dbpath, '-q','--threads', str(nproc)] )
 
+    try:
+        subp.check_call([bt2build_call, markerfile, dbpath, '-q','--threads', str(nproc)])
+    except subp.CalledProcessError as e:
+        print(e, file=sys.stderr)
+        errored_cmd = " ".join([bt2build_call, markerfile, dbpath, '-q','--threads', str(nproc)])
+        corrected_cmd = " ".join([bt2build_call, markerfile, dbpath, '-q','-p', str(nproc)])
+        print(
+            f"==> WARNING: '{errored_cmd}' command is incompatible with the "
+            "current version of bowtie2-build. "
+            f"Re-trying the process with '{corrected_cmd}'",
+            file=sys.stderr
+        )
+        subp.check_call([bt2build_call, markerfile, dbpath, '-q','-p', str(nproc)])
 
     if not all([os.path.exists(".".join([str(dbpath), p]))
                             for p in ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]]):
