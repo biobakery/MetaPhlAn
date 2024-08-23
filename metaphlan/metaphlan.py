@@ -294,7 +294,7 @@ class TaxTree:
             int: the number of mapped reads (or bases for long reads)
         """
         total_ab = 0
-        total = 0 # total instead of total:reads because it is bases for long reads - linda
+        total = 0 # total instead of total_reads because it is bases for long reads
         for clade in self.all_clades.values():
             clade.compute_coverage()
             if len(clade.children) == 0 and clade.coverage > 0:
@@ -342,8 +342,8 @@ class TaxTree:
 class MetaphlanDatabaseController(): 
     """MetaphlanDatabaseController class"""
 
-    def set_bowtie2db(self, value):
-        self.bowtie2db = value
+    def set_mpadb(self, value):
+        self.mpadb = value
 
     def set_index(self, value):
         self.index = value
@@ -445,23 +445,23 @@ class MetaphlanDatabaseController():
     def download_unpack_tar(self):
         """Download the url to the file and decompress into the folder"""
         # Create the folder if it does not already exist
-        if not os.path.isdir(self.bowtie2db):
+        if not os.path.isdir(self.mpadb):
             try:
-                os.makedirs(self.bowtie2db)
+                os.makedirs(self.mpadb)
             except EnvironmentError as e:
-                error('EnvironmentError "{}"\n Unable to create folder for database install: {}'.format(e, self.bowtie2db), exit = True)
+                error('EnvironmentError "{}"\n Unable to create folder for database install: {}'.format(e, self.mpadb), exit = True)
 
         # Check the directory permissions
-        if not os.access(self.bowtie2db, os.W_OK):
-            error("The directory is not writable: {}\n Please modify the permissions.".format(self.bowtie2db), exit = True)
+        if not os.access(self.mpadb, os.W_OK):
+            error("The directory is not writable: {}\n Please modify the permissions.".format(self.mpadb), exit = True)
             
         info('Downloading and uncompressing indexes', init_new_line = True)
-        self.download_and_untar("{}_bt2".format(self.index), self.bowtie2db, os.path.join(DB_URL,"bowtie2_indexes"))
+        self.download_and_untar("{}_bt2".format(self.index), self.mpadb, os.path.join(DB_URL,"bowtie2_indexes"))
         info('Downloading and uncompressing additional files', init_new_line = True)
-        self.download_and_untar(self.index, self.bowtie2db, DB_URL)
+        self.download_and_untar(self.index, self.mpadb, DB_URL)
 
         # uncompress sequences
-        for bz2_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna.bz2")):
+        for bz2_file in iglob(os.path.join(self.mpadb, self.index + "_*.fna.bz2")):
             fna_file = bz2_file[:-4]
 
             if not os.path.isfile(fna_file):
@@ -475,35 +475,40 @@ class MetaphlanDatabaseController():
 
 
     def check_and_install_database(self):
+        info("Check and install database", init_new_line = True)
+
         # Create the folder if it does not already exist
-        if not os.path.isdir(self.bowtie2db):
+        if not os.path.isdir(self.mpadb):
             try:
-                os.makedirs(self.bowtie2db)
+                os.makedirs(self.mpadb)
             except EnvironmentError as e:
-                error('EnvironmentError "{}"\n Unable to create folder for database install: '.format(e, self.bowtie2db), exit = True)
+                error('EnvironmentError "{}"\n Unable to create folder for database install: '.format(e, self.mpadb), exit = True)
         
         # database present locally and not force download, return 
-        if len(glob(os.path.join(self.bowtie2db, "*{}*".format(self.index)))) >= 7 and not self.force_download:
+        # if len(glob(os.path.join(self.mpadb, "*{}*".format(self.index)))) >= 7 and not self.force_download:
+        if self.database_present():
+            self.database_pkl = self.set_pkl()
             return self.index
         
         # not enough database files present locally and offline option is on
         if self.offline:
-            error("Database cannot be downloaded with the --offline option activated and database files for {} were not detected in {}".format(self.index, self.bowtie2db), init_new_line = True, exit = True)
+            error("Database cannot be downloaded with the --offline option activated and database files for {} were not detected in {}".format(self.index, self.mpadb), init_new_line = True, exit = True)
 
         # database not present, download and install
         info("Downloading MetaPhlAn database\n Please note due to the size this might take a few minutes.", init_new_line = True)
         self.download_unpack_tar()
-        self.prepare_bwt_indexes()
+        self.prepare_indexes()
       
         info("Download complete.", init_new_line = True)
+        self.database_pkl = self.set_pkl()
         
         return self.index
 
     def set_pkl(self):
-        if os.path.isfile(os.path.join(self.bowtie2db, "{}.pkl".format(self.index))):
-            mpa_pkl = os.path.join(self.bowtie2db, "{}.pkl".format(self.index))
+        if os.path.isfile(os.path.join(self.mpadb, "{}.pkl".format(self.index))):
+            mpa_pkl = os.path.join(self.mpadb, "{}.pkl".format(self.index))
         else:
-            error('Unable to find the mpa_pkl file at {}'.format(os.path.isfile(os.path.join(self.bowtie2db, "{}.pkl".format(self.index)))), exit=True)
+            error('Unable to find the mpa_pkl file at {}'.format(os.path.isfile(os.path.join(self.mpadb, "{}.pkl".format(self.index)))), exit=True)
 
         with bz2.BZ2File(mpa_pkl, 'r') as handle:
             database_pkl = pkl.load(handle)
@@ -526,8 +531,8 @@ class MetaphlanDatabaseController():
                 except EnvironmentError as e:
                     warning('It seems that you do not have Internet access.', init_new_line = True)
                     # if you do not have internet access
-                    if os.path.exists(os.path.join(self.bowtie2db,'mpa_latest')):
-                        with open(os.path.join(self.bowtie2db,'mpa_latest')) as mpa_latest:
+                    if os.path.exists(os.path.join(self.mpadb,'mpa_latest')):
+                        with open(os.path.join(self.mpadb,'mpa_latest')) as mpa_latest:
                             latest_db_version = ''.join([line.strip() for line in mpa_latest if not line.startswith('#')])
                             self.index = latest_db_version
                             warning('Cannot connect to the database server. The latest available local database will be used.'.format(self.index), init_new_line = True)
@@ -537,21 +542,21 @@ class MetaphlanDatabaseController():
                               'You can download the MetaPhlAn database from: \n {}'.format(DB_URL), init_new_line = True, exit = True)
 
                 # download latest if not available locally
-                if not os.path.exists(os.path.join(self.bowtie2db, 'mpa_latest')):
-                    self.download(os.path.join(DB_URL, 'mpa_latest'), os.path.join(self.bowtie2db, 'mpa_latest'), force=True)
+                if not os.path.exists(os.path.join(self.mpadb, 'mpa_latest')):
+                    self.download(os.path.join(DB_URL, 'mpa_latest'), os.path.join(self.mpadb, 'mpa_latest'), force=True)
 
                 else:
                     # if available, check how old it is. If too old, download a new mpa_latest
-                    ctime_latest_db = int(os.path.getctime(os.path.join(self.bowtie2db, 'mpa_latest')))
+                    ctime_latest_db = int(os.path.getctime(os.path.join(self.mpadb, 'mpa_latest')))
                     if int(time.time()) - ctime_latest_db > 31536000:         #1 year in epoch
-                        os.rename(os.path.join(self.bowtie2db, 'mpa_latest'),os.path.join(self.bowtie2db, 'mpa_previous'))
-                        self.download(os.path.join(DB_URL, 'mpa_latest'), os.path.join(self.bowtie2db, 'mpa_latest'), force=True)
+                        os.rename(os.path.join(self.mpadb, 'mpa_latest'),os.path.join(self.mpadb, 'mpa_previous'))
+                        self.download(os.path.join(DB_URL, 'mpa_latest'), os.path.join(self.mpadb, 'mpa_latest'), force=True)
 
                         # if mpa_previous present, make the user choose to proceed with it or newer version
                         if not self.force_download:         
-                            with open(os.path.join(self.bowtie2db,'mpa_previous')) as mpa_previous:
+                            with open(os.path.join(self.mpadb,'mpa_previous')) as mpa_previous:
                                 previous_db_version = ''.join([line.strip() for line in mpa_previous if not line.startswith('#')])
-                            with open(os.path.join(self.bowtie2db, 'mpa_latest')) as mpa_latest:
+                            with open(os.path.join(self.mpadb, 'mpa_latest')) as mpa_latest:
                                 latest_db_version = ''.join([line.strip() for line in mpa_latest if not line.startswith('#')])
                                 
                             choice = ''
@@ -560,71 +565,80 @@ class MetaphlanDatabaseController():
 
                             # if not, rename mpa_previous to mpa_latest and use it
                             if choice.upper() == 'N':
-                                os.rename(os.path.join(self.bowtie2db,'mpa_previous'),os.path.join(self.bowtie2db,'mpa_latest')) 
+                                os.rename(os.path.join(self.mpadb,'mpa_previous'),os.path.join(self.mpadb,'mpa_latest')) 
             else:
-                if not os.path.exists(os.path.join(self.bowtie2db, 'mpa_latest')):
-                    error("Database cannot be downloaded with the --offline option activated and no existing database was detected in {}".format(self.bowtie2db), init_new_line = True, exit = True) 
+                if not os.path.exists(os.path.join(self.mpadb, 'mpa_latest')):
+                    error("Database cannot be downloaded with the --offline option activated and no existing database was detected in {}".format(self.mpadb), init_new_line = True, exit = True) 
         
-            with open(os.path.join(self.bowtie2db, 'mpa_latest')) as mpa_latest:
+            with open(os.path.join(self.mpadb, 'mpa_latest')) as mpa_latest:
                 latest_db_version = ''.join([line.strip() for line in mpa_latest if not line.startswith('#')])
                 self.index = latest_db_version
 
-        self.database_pkl = self.set_pkl()
+        # self.database_pkl = self.set_pkl()
+        ## setting pkl here causes problems if the db is not installed (when running --install)
 
         return self.index
     
 
     def __init__(self, args):
         self.index = args.index
-        self.bowtie2db = args.bowtie2db
+        self.mpadb = args.mpadb
         self.nproc = args.nproc
         self.force_download = args.force_download
         self.offline = args.offline
         self.database_pkl = None
-        # self.bowtie2_build = args.bowtie2_build
 
 
 class Bowtie2DatabaseController(MetaphlanDatabaseController):
     """Bowtie2DatabaseController class"""
 
-    def prepare_bwt_indexes(self):
+    def database_present(self):
+        if len(glob(os.path.join(self.mpadb, "*{}*".format(self.index)))) >= 7:
+            return True
+
+    def prepare_indexes(self):
         """Prepare for building BowTie indexes"""
 
-        if not glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+        if not glob(os.path.join(self.mpadb, self.index + "*.bt2l")):
             self.build_bwt_indexes()
         else:
             try:
-                subp.check_call(['bowtie2-inspect', '-n', os.path.join(self.bowtie2db, self.index)], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
+                subp.check_call(['bowtie2-inspect', '-n', os.path.join(self.mpadb, self.index)], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
             except Exception as e:
                 warning('Downloaded indexes are not compatible with the installed version of Bowtie2', init_new_line = True)
                 info('Building indexes from the FASTA files', init_new_line = True)
-                for btw_file in iglob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+                for btw_file in iglob(os.path.join(self.mpadb, self.index + "*.bt2l")):
                     os.remove(btw_file)
                 self.build_bwt_indexes()
         try:
-            for bt2 in glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
+            for bt2 in glob(os.path.join(self.mpadb, self.index + "*.bt2l")):
                 os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
         except PermissionError as e:
-            error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.bowtie2db, self.self.index + "*.bt2l")))
+            error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.mpadb, self.self.index + "*.bt2l")))
         
-        #remove all the individual FASTA files but ViralDB
+        #remove partial FASTA file but ViralDB (keep the full one for minimap)
         info('Removing uncompressed databases', init_new_line = True)
-        for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
-            if not fna_file.endswith('_VSG.fna'):
+        for fna_file in iglob(os.path.join(self.mpadb, self.index + "_*.fna")):
+            if not fna_file.endswith('_VSG.fna') and not fna_file.endswith('{}.fna'.format(self.index)):
                 os.remove(fna_file)
+        #remove all the individual FASTA files but ViralDB
+        # info('Removing uncompressed databases', init_new_line = True)
+        # for fna_file in iglob(os.path.join(self.mpadb, self.index + "_*.fna")):
+        #     if not fna_file.endswith('_VSG.fna'):
+        #         os.remove(fna_file)
 
     def build_bwt_indexes(self):
         """Build BowTie indexes"""
         info('Joining FASTA databases', init_new_line = True )
-        if len(glob(os.path.join(self.bowtie2db, self.index + "*.fna"))) > 1:
-            with open(os.path.join(self.bowtie2db, self.index + ".fna"), 'w') as fna_h:
-                for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
+        if len(glob(os.path.join(self.mpadb, self.index + "*.fna"))) > 1:
+            with open(os.path.join(self.mpadb, self.index + ".fna"), 'w') as fna_h:
+                for fna_file in iglob(os.path.join(self.mpadb, self.index + "_*.fna")):
                     with open(fna_file, 'r') as fna_r:
                         for line in fna_r:
                             fna_h.write(line)
-        fna_file = os.path.join(self.bowtie2db, self.index + ".fna")
+        fna_file = os.path.join(self.mpadb, self.index + ".fna")
         
-        bt2_base = os.path.join(self.bowtie2db, self.index)
+        bt2_base = os.path.join(self.mpadb, self.index)
         bt2_cmd = [self.bowtie2_build, '--quiet']
 
         if self.nproc > 1:
@@ -649,64 +663,28 @@ class Bowtie2DatabaseController(MetaphlanDatabaseController):
 class Minimap2DatabaseController(MetaphlanDatabaseController):
     """Minimap2DatabaseController class"""
 
-    def prepare_mm2_indexes(self): ## TODO
-        """Prepare for building minimap2 indexes"""
+    def database_present(self):
+        if len(glob(os.path.join(self.mpadb, "*{}*".format(self.index)))) >= 2 and glob(os.path.join(self.mpadb, "{}.fna".format(self.index))):
+            return True
 
-        # if not glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
-        #     self.build_bwt_indexes()
-        # else:
-        #     try:
-        #         subp.check_call(['bowtie2-inspect', '-n', os.path.join(self.bowtie2db, self.index)], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
-        #     except Exception as e:
-        #         warning('Downloaded indexes are not compatible with the installed version of Bowtie2', init_new_line = True)
-        #         info('Building indexes from the FASTA files', init_new_line = True)
-        #         for btw_file in iglob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
-        #             os.remove(btw_file)
-        #         self.build_bwt_indexes()
-        # try:
-        #     for bt2 in glob(os.path.join(self.bowtie2db, self.index + "*.bt2l")):
-        #         os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
-        # except PermissionError as e:
-        #     error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.bowtie2db, self.self.index + "*.bt2l")))
-        
-        # #remove all the individual FASTA files but ViralDB
-        # info('Removing uncompressed databases', init_new_line = True)
-        # for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
-        #     if not fna_file.endswith('_VSG.fna'):
-        #         os.remove(fna_file)
+    def prepare_indexes(self): 
+        """Create fasta file for minimap2 mapping"""
+        info('Joining FASTA databases', init_new_line = True )
+        if len(glob(os.path.join(self.mpadb, self.index + "*.fna"))) > 1:
+            with open(os.path.join(self.mpadb, self.index + ".fna"), 'w') as fna_h:
+                for fna_file in iglob(os.path.join(self.mpadb, self.index + "_*.fna")):
+                    with open(fna_file, 'r') as fna_r:
+                        for line in fna_r:
+                            fna_h.write(line)
 
-    def build_bwt_indexes(self): ## TODO
-        """Build BowTie indexes"""
-        # info('Joining FASTA databases', init_new_line = True )
-        # if len(glob(os.path.join(self.bowtie2db, self.index + "*.fna"))) > 1:
-        #     with open(os.path.join(self.bowtie2db, self.index + ".fna"), 'w') as fna_h:
-        #         for fna_file in iglob(os.path.join(self.bowtie2db, self.index + "_*.fna")):
-        #             with open(fna_file, 'r') as fna_r:
-        #                 for line in fna_r:
-        #                     fna_h.write(line)
-        # fna_file = os.path.join(self.bowtie2db, self.index + ".fna")
-        
-        # bt2_base = os.path.join(self.bowtie2db, self.index)
-        # bt2_cmd = [self.bowtie2_build, '--quiet']
-
-        # if self.nproc > 1:
-        #     bt2_build_output = subp.check_output([self.bowtie2_build, '--usage'], stderr=subp.STDOUT)
-
-        #     if 'threads' in str(bt2_build_output):
-        #         bt2_cmd += ['--threads', str(self.nproc)]
-
-        # bt2_cmd += ['-f', fna_file, bt2_base]
-
-        # info('Building Bowtie2 indexes', init_new_line = True)
-
-        # try:
-        #     subp.check_call(bt2_cmd)
-        # except Exception as e:
-        #     error("Fatal error running '{}'\nError message: '{}'\n\n".format(' '.join(bt2_cmd), e), exit = True)
+        #remove partial FASTA file but ViralDB
+        info('Removing uncompressed databases', init_new_line = True)
+        for fna_file in iglob(os.path.join(self.mpadb, self.index + "_*.fna")):
+            if not fna_file.endswith('_VSG.fna') and not fna_file.endswith('{}.fna'.format(self.index)):
+                os.remove(fna_file)
 
     def __init__(self, args):
         super().__init__(args)
-        self.minimap2_exe = args.minimap2_exe
 
 class VSCController():
 
@@ -785,13 +763,13 @@ class VSCController():
     
     def initialize_mapping(self):
         """Initialize parameters for mapping to viral database"""
-        self.database_controller.set_bowtie2db(self.tmp_dir)
+        self.database_controller.set_mpadb(self.tmp_dir)
         self.database_controller.set_index(os.path.basename(self.top_marker_file).split('.')[0])
-        self.database_controller.prepare_bwt_indexes()
+        self.database_controller.prepare_indexes()
 
         # set parameters for bowtie mapping
         self.mapping_controller.set_inp(self.reads_file)
-        self.mapping_controller.set_bowtie2db(self.tmp_dir)
+        self.mapping_controller.set_mpadb(self.tmp_dir)
         self.mapping_controller.set_index(os.path.basename(self.top_marker_file).split('.')[0])        
         self.mapping_controller.set_input_type('fastq')
         self.mapping_controller.set_samout(os.path.basename(self.vscBamFile).split('.')[0]+'.sam')
@@ -876,7 +854,7 @@ class VSCController():
 
 
     def __init__(self, args, mapping_controller, database_controller):
-        # parsing previous bowtie2out run
+        # parsing previous mapout run
         self.nproc = args.nproc
         self.sample_id = args.sample_id
         self.tmp_dir = tempfile.mkdtemp(dir=args.tmp_dir) 
@@ -894,9 +872,9 @@ class VSCController():
         self.database_controller = database_controller
 
         #database  
-        self.bowtie2db = args.bowtie2db
-        self.vsc_fna = os.path.join(self.bowtie2db,"{}_VSG.fna".format(self.database_controller.get_index()))
-        self.vsc_vinfo = os.path.join(self.bowtie2db,"{}_VINFO.csv".format(self.database_controller.get_index()))
+        self.mpadb = args.mpadb
+        self.vsc_fna = os.path.join(self.mpadb,"{}_VSG.fna".format(self.database_controller.get_index()))
+        self.vsc_vinfo = os.path.join(self.mpadb,"{}_VINFO.csv".format(self.database_controller.get_index()))
 
 
 
@@ -906,8 +884,8 @@ class MappingController:
     def set_inp(self, value):
         self.inp = value
 
-    def set_bowtie2db(self, value):
-        self.bowtie2db = value
+    def set_mpadb(self, value):
+        self.mpadb = value
 
     def set_input_type(self, value):
         self.input_type = value    
@@ -933,24 +911,24 @@ class MappingController:
     def get_reads2markers(self):
         pass
     
-    def init_bowtie2out(self): ## TODO change name (mappingOut??)
+    def init_mapout(self):
         """Inits the Bowtie2 output file"""
         if self.no_map:
-            self.bowtie2out = tempfile.NamedTemporaryFile(
+            self.mapout = tempfile.NamedTemporaryFile(
                 dir=self.tmp_dir).name
-        elif self.bowtie2out is None:
+        elif self.mapout is None:
             if self.inp is None:
-                self.bowtie2out = 'stdin_map.bowtie2out.txt'
+                self.mapout = 'stdin_map.mapout.txt'
             elif stat.S_ISFIFO(os.stat(self.inp).st_mode):
-                self.bowtie2out = 'fifo_map.bowtie2out.txt'
+                self.mapout = 'fifo_map.mapout.txt'
             else:
-                self.bowtie2out = 'fifo_map.bowtie2out.txt'.format(self.inp)
+                self.mapout = 'fifo_map.mapout.txt'.format(self.inp)
     
     def __init__(self, args, index):
         self.inp = args.inp
         self.input_type = args.input_type
-        self.bowtie2out = args.bowtie2out # TODO chage name
-        self.bowtie2db = args.bowtie2db # TODO change name
+        self.mapout = args.mapout
+        self.mpadb = args.mpadb
         self.samout = args.samout
         self.min_alignment_len = args.min_alignment_len
         self.min_mapq_val = args.min_mapq_val
@@ -971,33 +949,32 @@ class Bowtie2Controller(MappingController):
 
     def check_bowtie2_database(self):
         """Checks the presence and consistency of the Bowtie2 database"""
-        if glob(os.path.join(self.bowtie2db, "{}*.{}".format(self.index, 'bt2*'))):
+        if glob(os.path.join(self.mpadb, "{}*.{}".format(self.index, 'bt2*'))):
             
-            if glob(os.path.join(self.bowtie2db, "{}*.{}".format(self.index, 'bt2*')))[0].endswith('l'):
+            if glob(os.path.join(self.mpadb, "{}*.{}".format(self.index, 'bt2*')))[0].endswith('l'):
                 bt2_ext = 'bt2l'
             else:
                 bt2_ext = 'bt2'
 
-            self.bowtie2db = os.path.join(self.bowtie2db, "{}".format(self.index))
+            self.mpadb = os.path.join(self.mpadb, "{}".format(self.index))
 
         else:
             error('No MetaPhlAn BowTie2 database was found at: {}'.format(
-                self.bowtie2db), exit=True)
+                self.mpadb), exit=True)
         #bt2_ext = 'bt2l'
-        if not all([os.path.exists(".".join([str(self.bowtie2db), p]))
+        if not all([os.path.exists(".".join([str(self.mpadb), p]))
                     for p in ["1." + bt2_ext, "2." + bt2_ext, "3." + bt2_ext, "4." + bt2_ext, "rev.1." + bt2_ext, "rev.2." + bt2_ext]]):
-            error('No MetaPhlAn BowTie2 database found (--index option)!\nExpecting location {}'.format(self.bowtie2db), exit=True)
-        if not (abs(os.path.getsize(".".join([str(self.bowtie2db), "1." + bt2_ext])) - os.path.getsize(".".join([str(self.bowtie2db), "rev.1." + bt2_ext]))) <= 1000):
+            error('No MetaPhlAn BowTie2 database found (--index option)!\nExpecting location {}'.format(self.mpadb), exit=True)
+        if not (abs(os.path.getsize(".".join([str(self.mpadb), "1." + bt2_ext])) - os.path.getsize(".".join([str(self.mpadb), "rev.1." + bt2_ext]))) <= 1000):
             error('Partial MetaPhlAn BowTie2 database found at {}. Please remove and rebuild the database'.format(
-                self.bowtie2db), exit=True)
+                self.mpadb), exit=True)
 
     def init_mapping_arguments(self):
         """Automatically set the mapping arguments"""
         if (self.bt2_ps in ["sensitive-local", "very-sensitive-local"]) and (self.min_alignment_len is None):
             self.min_alignment_len = 100
-            warning(
-                'bt2_ps is set to local mode, and min_alignment_len is None, min_alignment_len has automatically been set to 100')
-        self.init_bowtie2out()
+            warning('bt2_ps is set to local mode, and min_alignment_len is None, min_alignment_len has automatically been set to 100')
+        self.init_mapout()
 
     def get_bowtie2cmd(self):
         """Gets the command for Bowtie2 execution
@@ -1006,7 +983,7 @@ class Bowtie2Controller(MappingController):
             list: the command for the bowtie2 execution
         """
         bowtie2_cmd = [self.bowtie2_exe if self.bowtie2_exe else 'bowtie2', "--seed", "1992", "--quiet", "--no-unal", "--{}".format(self.bt2_ps),
-                       "-S", "-", "-U", "-", "-x", self.bowtie2db]
+                       "-S", "-", "-U", "-", "-x", self.mpadb]
         if int(self.nproc) > 1:
             bowtie2_cmd += ["-p", str(self.nproc)]
         if self.input_type == "fasta":
@@ -1017,16 +994,18 @@ class Bowtie2Controller(MappingController):
     def run_bowtie2(self):
         """Runs Bowtie2"""
         try:
-            ## linda --> split reads option
+            ## added split reads option
             # read_fastx = '/shares/CIBIO-Storage/CM/scratch/users/claudia.mengoni/tools/MetaPhlAn/metaphlan/utils/read_fastx.py'
-            read_fastx = "/shares/CIBIO-Storage/CM/scratch/users/linda.cova/tools/MetaPhlAn_refactored/metaphlan/utils/read_fastx.py"
+            # read_fastx = "/shares/CIBIO-Storage/CM/scratch/users/linda.cova/tools/MetaPhlAn_refactored/metaphlan/utils/read_fastx.py"
+            read_fastx = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'utils', 'read_fastx.py')
+
             if self.inp:
                 readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), '--split_reads', str(self.split_reads), self.inp], stdout=subp.PIPE, stderr=subp.PIPE)
             else:
                 readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), '--split_reads', str(self.split_reads)], stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
             p = subp.Popen(self.get_bowtie2cmd(), stdout=subp.PIPE, stdin=readin.stdout)
             readin.stdout.close()
-            lmybytes, outf = (mybytes, bz2.BZ2File(self.bowtie2out, "w")) if self.bowtie2out.endswith(".bz2") else (str, open(self.bowtie2out, "w"))
+            lmybytes, outf = (mybytes, bz2.BZ2File(self.mapout, "w")) if self.mapout.endswith(".bz2") else (str, open(self.mapout, "w"))
             
             try:
                 if self.samout:
@@ -1050,8 +1029,8 @@ class Bowtie2Controller(MappingController):
             outf.write(lmybytes('#nreads\t{}\n'.format(nreads)))
             outf.write(lmybytes('#avg_read_length\t{}'.format(avg_read_len)))
             outf.close()
-            self.input_type = 'bowtie2out'
-            self.inp = self.bowtie2out
+            self.input_type = 'mapout'
+            self.inp = self.mapout
         except OSError as e:
             error('OSError: "{}"\nFatal error running BowTie2.'.format(e), exit=True)
         except IOError as e:
@@ -1112,7 +1091,7 @@ class Bowtie2Controller(MappingController):
                 error('Fatal error running MetaPhlAn. The average read length was not estimated.\nPlease check your input files.', exit=True)
             return int(nreads), avg_read_len
         except ValueError:
-            os.unlink(self.bowtie2out)
+            os.unlink(self.mapout)
             error(b''.join(read_fastx_stderr).decode(), exit=True)
     
     def get_reads2markers(self):
@@ -1127,8 +1106,8 @@ class Bowtie2Controller(MappingController):
             ras, ras_line, inpf = read_and_split, read_and_split_line, bz2.BZ2File(self.inp, "r")
         else:
             ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, open(self.inp)
-        reads2markers = defdict(list) ## linda --> dict of lists to allow multiple markers per read (for long reads)
-        if self.input_type == 'bowtie2out':
+        reads2markers = defdict(list) ## dict of lists to allow multiple markers per read (for long reads)
+        if self.input_type == 'mapout':
             for r, c in ras(inpf):
                 if r.startswith('#') and 'nreads' in r:
                     nreads = int(c)
@@ -1177,15 +1156,15 @@ class Minimap2Controller(MappingController):
 
     def check_mm2_database(self):
         """Checks the presence and consistency of the mpa database""" # For now: full .fna mpa database
-        if glob(os.path.join(self.bowtie2db, "{}*.{}".format(self.index, 'fna'))):
-            self.bowtie2db = os.path.join(self.bowtie2db, "{}.fna".format(self.index))
+        if glob(os.path.join(self.mpadb, "{}*.{}".format(self.index, 'fna'))):
+            self.mpadb = os.path.join(self.mpadb, "{}.fna".format(self.index))
         else:
-            error('No MetaPhlAn .fna database was found at: {}'.format(self.bowtie2db), exit=True)
+            error('No MetaPhlAn .fna database was found at: {}'.format(self.mpadb), exit=True)
 
     def init_mapping_arguments(self):
         """Automatically set the mapping arguments"""
         ## add here default changes in mapping arguments if needed for mm2
-        self.init_bowtie2out()
+        self.init_mapout()
 
     def get_minimap2cmd(self):
         """Gets the command for Minimap2 execution
@@ -1193,7 +1172,9 @@ class Minimap2Controller(MappingController):
         Returns:
             list: the command for the Minimap2 execution
         """
-        mm2_cmd = [self.minimap2_exe if self.minimap2_exe else 'minimap2', "-x", "asm20", "-B", "3", "-O", "3,12", "-a", self.bowtie2db, self.inp]
+        # mm2_cmd = [self.minimap2_exe if self.minimap2_exe else 'minimap2', "-x", "asm20", "-B", "3", "-O", "3,12", "-a", self.mpadb, self.inp]
+        sp_tmp = ".".join(self.mapout.split(".")[:-2]) if self.mapout.endswith("bz2") else ".".join(self.mapout.split(".")[-1])
+        mm2_cmd = [self.minimap2_exe if self.minimap2_exe else 'minimap2', "-x", "asm20", "-B", "3", "-O", "3,12", "--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.mpadb, self.inp]
         if int(self.nproc) > 3:
             mm2_cmd += ["-t", str(self.nproc)]
         return mm2_cmd
@@ -1211,19 +1192,13 @@ class Minimap2Controller(MappingController):
             error('Problem with the SAM file: --long_reads option is only tested for SAM produced by Minimap2', exit=True)
 
 
-    # To refactor?
     def run_minimap2(self):
         """Runs Minimap2"""
         try:
-            # read_fastx = '/shares/CIBIO-Storage/CM/scratch/users/claudia.mengoni/tools/MetaPhlAn/metaphlan/utils/read_fastx.py'
-            # read_fastx = "/shares/CIBIO-Storage/CM/scratch/users/linda.cova/tools/MetaPhlAn_refactored/metaphlan/utils/read_fastx.py"
-            # if self.inp:
-            #     readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), self.inp], stdout=subp.PIPE, stderr=subp.PIPE)
-            # else:
-            #     readin = subp.Popen([read_fastx, '-l', str(self.read_min_len)], stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
+            # No read_fastx for Minimap2
             p = subp.Popen(self.get_minimap2cmd(), stdout=subp.PIPE)
             # readin.stdout.close()
-            lmybytes, outf = (mybytes, bz2.BZ2File(self.bowtie2out, "w")) if self.bowtie2out.endswith(".bz2") else (str, open(self.bowtie2out, "w"))
+            lmybytes, outf = (mybytes, bz2.BZ2File(self.mapout, "w")) if self.mapout.endswith(".bz2") else (str, open(self.mapout, "w"))
             
             try:
                 if self.samout:
@@ -1248,8 +1223,8 @@ class Minimap2Controller(MappingController):
             p.communicate()
             outf.write(lmybytes('#\tnbases\t{}\t#\t#\n'.format(self.nbases)))
             outf.close()
-            self.input_type = 'bowtie2out'
-            self.inp = self.bowtie2out
+            self.input_type = 'mapout'
+            self.inp = self.mapout
         except OSError as e:
             error('OSError: "{}"\nFatal error running Minimap2.'.format(e), exit=True)
         except IOError as e:
@@ -1308,7 +1283,7 @@ class Minimap2Controller(MappingController):
 
         Returns:
             dict, dict: the reads to markers and reads to number of bases dictionaries, after removing markers from different clades
-        """ ## linda
+        """
 
         for r, m in reads2markers.items():
             clades = []
@@ -1342,7 +1317,7 @@ class Minimap2Controller(MappingController):
                 error('Fatal error running MetaPhlAn. Total metagenome size was not estimated or is zero.\nPlease check your input files.', exit=True)
             return int(nbases)
         except ValueError:
-            os.unlink(self.bowtie2out)
+            os.unlink(self.mapout)
             error(b''.join(read_fastx_stderr).decode(), exit=True)
     
     def get_reads2markers(self):
@@ -1357,13 +1332,12 @@ class Minimap2Controller(MappingController):
             ras, ras_line, inpf = read_and_split, read_and_split_line, bz2.BZ2File(self.inp, "r")
         else:
             ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, open(self.inp)
-        reads2markers = defdict(list) ## linda --> dict of lists to allow multiple markers per read (for long reads)
+        reads2markers = defdict(list) ## dict of lists to allow multiple markers per read (for long reads)
         reads2gcsd = defdict(list) ## LONG READS: store GCSD values for long reads
         reads2nbases = defdict(list) ## LONG READS: number of marker positions covered by the read
         reads2readlen = defdict(int) if self.mapping_subsampling else 1 ## will be needed for mapping subsampling
 
-        if self.input_type == 'bowtie2out': ## TODO rename
-            # nbases = int(self.nbases) ## temporary
+        if self.input_type == 'mapout':
             for r, m, b, g, l in ras(inpf):
                 if r.startswith('#') and 'nbases' in m:
                     nbases = int(b)
@@ -1400,12 +1374,12 @@ class Minimap2Controller(MappingController):
         self.minimap2_exe = args.minimap2_exe
         self.max_gcsd = args.max_gcsd
         self.nbases = args.nbases ## nbases instead of nreads for long reads
-        self.database_controller = database_controller ## linda --> needed to discard multiple clades
-        self.mapping_subsampling = args.mapping_subsampling ## linda --> needed to know if readlength is needed from sam
+        self.database_controller = database_controller ## needed to discard multiple clades
+        self.mapping_subsampling = args.mapping_subsampling ## needed to know if readlength is needed from sam
 
 class MetaphlanAnalysis:
     def get_mapped_fraction(self):
-        """Gets the estimated fraction of mapped reads (bases for long reads)""" ## linda
+        """Gets the estimated fraction of mapped reads (bases for long reads)""" 
         self.mapped = self.tree.relative_abundances()
         if self.unclassified_estimation:
             self.fraction_mapped = min(self.mapped/float(self.total_metagenome), 1.0)
@@ -1430,7 +1404,7 @@ class MetaphlanAnalysis:
         self.avg_read_length = avg_read_length
         
     def __init__(self, args, database_controller, index):
-        ## Linda --> n_metagenome_reads substituted with total_metagenome (n of reads for short reads and n of bases for long reads)
+        ## n_metagenome_reads substituted with total_metagenome (n of reads for short reads and n of bases for long reads)
         self.output = args.output_file
         self.sample_id_key = args.sample_id_key
         self.sample_id = args.sample_id
@@ -1628,7 +1602,7 @@ class Metaphlan:
         Returns:
             (dict, dict): tuple of dictionaries for the SGBs/EUKs and viral contigs
         """
-        ## linda --> changed to work with dict
+        ## changed to work with dict
         return {r: m for r, m in reads2markers.items() if ('SGB' in m[0] or 'EUK' in m[0]) and not 'VDB' in m[0]}, {r: m for r, m in reads2markers.items() if 'VDB' in m[0] and not ('SGB' in m[0] or 'EUK' in m[0])}
 
     def make_gen_fastq(self, reader):
@@ -1645,7 +1619,7 @@ class Metaphlan:
         f.close()
         return total_metagenome
     
-    def rawpycount_bases(self, filename, intype):
+    def rawpycount_bases(self, filename, intype, tot=True):
         """Counts bases in a fastq file"""
         f = bz2.BZ2File(filename, 'rb') if filename.endswith(".bz2") else gzip.open(filename, 'rb') if filename.endswith('.gz') else open(filename, 'rb')
         f_gen = self.make_gen_fastq(f.read)
@@ -1654,7 +1628,8 @@ class Metaphlan:
         i = 4 if intype == 'fastq' else 2
         j = 2 if intype == 'fastq' else 0
 
-        nbases = 0
+        nbases = 0 if tot else dict()
+        read_num = -1
         line_num = 0
         buffer = b''
         
@@ -1664,23 +1639,32 @@ class Metaphlan:
             for line in lines[:-1]:  # Process all but the last line
                 line_num += 1
                 if line_num % i == j:
-                    nbases += len(line)
+                    if tot:
+                        nbases += len(line)
+                    else:
+                        read_num += 1
+                        nbases[read_num] = len(line)
         
         # Check if there's remaining content in the buffer
         if buffer:
             line_num += 1
             if line_num % i == j:
-                nbases += len(buffer)
+                    if tot:
+                        nbases += len(line)
+                    else:
+                        nreads += 1
+                        nbases[nreads] = len(line)
         f.close()
         return nbases
     
-    def subsample_file(self, sample, out):         
+    def subsample_file(self, sample, out):
         length, read_num = 0, -1
         counter=0
         out_l = out
+        x = 3 if self.input_type == 'fastq' else 1
         for inp_f in self.inp.split(','):
             if self.subsampling_paired:
-                length, read_num = 0, -1  
+                length, read_num = 0, -1
                 out=out_l[counter]
                 counter+=1
             line = 1
@@ -1691,10 +1675,10 @@ class Metaphlan:
                 if read_num in sample:
                     length += 1
                     out.write(line)       
-                    for _ in range(3):
+                    for _ in range(x):
                         out.write(reader.readline())
                 else:
-                    for _ in range(3):
+                    for _ in range(x):
                         reader.readline()
             reader.close()
         out.close()
@@ -1730,7 +1714,8 @@ class Metaphlan:
 
     def subsample_reads(self):
         self.total_metagenome = execute_pool(((self.rawpycount, inp_f) for inp_f in self.inp.split(',')), 2)
-        self.total_metagenome = [int(n/4) for n in self.total_metagenome]
+        x = 4 if self.input_type == 'fastq' else 2
+        self.total_metagenome = [int(n/x) for n in self.total_metagenome]
 
         if self.subsampling >= sum(self.total_metagenome):
             warning("The specified subsampling ({}) is equal or higher than the original number of reads ({}). Subsampling will be skipped.\n".format(self.subsampling, self.total_metagenome)) 
@@ -1761,6 +1746,37 @@ class Metaphlan:
 
         # update number of reads and input file
         self.total_metagenome = self.subsampling
+        self.inp = self.subsampling_output
+
+
+    def subsample_longreads(self):
+        r2rl = self.rawpycount_bases(self.inp, self.input_type, tot=False)
+        self.total_metagenome = sum(r2rl.values())
+
+        if self.subsampling >= self.total_metagenome:
+            warning("The specified subsampling ({}) is equal or higher than the original number of bases ({}). Subsampling will be skipped.\n".format(self.subsampling, self.total_metagenome)) 
+            self.subsampling_output = self.inp
+            return
+
+        if self.subsampling_seed.lower() != 'random':
+            random.seed(int(self.subsampling_seed))
+
+        cur_bases = 0
+        r = list(r2rl.keys())
+        random.shuffle(r)
+        i = 0
+        while cur_bases < self.subsampling:
+            cur_bases += r2rl[r[i]]
+            i += 1
+
+        sample = set(r[:i])
+        self.subsampling = len(sample)
+
+        out = self.prepare_subsample_output()
+        self.subsample_file(sample, out)
+
+        # update number of reads and input file
+        self.total_metagenome = cur_bases
         self.inp = self.subsampling_output
         
 
@@ -1830,7 +1846,6 @@ class Metaphlan:
             reads2nbases = {r:reads2nbases[r] for r in reads2keep}
             sgb_reads2markers.clear()
             viral_reads2markers.clear()
-            # self.total_metagenome = self.subsampling
             self.total_metagenome = cur_bases
 
         return reads2markers, reads2nbases
@@ -1852,9 +1867,9 @@ class Metaphlan:
             warning("The number of reads in the sample ({}) is below the recommended minimum of 10,000 reads.".format(self.total_metagenome))
         elif self.long_reads and self.subsampling is None and self.total_metagenome < (10000*150):
             warning("The number of bases in the sample ({}) is below the recommended minimum of 1,500,000 bases.".format(self.total_metagenome))  
-            ## TODO --> Check threshold for long reads - linda
+            ## TODO --> Check threshold for long reads
         markers2reads = defdict(list) ## list instead of set for long reads
-        for r, m in reads2markers.items(): ## changed to work with dict of lists - linda
+        for r, m in reads2markers.items(): ## changed to work with dict of lists
             for i in range(len(m)):
                 if not reads2nbases:
                     markers2reads[m[i]].append(r) ## short reads --> append read names
@@ -1911,7 +1926,10 @@ class Metaphlan:
         self.index=self.database_controller.check_and_install_database()
         info('The database is installed ({})'.format(self.index), stderr=True, exit=self.install)
         if (self.subsampling_paired or self.subsampling) and not self.mapping_subsampling:
-            self.subsample_reads()
+            if not (self.long_reads or self.split_reads):
+                self.subsample_reads()
+            else:
+                self.subsample_longreads()
             self.mapping_controller.set_inp(self.inp)
             if self.long_reads:
                 self.mapping_controller.set_nbases(self.total_metagenome)
@@ -1930,6 +1948,7 @@ class Metaphlan:
         self.inp = args.inp
         self.verbose = args.verbose
         self.long_reads = args.long_reads
+        self.split_reads = args.split_reads
         self.database_controller = Bowtie2DatabaseController(args) if not self.long_reads else Minimap2DatabaseController(args)
         self.index = self.database_controller.resolve_index()
         #here should be the code choosing the mapping controller in the future
@@ -1982,21 +2001,23 @@ def read_params():
         "OR\n"
         "* a BowTie2 produced SAM file. \n"
         "OR\n"
-        "* an intermediary mapping file of the metagenome generated by a previous MetaPhlAn run \n"
+        "* a minimap2 produced SAM file (for long reads). \n"
+        "OR\n"
+        "* an intermediary mapping file of the metagenome generated by a previous MetaPhlAn run (mapout)\n"
         "If the input file is missing, the script assumes that the input is provided using the standard \n"
         "input, or named pipes.\n"
         "IMPORTANT: the type of input needs to be specified with --input_type")
     g = p.add_argument_group('Required arguments')
     arg = g.add_argument
-    input_type_choices = ['fastq', 'fasta', 'bowtie2out', 'sam']
+    input_type_choices = ['fastq', 'fasta', 'mapout', 'sam']
     arg('--input_type', choices=input_type_choices, help="set whether the input is the FASTA file of metagenomic reads or \n"
         "the SAM file of the mapping of the reads against the MetaPhlAn db.\n")
     g = p.add_argument_group('Mapping arguments')
     arg = g.add_argument
     arg('--force', action='store_true',
-        help="Force profiling of the input file by removing the bowtie2out file")
-    arg('--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default=DEFAULT_DB_FOLDER,
-        help=("Folder containing the MetaPhlAn database. You can specify the location by exporting the DEFAULT_DB_FOLDER variable in the shell."
+        help="Force profiling of the input file by removing the mapout file")
+    arg('--mpadb', metavar="METAPHLAN_DB", type=str, default=DEFAULT_DB_FOLDER,
+        help=("Folder containing the MetaPhlAn database. You can specify the location by exporting the DEFAULT_DB_FOLDER variable in the shell (old --bowtie2db option)."
               "[default "+DEFAULT_DB_FOLDER+"]\n"))
     arg('-x', '--index', type=str, default='latest',
         help=("Specify the id of the database version to use. "
@@ -2004,6 +2025,17 @@ def read_params():
               "If an index name is provided, MetaPhlAn will try to use it, if available, and skip the online check.\n"
               "If the database files are not found on the local MetaPhlAn installation they\n"
               "will be automatically downloaded [default latest]\n"))
+    arg('--mapout', metavar="FILE_NAME", type=str, default=None,
+        help="The file for saving the mapping output (old --bowtie2out option)")
+    arg('--min_mapq_val', type=int, default=None,
+        help="Minimum mapping quality value (MAPQ) [default 5 for short reads, 50 for long reads]")
+    arg('--no_map', action='store_true',
+        help="Avoid storing the --mapout map file")
+    arg('--tmp_dir', metavar="", default=None, type=str,
+        help="The folder used to store temporary files [default is the OS "
+             "dependent tmp dir]")
+    g = p.add_argument_group('Bowtie2 arguments')
+    arg = g.add_argument
     bt2ps = ['sensitive', 'very-sensitive',
              'sensitive-local', 'very-sensitive-local']
     arg('--bt2_ps', metavar="BowTie2 presets", default='very-sensitive',
@@ -2022,15 +2054,6 @@ def read_params():
     arg('--bowtie2_build', type=str, default='bowtie2-build',
         help="Full path to the bowtie2-build command to use, deafult assumes "
              "that 'bowtie2-build is present in the system path")
-    arg('--bowtie2out', metavar="FILE_NAME", type=str, default=None,
-        help="The file for saving the output of BowTie2")
-    arg('--min_mapq_val', type=int, default=None,
-        help="Minimum mapping quality value (MAPQ) [default 5 for short reads, 50 for long reads]")
-    arg('--no_map', action='store_true',
-        help="Avoid storing the --bowtie2out map file")
-    arg('--tmp_dir', metavar="", default=None, type=str,
-        help="The folder used to store temporary files [default is the OS "
-             "dependent tmp dir]")
     g = p.add_argument_group('Post-mapping arguments')
     arg = g.add_argument
     stat_choices = ['avg_g', 'avg_l', 'tavg_g',
@@ -2125,12 +2148,26 @@ def read_params():
     arg("--vsc_out", help="Path to the VSCs breadth-of-coverage output file", default="mp3_viruses.csv")
     arg("--vsc_breadth", help="Minimum Breadth of Coverage for a Viral Group to be reported.\n"
     "Default is 0.75 (at least 75 percent breadth to report)", default=0.75,type=float)
+    g = p.add_argument_group('Long reads arguments')
+    arg = g.add_argument
+    arg('--long_reads', action="store_true",help="Add this parameter to profile long reads.")
+    arg('--max_gcsd', type=float, default=0.10,
+        help="Specify the max gap-compressed sequence divergence (minimap2) allowed between marker and read, default value is 0.10")
+    arg('--minimap2_exe', type=str, default=None,
+        help='Full path and name of the Minimap2 executable. This option allows'
+             'MetaPhlAn to reach the executable even when it is not in the '
+             'system PATH or the system PATH is unreachable')
+    arg('--nbases', metavar="NUMBER_OF_BASES", type=int, default = None, help =
+         "The total number of bases in the original metagenome. It is mandatory when the --input_type is a SAM file from long reads mapping (--long_reads is selected)" )
+    arg('--split_reads', action="store_true",help="Add this parameter to profile long reads by splitting into short reads.")
+    arg('--split_readlen', type=int, default=150,
+        help="Specify length of the reads to be split into when using --split_reads, default value is 150")
     g = p.add_argument_group('Other arguments')
     arg = g.add_argument
     arg('--nproc', metavar="N", type=int, default=4,
         help="The number of CPUs to use for parallelizing the mapping [default 4]")
     arg('--subsampling', type=int, default=None,
-        help="Specify the number of reads to be considered from the input metagenomes [default None]")
+        help="Specify the number of reads to be considered from the input metagenomes (number of bases if --long_reads) [default None]")
     arg('--mapping_subsampling', action='store_true',
         help="If used, the subsamping will be done on the mapping results instead of on the reads.")
     arg('--subsampling_seed', type=str, default='1992',
@@ -2158,20 +2195,6 @@ def read_params():
         version="MetaPhlAn version {} ({})".format(__version__, __date__),
         help="Prints the current MetaPhlAn version and exit")
     arg("-h", "--help", action="help", help="show this help message and exit")
-    g = p.add_argument_group('Long reads arguments')
-    arg = g.add_argument
-    arg('--long_reads', action="store_true",help="Add this parameter to profile long reads.")
-    arg('--max_gcsd', type=float, default=0.10,
-        help="Specify the max gap-compressed sequence divergence (minimap2) allowed between marker and read, default value is 0.10")
-    arg('--minimap2_exe', type=str, default=None,
-        help='Full path and name of the Minimap2 executable. This option allows'
-             'MetaPhlAn to reach the executable even when it is not in the '
-             'system PATH or the system PATH is unreachable')
-    arg('--nbases', metavar="NUMBER_OF_BASES", type=int, default = None, help =
-         "The total number of bases in the original metagenome. It is mandatory when the --input_type is a SAM file from long reads mapping (--long_reads is selected)" )
-    arg('--split_reads', action="store_true",help="Add this parameter to profile long reads by splitting into short reads.")
-    arg('--split_readlen', type=int, default=150,
-        help="Specify length of the reads to be split into when using --split_reads, default value is 150")
     return p.parse_args()
 
 
@@ -2183,20 +2206,20 @@ def check_params(args):
     """
     if not (args.subsampling_seed.lower() == 'random' or args.subsampling_seed.isdigit()):
         error("The --subsampling_seed parameter is not accepted. It should contain an integer number or \"random\".", exit=True)
-    if args.inp and ',' in args.inp and not args.bowtie2out:
-        error("--bowtie2out needs to be specified when multiple FASTQ or FASTA files (comma separated) are provided", exit=True)
-    if args.bowtie2out and os.path.exists(args.bowtie2out) and not args.force and not args.profile_vsc:
-        error("BowTie2 output file detected: {}\n. Please use it as input or remove it if you want to re-perform the BowTie2 run".format(args.bowtie2out), exit=True)
+    if args.inp and ',' in args.inp and not args.mapout:
+        error("--mapout needs to be specified when multiple FASTQ or FASTA files (comma separated) are provided", exit=True)
+    if args.mapout and os.path.exists(args.mapout) and not args.force and not args.profile_vsc:
+        error("BowTie2 output file detected: {}\n. Please use it as input or remove it if you want to re-perform the BowTie2 run".format(args.mapout), exit=True)
     if args.input_type == 'sam' and not args.nreads and not args.long_reads:
         error('The --nreads parameter must be specified when using input files in SAM format', exit=True)
     if args.input_type not in ['fasta', 'fastq'] and args.no_map:
         error('The --no_map parameter can only be used with FASTA or FASTQ input formats', exit=True)
     if args.CAMI_format_output and args.t != 'rel_ab':
         error('The --CAMI_format_output parameter can only be used with the default analysis type (rel_ab)', exit=True)               
-    if args.force and os.path.exists(args.bowtie2out):
-        os.remove(args.bowtie2out)
-        warning("Previous Bowtie2 output file has been removed from: {}".format(args.bowtie2out)) 
-    if args.profile_vsc and args.input_type == 'bowtie2out':
+    if args.force and os.path.exists(args.mapout):
+        os.remove(args.mapout)
+        warning("Previous Bowtie2 output file has been removed from: {}".format(args.mapout)) 
+    if args.profile_vsc and args.input_type == 'mapout':
         error("The Viral Sequence Clusters mode requires fasta or sam input!", init_new_line = True, exit = True)
     if args.profile_vsc and (args.input_type == 'fasta' or  args.input_type == 'fastq') and not args.samout:
         error("The Viral Sequence Clusters mode with fasta files requires to specify a SAM output file with the -s parameter", init_new_line = True, exit = True)
@@ -2206,17 +2229,18 @@ def check_params(args):
         error("The --mapping_subsampling parameter should be used together with the --subsampling parameter.", init_new_line = True, exit = True)
     if args.subsampling and args.subsampling_paired:
         error("You specified both --subsampling and --subsampling_paired. Choose only one of the two options.", init_new_line = True, exit = True) 
-    if not args.mapping_subsampling and (args.subsampling or args.subsampling_paired) and args.subsampling_paired < 10000: ## changed for long reads (?) linda
+    if not args.long_reads and not args.split_reads and not args.mapping_subsampling and (args.subsampling or args.subsampling_paired) and args.subsampling_paired < 10000:
         warning("The specified subsampling is below the recommended minimum of 10,000 reads.", init_new_line = True) 
     if not args.mapping_subsampling and ((args.subsampling is not None) or (args.subsampling_paired is not None)):
-        if args.input_type != 'fastq':
-            error("The --subsampling/--subsampling_paired parameter requires FASTQ input or --mapping_subsampling", init_new_line = True, exit = True)
+        if args.input_type not in ['fastq', 'fasta']:
+            error("The --subsampling/--subsampling_paired parameter requires FASTQ or FASTA input or --mapping_subsampling", init_new_line = True, exit = True)
         if args.subsampling is not None:
-            warning("If you use --subsampling the reads will be subsampled NOT taking into account paired information. Use --subsampling_paired if you have paired ends reads.", init_new_line = True)
+            if not args.long_reads:
+                warning("If you use --subsampling the reads will be subsampled NOT taking into account paired information. Use --subsampling_paired if you have paired ends reads.", init_new_line = True)
             args.subsampling_paired=False
             if not args.inp:
                 error("Input reads for the subsampling must be provided as parameter. Stdin input is not allowed.", init_new_line = True, exit = True)
-        elif args.subsampling_paired is not None:
+        elif args.subsampling_paired is not None and not args.long_reads:
             args.subsampling = args.subsampling_paired
             args.subsampling_paired = True
 
@@ -2235,11 +2259,18 @@ def check_params(args):
             warning("Viral profiling is not implemented with long reads, the --profile_vsc parameter will be ignored", init_new_line = True)
             args.profile_vsc = False
         if args.inp is None and args.input_type in ['fastq', 'fasta']:
-            error("The input cannot be stdin is mandatory when using long reads, please provide the path to the fasta or fastq file", exit=True)
+            error("The input cannot be stdin when using long reads, please provide the path to the fasta or fastq file", exit=True)
         if args.split_reads:
-            error("The --split_reads parameter is not accepted with --long_reads", exit=True)
+            error("The --split_reads parameter is not accepted with --long_reads, please remove --long_reads if you want to split your long reads", exit=True)
         if args.input_type == 'sam' and not args.nbases:
             error('The --nbases parameter must be specified when using input files in SAM format with long reads', exit=True)
+        if args.inp and "," in args.inp:
+            warning("Multiple input files are not supported with long reads, only the first file will be used", init_new_line = True)
+            args.inp = args.inp.split(",")[0]
+        if args.subsampling_paired:
+            error("The --subsampling_paired parameter is not accepted with --long_reads", exit=True)
+        if not args.mapping_subsampling and args.subsampling is not None and args.subsampling < 10000*150: # TODO check threshold
+            warning("The specified subsampling is below the recommended minimum of 1,500,000 bases.", init_new_line = True) 
     return args
 
 def main():
