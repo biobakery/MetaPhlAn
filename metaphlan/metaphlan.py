@@ -402,11 +402,11 @@ def set_vsc_parameters(index, bowtie2_db):
     vsc_vinfo = os.path.join(bowtie2_db, "{}_VINFO.csv".format(index))
 
     if not os.path.isfile(vsc_fna):
-        sys.stderr.write("Error:\n {} file not found in bowtie2db folder ({}). Re-download MetaPhlAn database.".format("{}_VSG.fna".format(index, bowtie2_db)))
+        sys.stderr.write("Error:\n {} file not found in bowtie2db folder ({}). Re-download MetaPhlAn database.".format("{}_VSG.fna".format(index), bowtie2_db))
         sys.exit(1)
 
     if not os.path.isfile(vsc_vinfo):
-        sys.stderr.write("Error:\n {} file not found in bowtie2db folder ({}). Re-download MetaPhlAn database.".format("{}_VINFO.csv".format(index, bowtie2_db)))
+        sys.stderr.write("Error:\n {} file not found in bowtie2db folder ({}). Re-download MetaPhlAn database.".format("{}_VINFO.csv".format(index), bowtie2_db))
         sys.exit(1)
 
     return(vsc_fna, vsc_vinfo)
@@ -1469,6 +1469,7 @@ def main():
                 selectedMakrers.append(topMarker)
 
 
+            VSCs_markers.close()
             SeqIO.write( selectedMakrers,viralTempFolder+'/v_mks.fa','fasta' )
 
             VSC_report = vsc_bowtie2(viralTempFolder, pars['nproc'], file_format=pars['input_type'],
