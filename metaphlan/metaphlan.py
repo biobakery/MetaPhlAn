@@ -1646,9 +1646,9 @@ def main():
                                                 "relative_abundance",
                                                 "coverage",
                                                 "estimated_number_of_reads_from_the_clade" ]) +"\n" )
-                    outf.write( "unclassified\t-1\t100.0\t0\t0\n" )
+                    outf.write( "UNCLASSIFIED\t-1\t100.0\t0\t0\n" )
                 else:
-                    outf.write( "unclassified\t100.0\n" )
+                    outf.write( "UNCLASSIFIED\t100.0\n" )
             maybe_generate_biom_file(tree, pars, outpred)
 
         elif pars['t'] == 'clade_profiles':
