@@ -96,7 +96,7 @@ class TaxClade:
             self.coverage = np.mean([float(n)/(np.absolute(r - self.avg_read_length) + 1) for r,n in rat_nreads])
         elif self.stat == 'tavg_g':
             wnreads = sorted([(float(n)/(np.absolute(r-self.avg_read_length)+1),(np.absolute(r - self.avg_read_length)+1) ,n) for r,n in rat_nreads], key=lambda x:x[0])
-            den,num = zip(*[v[1:] for v in wnreads[ql:qr]])
+            den,num = zip(*[v[1:] for v in wnreads[ql:qr]]) if wnreads[ql:qr] else ([],[])
             self.coverage = float(sum(num))/float(sum(den)) if any(den) else 0.0
         elif self.stat == 'tavg_l':
             self.coverage = np.mean(sorted([float(n)/(np.absolute(r - self.avg_read_length) + 1) for r,n in rat_nreads])[ql:qr])
@@ -660,104 +660,15 @@ class MetaphlanDatabaseController():
 
 
 class VSCController():
+    """ Class for controlling the viral profiling"""
+            
 
-    def extract_viral_mappings_line(self, o):
-        """"Extraction of reads mapping to viral markers"""
-        mCluster = o[2]
-        mGroup = o[2].split('|')[2].split('-')[0]
-                            
-        if (hex(int(o[1]) & 0x10) == '0x0'): #front read
-            rr=SeqRecord(Seq(o[9]),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
-        else:
-            rr=SeqRecord(Seq(o[9]).reverse_complement(),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
-
-        return mGroup, mCluster, rr
-    
-
-    def extract_viral_mappings(self):
-        """"Line by line extraction of reads mapping to viral markers"""
-        CREAD=[] 
-        if self.inp.startswith(".bz2"):
-            ras, ras_line, inpf = read_and_split, read_and_split_line, bz2.BZ2File(self.inp, "r")
-        else:
-            ras, ras_line, inpf = plain_read_and_split, plain_read_and_split_line, open(self.inp)
-        
-        with open(self.marker_file, 'w') as outf:
-            for line in inpf:
-                sam_line = ras_line(line)
-                #if self.check_hq_mapping(sam_line): #redo this in case sam file as input? it has never been filtered?to check
-                if sam_line[2].startswith('VDB|'):
-                    mGroup, mCluster, rr = self.extract_viral_mappings_line(sam_line)
-                    outf.write(mGroup+'\t'+mCluster+'\n')
-                    CREAD.append(rr) 
-                        
-            inpf.close()                
-            SeqIO.write(CREAD,self.reads_file,'fastq')
-
-    def process_SGB_mapping(self):
-        """From reads detected in the first bowtie2 run, extracts the reads/markers for a second bowtie2 run"""
-        self.extract_viral_mappings()
-        VSCs_markers = SeqIO.index(self.vsc_fna, "fasta")
-
-        with open(self.marker_file) as marker_file_to_remap:
-
-            allViralMarkers = {}
-            for vmarker in marker_file_to_remap:
-                group,marker = vmarker.strip().split()
-                if group not in allViralMarkers:
-                    allViralMarkers[group] = [marker]
-                else:
-                    allViralMarkers[group].append(marker)
-
-            selectedMarkers=[]
-            for grp,v in allViralMarkers.items():
-
-                cv=Counter(v)
-                if (len(cv) > 1):
-                    normalized_occurrencies=sorted([(mk,mk_occurrencies,len(VSCs_markers[mk].seq)) for (mk,mk_occurrencies) in cv.items()],key=lambda x: x[1]/x[2],reverse=True)
-                    topMarker= VSCs_markers[normalized_occurrencies[0][0]] #name of the viralGenome
-                else:
-                    topMarker=VSCs_markers[v[0]] # the only hitted viralGenome is the winning one
-
-                selectedMarkers.append(topMarker)
-
-            SeqIO.write(selectedMarkers, self.top_marker_file, 'fasta')
-
-    def check_vsc_files(self):
-        """Check if files are present to map to viral database"""
-        if not os.path.exists(self.marker_file) or not os.path.exists(self.reads_file):
-            error('There was an error in the VSCs file lookup.\n \
-                It may be that there are not enough reads to profile (not enough depth).\n \
-                Passing without reporting any virus.', init_new_line = True, exit=True)
-
-        if os.stat(self.marker_file).st_size == 0:
-            warning('No reads aligning to VSC markers in this file.', init_new_line = True, exit=True)        
-
-    
-    def initialize_mapping(self):
-        """Initialize parameters for mapping to viral database"""
-        self.database_controller.set_mpadb(self.tmp_dir)
-        self.database_controller.set_index(os.path.basename(self.top_marker_file).split('.')[0])
-        self.database_controller.prepare_indexes()
-
-        # set parameters for bowtie mapping
-        self.mapping_controller.set_inp(self.reads_file)
-        self.mapping_controller.set_mpadb(self.tmp_dir)
-        self.mapping_controller.set_index(os.path.basename(self.top_marker_file).split('.')[0])        
-        self.mapping_controller.set_input_type('fastq')
-        self.mapping_controller.set_samout(os.path.basename(self.vscBamFile).split('.')[0]+'.sam')
-        self.mapping_controller.set_no_map(True)
-        self.mapping_controller.set_mapping_parameters(None)
-        self.mapping_controller.run_mapping()
-
-    def vsc_bowtie2(self):
-        """Run bowtie2 only on viral markers and interested reads"""
-
-        self.check_vsc_files()        
-        self.initialize_mapping()
+    def vsc_samtools(self):
+        """Convert SAM to BAM and sort it"""
 
         try:
-            stv_command = ['samtools','view','-bS', os.path.basename(self.vscBamFile).split('.')[0]+'.sam','-@',str(self.nproc)]
+            # stv_command = ['samtools','view','-bS', os.path.basename(self.vscBamFile).split('.')[0]+'.sam','-@',str(self.nproc)]
+            stv_command = ['samtools','view','-bS', self.vscSamFile,'-@',str(self.nproc)]
             sts_command = ['samtools','sort','-','-@',str(self.nproc),'-o',self.vscBamFile]
             sti_command = ['samtools','index',self.vscBamFile]
 
@@ -770,13 +681,13 @@ class VSCController():
             subp.check_call(sti_command)
 
         except Exception as e:
-            error('Error: "{}"\nFatal error running BowTie2 for Viruses\n'.format(e), init_new_line = True, exit = True) 
+            error('Error: "{}"\nFatal error creating BAM file for Viruses\n'.format(e), init_new_line = True, exit = True) 
 
         if not os.path.exists(self.vscBamFile):
             error('Error:\nUnable to create BAM FILE for viruses.', init_new_line = True, exit = True) 
 
     def vsc_parsing(self):
-        """Parsing of theoutput sam file from mapping viral markers to reads"""
+        """Parsing of the output sam file from mapping viral markers to reads"""
         try:
             bamHandle = pysam.AlignmentFile(self.vscBamFile, "rb")
         except Exception as e:
@@ -784,29 +695,33 @@ class VSCController():
 
         VSC_report=[]
 
-        for c, length in zip(bamHandle.references,bamHandle.lengths):
-            coverage_positions = {}
-            for pileupcolumn in bamHandle.pileup(c):
-                tCoverage = 0
-                for pileupread in pileupcolumn.pileups:
-                    if not pileupread.is_del and not pileupread.is_refskip \
-                            and pileupread.alignment.query_qualities[pileupread.query_position] >= 20 \
-                            and pileupread.alignment.query_sequence[pileupread.query_position].upper() in ('A','T','C','G'):
-                            tCoverage +=1
-                if tCoverage >= 1:
-                    coverage_positions[pileupcolumn.pos] = tCoverage
-            breadth = float(len(coverage_positions.keys()))/float(length)
+        coverage_positions = defdict(dict)
+        ref_to_len = dict(zip(bamHandle.references,bamHandle.lengths))
+        for pileupcolumn in bamHandle.pileup():
+            # for c, length in zip(bamHandle.references,bamHandle.lengths):
+            
+            c = pileupcolumn.reference_name
+            
+            tCoverage = 0
+            for pileupread in pileupcolumn.pileups:
+                if not pileupread.is_del and not pileupread.is_refskip \
+                        and (self.input_type == 'fasta' or (self.input_type == 'fastq' and pileupread.alignment.query_qualities[pileupread.query_position] >= 20)) \
+                        and pileupread.alignment.query_sequence[pileupread.query_position].upper() in ('A','T','C','G'):
+                        tCoverage +=1
+            if tCoverage >= 1:
+                coverage_positions[c][pileupcolumn.pos] = tCoverage
+            
+        for c in coverage_positions.keys():
+            length = ref_to_len[c]
+            breadth = float(len(coverage_positions[c].keys()))/float(length)
             if breadth > 0:
-                cvals=list(coverage_positions.values())
+                cvals=list(coverage_positions[c].values())
                 VSC_report.append({'M-Group/Cluster':c.split('|')[2].split('-')[0], 'genomeName':c, 'len':length, 'breadth_of_coverage':breadth, 'depth_of_coverage_mean': np.mean(cvals), 'depth_of_coverage_median': np.median(cvals)})
         
         if bamHandle:
             bamHandle.close()
-
+        
         self.create_vsc_report(VSC_report)
-        shutil.rmtree(self.tmp_dir)
-
-
 
     def create_vsc_report(self, VSC_report):
         """Create a report of the VSC that mapped"""
@@ -815,31 +730,25 @@ class VSCController():
             outf.write('#{}\n'.format(' '.join(sys.argv)))
             outf.write('#SampleID\t{}\n'.format(self.sample_id))
             vsc_out_df = pd.DataFrame.from_dict(VSC_report).query('breadth_of_coverage >= {}'.format(self.vsc_breadth))
+            vsc_out_df = self.filter_vsc_report(vsc_out_df)
             vsc_info_df = pd.read_table(self.vsc_vinfo, sep='\t')
             vsc_out_df = vsc_out_df.merge(vsc_info_df, on='M-Group/Cluster').sort_values(by='breadth_of_coverage', ascending=False).set_index('M-Group/Cluster')
             vsc_out_df.to_csv(outf,sep='\t',na_rep='-')
-
-    def run_analysis(self):
-        """All the steps to run analysis on VSC"""
-        self.process_SGB_mapping()
-        self.vsc_bowtie2()
-        self.vsc_parsing()
-
+            if vsc_out_df.shape[0] == 0:
+                warning('No viral clusters remaining after filtering, the output report is empty', init_new_line = True)
 
     def __init__(self, args, mapping_controller, database_controller):
         # parsing previous mapout run
         self.nproc = args.nproc
         self.sample_id = args.sample_id
-        self.tmp_dir = tempfile.mkdtemp(dir=args.tmp_dir) 
-        self.marker_file = os.path.join(self.tmp_dir,'v_markers.fa')
-        self.top_marker_file = os.path.join(self.tmp_dir,'v_top_markers.fna')
-        self.reads_file= os.path.join(self.tmp_dir,'v_reads.fq')
-        self.inp = args.input_type if args.input_type == 'sam' else args.samout
+        self.tmp_dir = tempfile.mkdtemp(dir=args.tmp_dir)
+        self.input_type = args.input_type
         
         # mapping 
         self.vsc_out = args.vsc_out
-        self.vsc_breadth = args.vsc_breadth     
+        self.vsc_breadth = args.vsc_breadth
         self.vscBamFile = os.path.join(self.tmp_dir,'v_align.bam')
+        self.vscSamFile = os.path.join(self.tmp_dir,'v_align.sam')
         self.mapping_controller = mapping_controller
         self.index = self.mapping_controller.get_index()
         self.database_controller = database_controller
@@ -849,6 +758,152 @@ class VSCController():
         self.vsc_fna = os.path.join(self.mpadb,"{}_VSG.fna".format(self.database_controller.get_index()))
         self.vsc_vinfo = os.path.join(self.mpadb,"{}_VINFO.csv".format(self.database_controller.get_index()))
 
+class VSC_bt2_controller(VSCController):
+    """VSC controller class for short reads"""
+
+    def filter_vsc_report(self, vsc_df):
+        """Filter the VSC report to keep only selected markers"""
+        return vsc_df
+
+    def extract_viral_mappings_line(self, o):
+        """"Extraction of reads mapping to viral markers"""
+        mCluster = o[2]
+        mGroup = o[2].split('|')[2].split('-')[0]
+                            
+        if (hex(int(o[1]) & 0x10) == '0x0'): #front read
+            rr=SeqRecord(Seq(o[9]),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
+        else:
+            rr=SeqRecord(Seq(o[9]).reverse_complement(),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
+        if o[10] == "*":
+            rr.letter_annotations['phred_quality'] = None ## Remove phred quality if not present in SAM
+
+        return mGroup, mCluster, rr
+    
+    def get_viral_mapping(self, sam_line):
+        """When reading a SAM file, save viral mappings to the VSCController variables"""
+        mGroup, mCluster, rr = self.extract_viral_mappings_line(sam_line)
+        self.viral_markers[mGroup].append(mCluster)
+        self.viral_reads.append(rr)
+
+    def infer_sam_input_type(self):
+        """Infer the input type for the viral profiling"""
+        if not self.input_type in ['fastq','fasta']:
+            if any([bool(rr.letter_annotations['phred_quality']) for rr in self.viral_reads]):
+                self.input_type = 'fastq'
+            else:
+                self.input_type = 'fasta'
+
+    def process_SGB_mapping(self):
+        """From reads detected in the first bowtie2 run, extracts the reads/markers for a second bowtie2 run"""
+        ## self.extract_viral_mappings() # Do this when reading the SAM for the first time
+        self.infer_sam_input_type()
+        SeqIO.write(self.viral_reads,self.reads_file, self.input_type) # write viral reads to remap
+
+        VSCs_markers = SeqIO.index(self.vsc_fna, "fasta")
+        selectedMarkers=[]
+        for grp,v in self.viral_markers.items():
+
+            cv=Counter(v)
+            if (len(cv) > 1):
+                normalized_occurrencies=sorted([(mk,mk_occurrencies,len(VSCs_markers[mk].seq)) for (mk,mk_occurrencies) in cv.items()],key=lambda x: x[1]/x[2],reverse=True)
+                topMarker= VSCs_markers[normalized_occurrencies[0][0]] #name of the viralGenome
+            else:
+                topMarker=VSCs_markers[v[0]] # the only hitted viralGenome is the winning one
+
+            selectedMarkers.append(topMarker)
+        SeqIO.write(selectedMarkers, self.top_marker_file, 'fasta') # write top viral markers to use for remapping
+
+    def check_vsc_files(self):
+        """Check if files are present to map to viral database"""
+        if not os.path.exists(self.top_marker_file) or not os.path.exists(self.reads_file):
+            error('There was an error in the VSCs file lookup.\n \
+                It may be that there are not enough reads to profile (not enough depth).\n \
+                Passing without reporting any virus.', init_new_line = True, exit=True)
+
+        if os.stat(self.top_marker_file).st_size == 0:
+            warning('No reads aligning to VSC markers in this file.', init_new_line = True, exit=True)        
+    
+    def initialize_mapping(self):
+        """Initialize parameters for mapping to viral database"""
+        self.database_controller.set_mpadb(self.tmp_dir)
+        self.database_controller.set_index(os.path.basename(self.top_marker_file).split('.')[0])
+        self.database_controller.prepare_indexes()
+
+        # set parameters for bowtie mapping
+        self.mapping_controller.set_inp(self.reads_file)
+        self.mapping_controller.set_mpadb(self.tmp_dir)
+        self.mapping_controller.set_index(os.path.basename(self.top_marker_file).split('.')[0])        
+        self.mapping_controller.set_input_type(self.input_type)
+        self.mapping_controller.set_samout(self.vscSamFile)
+        self.mapping_controller.set_mapout(os.path.join(self.tmp_dir, 'v_mapout.txt'))
+        self.mapping_controller.set_mapping_parameters(None)
+        self.mapping_controller.run_mapping()
+
+    def vsc_bowtie2(self):
+        """Run bowtie2 only on viral markers and interested reads"""
+        try:
+            self.check_vsc_files()        
+            self.initialize_mapping()
+
+        except Exception as e:
+            error('Error: "{}"\nFatal error running BowTie2 for Viruses\n'.format(e), init_new_line = True, exit = True) 
+
+        ## check if the output file is empty
+        if not os.path.exists(self.mapping_controller.samout) or os.stat(self.mapping_controller.samout).st_size == 0:
+            warning('Problems when running bowtie2 on VSC reads ({}):\nSam file empty or not existing ({}).'.format(self.reads_file, self.mapping_controller.samout), init_new_line = True, exit=True)
+
+        self.vsc_samtools()
+
+    def run_analysis(self):
+        """All the steps to run analysis on VSC"""
+        self.process_SGB_mapping()
+        self.vsc_bowtie2()
+        self.vsc_parsing()
+
+    def __init__(self, args, mapping_controller, database_controller):
+        super().__init__(args, mapping_controller, database_controller)
+        self.viral_reads = []
+        self.viral_markers = defdict(list)
+        self.top_marker_file = os.path.join(self.tmp_dir,'v_top_markers.fna')
+        self.reads_file= os.path.join(self.tmp_dir,'v_reads.fx')
+
+class VSC_mm2_controller(VSCController):
+    """VSC controller class for long reads"""
+
+    def infer_sam_input_type(self):
+        """Infer the input type for the viral profiling"""
+        if not self.input_type in ['fastq','fasta']:
+            with open(self.vscSamFile) as samfile:
+                for line in samfile:
+                    if line.startswith('@'):
+                        continue
+                    line = line.strip().split('\t')
+                    self.input_type = 'fasta' if line[10] == "*" else 'fastq'
+                    break
+
+    def check_vsc_files(self):
+        """Check if viral sam is present"""
+        if not os.path.exists(self.vscSamFile):
+            error('There was an error in the VSCs file lookup.\n \
+                It may be that there are not enough reads to profile (not enough depth).\n \
+                Passing without reporting any virus.', init_new_line = True, exit=True)
+
+        if os.stat(self.vscSamFile).st_size == 0:
+            warning('No viral mappings in the viral sam file: {}'.format(self.vscSamFile), init_new_line = True, exit=True)        
+
+    def filter_vsc_report(self, vsc_df):
+        """Filter the VSC report to keep the top marker by depth of coverage for each cluster"""
+        return vsc_df.loc[vsc_df.groupby('M-Group/Cluster')['depth_of_coverage_mean'].idxmax()].reset_index(drop=True)
+    
+    def run_analysis(self):
+        """All the steps to run analysis on VSC"""
+        self.infer_sam_input_type()
+        self.check_vsc_files()
+        self.vsc_samtools()
+        self.vsc_parsing()
+
+    def __init__(self, args, mapping_controller, database_controller):
+        super().__init__(args, mapping_controller, database_controller)
 
 
 class MappingController:
@@ -866,8 +921,8 @@ class MappingController:
     def set_samout(self, value):
         self.samout = value
 
-    def set_no_map(self, value):
-        self.no_map = value     
+    def set_mapout(self, value):
+        self.mapout = value    
 
     def get_index(self):
         return self.index
@@ -877,6 +932,9 @@ class MappingController:
     
     def get_sample_id(self):
         return self.sample_id
+    
+    def set_vsc_controller(self, value):
+        self.vsc_controller = value
 
     def run_mapping(self):
         pass
@@ -887,8 +945,7 @@ class MappingController:
     def init_mapout(self):
         """Inits the mapping output file"""
         if self.no_map:
-            self.mapout = tempfile.NamedTemporaryFile(
-                dir=self.tmp_dir).name
+            self.mapout = tempfile.NamedTemporaryFile(dir=self.tmp_dir).name
         elif self.mapout is None:
             if self.inp is None:
                 self.mapout = 'stdin_map.mapout.txt'
@@ -910,15 +967,16 @@ class MappingController:
         self.no_map = args.no_map
         self.read_min_len = args.read_min_len
         self.tmp_dir = args.tmp_dir
+        self.vsc_controller = None
     
 class Bowtie2Controller(MappingController):
     """Bowtie2Controller class"""
     
     def set_mapping_parameters(self, value):
-        self.min_alignment_len = value 
-        self.nreads = value 
-        self.min_mapq_val = value 
-        self.no_map = value 
+        self.min_alignment_len = value
+        self.nreads = value
+        self.min_mapq_val = value
+        self.vsc_controller = value
 
     def check_bowtie2_database(self):
         """Checks the presence and consistency of the Bowtie2 database"""
@@ -995,6 +1053,9 @@ class Bowtie2Controller(MappingController):
                 o = read_and_split_line(line)
                 if self.check_hq_mapping(o):
                     outf.write(lmybytes("\t".join([o[0], o[2].split('/')[0]]) + "\n"))
+                    ## check for VSC markers
+                    if self.vsc_controller and o[2].startswith('VDB|'):
+                        self.vsc_controller.get_viral_mapping(o)
 
             if self.samout:
                 sam_file.close()
@@ -1096,8 +1157,10 @@ class Bowtie2Controller(MappingController):
                 sam_line = ras_line(line)
                 if self.check_hq_mapping(sam_line):
                     reads2markers[sam_line[0]].append(sam_line[2].split('/')[0])
-                    # Number of positions covered by the read (sum of the M and D of the CIGAR string)
                     read_lengths.append(len(sam_line[9]))
+                    ## check for VSC markers
+                    if self.vsc_controller and sam_line[2].startswith('VDB|'):
+                        self.vsc_controller.get_viral_mapping(sam_line)
             avg_read_len = sum(read_lengths) / len(read_lengths)
         inpf.close()
         return nreads, avg_read_len, reads2markers, None
@@ -1118,12 +1181,6 @@ class Bowtie2Controller(MappingController):
 
 class Minimap2Controller(MappingController):
     """Minimap2Controller class"""
-    
-    # def set_mapping_parameters(self, value):
-    #     self.min_alignment_len = value 
-    #     self.nbases = value 
-    #     self.min_mapq_val = value 
-    #     self.no_map = value 
 
     def set_nbases(self, value):
         self.nbases = value
@@ -1217,12 +1274,17 @@ class Minimap2Controller(MappingController):
                         sam_file = bz2.BZ2File(self.samout, 'w')
                     else:
                         sam_file = open(self.samout, 'wb')
+                if self.vsc_controller:
+                    viral_sam = open(self.vsc_controller.vscSamFile, 'wb')
             except IOError as e:
                 error('IOError: "{}"\nUnable to open sam output file.\n'.format(e), exit=True)
             for line in p.stdout:
                 if self.samout:
                     sam_file.write(line)
                 o = read_and_split_line(line)
+                # check for VSC markers
+                if self.vsc_controller and ((o[2].startswith('VDB|')) or (o[0].startswith('@') and 'VDB|' in o[1])):
+                    viral_sam.write(line)
                 if self.check_hq_mapping(o):
                     gcsd = self.get_gscd(o)
                     nb = sum([int(x[:-1]) for x in re.findall("\d*[DM]", o[5])])
@@ -1231,6 +1293,8 @@ class Minimap2Controller(MappingController):
 
             if self.samout:
                 sam_file.close()
+            if self.vsc_controller:
+                viral_sam.close()
             p.communicate()
             outf.write(lmybytes('#\tnbases\t{}\t#\t#\n'.format(self.nbases)))
             outf.close()
@@ -1299,20 +1363,24 @@ class Minimap2Controller(MappingController):
         for r, m in reads2markers.items():
             clades = []
             for marker in m:
-                ## if marker in mpa_pkl append the clade, otherwise keep the marker (viral markers)
-                ## problem: for viral markers: majority vote on markers, not clades
+                ## if marker in mpa_pkl append the clade, otherwise append "viral"
                 if marker in m2c.keys():
                     clades.append(m2c[marker]['clade'])
-                else: clades.append(marker)
+                else: clades.append("viral")
                 
             top = pd.Series(clades).value_counts()
             if len(top)>1 and top.iloc[0] == top.iloc[1]:
-                top = clades[reads2gcsd[r].index(min(reads2gcsd[r]))]
+                ## if there is a tie, use GCSD as tie-breaker
+                top = top[top == top.max()].index.tolist()
+                top = min([(reads2gcsd[r][i],clades[i]) for i in range(len(clades)) if clades[i] in top], key=lambda x: x[0])[1]
+                # top = clades[reads2gcsd[r].index(min(reads2gcsd[r]))]
             else:
+                ## keep the most represented clade
                 top = top.index[0]
-
-            reads2markers[r] = [m[i] for i,c in enumerate(clades) if c == top]
-            reads2nbases[r] = [reads2nbases[r][i] for i,c in enumerate(clades) if c == top]
+            
+            if top != "viral": ## Do not keep reads assigned to viral clusters
+                reads2markers[r] = [m[i] for i,c in enumerate(clades) if c == top]
+                reads2nbases[r] = [reads2nbases[r][i] for i,c in enumerate(clades) if c == top]
 
         return reads2markers, reads2nbases
     
@@ -1360,8 +1428,13 @@ class Minimap2Controller(MappingController):
                         reads2readlen[r] = int(l)
         elif self.input_type == 'sam':
             nbases = int(self.nbases)
+            if self.vsc_controller:
+                viral_sam = open(self.vsc_controller.vscSamFile, 'wb')
             for line in inpf:
                 sam_line = ras_line(line)
+                # check for VSC markers
+                if self.vsc_controller and ((sam_line[2].startswith('VDB|')) or (sam_line[0].startswith('@') and 'VDB|' in sam_line[1])):
+                    viral_sam.write(line)
                 if self.check_hq_mapping(sam_line):
                     gcsd = self.get_gscd(sam_line)
                     reads2markers[sam_line[0]].append(sam_line[2].split('/')[0])
@@ -1370,6 +1443,8 @@ class Minimap2Controller(MappingController):
                     reads2nbases[sam_line[0]].append(sum([int(x[:-1]) for x in re.findall("\d*[DM]", sam_line[5])]))
                     if self.mapping_subsampling and len(sam_line[9]) > reads2readlen[sam_line[0]]:
                         reads2readlen[sam_line[0]] = len(sam_line[9])
+            if self.vsc_controller:
+                viral_sam.close()
         inpf.close()
         reads2markers, reads2nbases = self.discard_multiple_clades(reads2markers, reads2gcsd, reads2nbases, self.database_controller.database_pkl['markers'])
         return nbases, reads2readlen, reads2markers, reads2nbases
@@ -1961,7 +2036,6 @@ class Metaphlan:
         self.long_reads = args.long_reads
         self.split_reads = args.split_reads
         self.database_controller = MetaphlanDatabaseController(args)
-        # self.database_controller = Bowtie2DatabaseController(args) if not self.long_reads else Minimap2DatabaseController(args)
         self.index = self.database_controller.resolve_index()
         # here should be the code choosing the mapping controller in the future
         self.mapping_controller = Bowtie2Controller(args, self.index) if not self.long_reads else Minimap2Controller(args, self.index, self.database_controller)
@@ -1991,7 +2065,8 @@ class Metaphlan:
         self.avg_read_length = None
         self.profile_vsc = args.profile_vsc
         if args.profile_vsc:
-            self.vsc_controller = VSCController(args, self.mapping_controller, self.database_controller)
+            self.vsc_controller = VSC_bt2_controller(args, self.mapping_controller, self.database_controller) if not self.long_reads else VSC_mm2_controller(args, self.mapping_controller, self.database_controller)
+            self.mapping_controller.set_vsc_controller(self.vsc_controller)
 
 
 DEFAULT_DB_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "metaphlan_databases")
@@ -2236,7 +2311,7 @@ def check_params(args):
         os.remove(args.mapout)
         warning("Previous mapping output file has been removed from: {}".format(args.mapout)) 
     if args.profile_vsc and args.input_type == 'mapout':
-        error("The Viral Sequence Clusters mode requires fasta or sam input!", init_new_line = True, exit = True)
+        error("The Viral Sequence Clusters mode requires fasta/q or sam input!", init_new_line = True, exit = True)
     if args.profile_vsc and (args.input_type == 'fasta' or  args.input_type == 'fastq') and not args.samout:
         error("The Viral Sequence Clusters mode with fasta files requires to specify a SAM output file with the -s parameter", init_new_line = True, exit = True)
     if args.profile_vsc and not args.vsc_out:
@@ -2271,9 +2346,6 @@ def check_params(args):
         args.min_mapq_val = 50 if args.long_reads else 5
     ## checks for long reads
     if args.long_reads:
-        if args.profile_vsc:
-            warning("Viral profiling is not implemented with long reads, the --profile_vsc parameter will be ignored", init_new_line = True)
-            args.profile_vsc = False
         if args.inp is None and args.input_type in ['fastq', 'fasta']:
             error("The input cannot be stdin when using long reads, please provide the path to the fasta or fastq file", exit=True)
         if args.split_reads:
@@ -2286,7 +2358,9 @@ def check_params(args):
         if args.subsampling_paired:
             error("The --subsampling_paired parameter is not accepted with --long_reads", exit=True)
         if not args.mapping_subsampling and args.subsampling is not None and args.subsampling < 10000*150: # TODO check threshold
-            warning("The specified subsampling is below the recommended minimum of 1,500,000 bases.", init_new_line = True) 
+            warning("The specified subsampling is below the recommended minimum of 1,500,000 bases.", init_new_line = True)
+    if args.profile_vsc and (args.long_reads or args.split_reads):
+        warning("Long-read sequencing techniques may not be suited for viral profiling", init_new_line = True)
     return args
 
 def main():
