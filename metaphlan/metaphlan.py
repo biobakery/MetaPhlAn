@@ -348,13 +348,13 @@ class TaxTree:
 class MetaphlanDatabaseController(): 
     """MetaphlanDatabaseController class"""
 
-    def set_mpadb(self, value):
+    def set_db_dir(self, value):
         """Sets the clade path of MetaPhlAn database
 
         Args:
             value (str): the path to the MetaPhlAn database
         """
-        self.mpadb = value
+        self.db_dir = value
 
     def set_index(self, value):
         """Sets the clade path of MetaPhlAn database
@@ -486,23 +486,23 @@ class MetaphlanDatabaseController():
     def download_unpack_tar(self):
         """Download the url to the file and decompress into the folder"""
         # Create the folder if it does not already exist
-        if not os.path.isdir(self.mpadb):
+        if not os.path.isdir(self.db_dir):
             try:
-                os.makedirs(self.mpadb)
+                os.makedirs(self.db_dir)
             except EnvironmentError as e:
-                error('EnvironmentError "{}"\n Unable to create folder for database install: {}'.format(e, self.mpadb), exit = True)
+                error('EnvironmentError "{}"\n Unable to create folder for database install: {}'.format(e, self.db_dir), exit = True)
 
         # Check the directory permissions
-        if not os.access(self.mpadb, os.W_OK):
-            error("The directory is not writable: {}\n Please modify the permissions.".format(self.mpadb), exit = True)
+        if not os.access(self.db_dir, os.W_OK):
+            error("The directory is not writable: {}\n Please modify the permissions.".format(self.db_dir), exit = True)
             
         info('Downloading and uncompressing bowtie2 indexes', init_new_line = True)
-        self.download_and_untar("{}_bt2".format(self.index), self.mpadb, os.path.join(DB_URL,"bowtie2_indexes"))
+        self.download_and_untar("{}_bt2".format(self.index), self.db_dir, os.path.join(DB_URL,"bowtie2_indexes"))
         info('Downloading and uncompressing additional files', init_new_line = True)
-        self.download_and_untar(self.index, self.mpadb, DB_URL)
+        self.download_and_untar(self.index, self.db_dir, DB_URL)
 
         # uncompress sequences
-        for bz2_file in iglob(os.path.join(self.mpadb, self.index + "_*.fna.bz2")):
+        for bz2_file in iglob(os.path.join(self.db_dir, self.index + "_*.fna.bz2")):
             fna_file = bz2_file[:-4]
 
             if not os.path.isfile(fna_file):
@@ -519,18 +519,18 @@ class MetaphlanDatabaseController():
         
         Returns:    
             bool: True if the database is installed, False otherwise"""
-        if os.path.isdir(self.mpadb) and len(glob(os.path.join(self.mpadb, "*{}*bt2l".format(self.index)))) >= 6:
-            if os.path.exists(os.path.join(self.mpadb, self.index + "_VSG.fna")) and os.path.exists(os.path.join(self.mpadb, self.index + "_VINFO.csv")):
+        if os.path.isdir(self.db_dir) and len(glob(os.path.join(self.db_dir, "*{}*bt2l".format(self.index)))) >= 6:
+            if os.path.exists(os.path.join(self.db_dir, self.index + "_VSG.fna")) and os.path.exists(os.path.join(self.db_dir, self.index + "_VINFO.csv")):
                 self.database_pkl = self.set_pkl()
                 return True
 
     def install_database(self):
         """Install the database"""       
-        if not os.path.isdir(self.mpadb):
+        if not os.path.isdir(self.db_dir):
             try:
-                os.makedirs(self.mpadb)
+                os.makedirs(self.db_dir)
             except EnvironmentError as e:
-                error('EnvironmentError "{}"\n Unable to create folder for database install: '.format(e, self.mpadb), exit = True)
+                error('EnvironmentError "{}"\n Unable to create folder for database install: '.format(e, self.db_dir), exit = True)
         
         self.download_unpack_tar()
         self.prepare_indexes()
@@ -547,10 +547,10 @@ class MetaphlanDatabaseController():
         
         # not enough database files present locally and offline option is on
         if self.offline:
-            error("The database cannot be downloaded with the --offline option activated and some database files for {} are missing in {}".format(self.index, self.mpadb), init_new_line = True, exit = True)
+            error("The database cannot be downloaded with the --offline option activated and some database files for {} are missing in {}".format(self.index, self.db_dir), init_new_line = True, exit = True)
 
         # database not present, download and install
-        info("MetaPhlAn database not present or partially present in {}. \n Downloading database\n Please note due to the size this might take a few minutes.".format(self.mpadb), init_new_line = True)
+        info("MetaPhlAn database not present or partially present in {}. \n Downloading database\n Please note due to the size this might take a few minutes.".format(self.db_dir), init_new_line = True)
         self.install_database()      
         info("Download complete.", init_new_line = True)
 
@@ -562,10 +562,10 @@ class MetaphlanDatabaseController():
 
     def set_pkl(self):
         """Set the database pkl file"""
-        if os.path.isfile(os.path.join(self.mpadb, "{}.pkl".format(self.index))):
-            mpa_pkl = os.path.join(self.mpadb, "{}.pkl".format(self.index))
+        if os.path.isfile(os.path.join(self.db_dir, "{}.pkl".format(self.index))):
+            mpa_pkl = os.path.join(self.db_dir, "{}.pkl".format(self.index))
         else:
-            error('Unable to find the mpa_pkl file at {}'.format(os.path.isfile(os.path.join(self.mpadb, "{}.pkl".format(self.index)))), exit=True)
+            error('Unable to find the mpa_pkl file at {}'.format(os.path.isfile(os.path.join(self.db_dir, "{}.pkl".format(self.index)))), exit=True)
 
         with bz2.BZ2File(mpa_pkl, 'r') as handle:
             database_pkl = pkl.load(handle)
@@ -592,8 +592,8 @@ class MetaphlanDatabaseController():
                 except EnvironmentError as e:
                     warning('It seems that you do not have Internet access.', init_new_line = True)
                     # if you do not have internet access
-                    if os.path.exists(os.path.join(self.mpadb,'mpa_latest')):
-                        with open(os.path.join(self.mpadb,'mpa_latest')) as mpa_latest:
+                    if os.path.exists(os.path.join(self.db_dir,'mpa_latest')):
+                        with open(os.path.join(self.db_dir,'mpa_latest')) as mpa_latest:
                             latest_db_version = ''.join([line.strip() for line in mpa_latest if not line.startswith('#')])
                             self.index = latest_db_version
                             warning('Cannot connect to the database server. The latest available local database will be used.'.format(self.index), init_new_line = True)
@@ -603,21 +603,21 @@ class MetaphlanDatabaseController():
                               'You can download the MetaPhlAn database from: \n {}'.format(DB_URL), init_new_line = True, exit = True)
 
                 # download latest if not available locally
-                if not os.path.exists(os.path.join(self.mpadb, 'mpa_latest')):
-                    self.download(os.path.join(DB_URL, 'mpa_latest'), os.path.join(self.mpadb, 'mpa_latest'), force=True)
+                if not os.path.exists(os.path.join(self.db_dir, 'mpa_latest')):
+                    self.download(os.path.join(DB_URL, 'mpa_latest'), os.path.join(self.db_dir, 'mpa_latest'), force=True)
 
                 else:
                     # if available, check how old it is. If too old, download a new mpa_latest
-                    ctime_latest_db = int(os.path.getctime(os.path.join(self.mpadb, 'mpa_latest')))
+                    ctime_latest_db = int(os.path.getctime(os.path.join(self.db_dir, 'mpa_latest')))
                     if int(time.time()) - ctime_latest_db > 31536000:         #1 year in epoch
-                        os.rename(os.path.join(self.mpadb, 'mpa_latest'),os.path.join(self.mpadb, 'mpa_previous'))
-                        self.download(os.path.join(DB_URL, 'mpa_latest'), os.path.join(self.mpadb, 'mpa_latest'), force=True)
+                        os.rename(os.path.join(self.db_dir, 'mpa_latest'),os.path.join(self.db_dir, 'mpa_previous'))
+                        self.download(os.path.join(DB_URL, 'mpa_latest'), os.path.join(self.db_dir, 'mpa_latest'), force=True)
 
                         # if mpa_previous present, make the user choose to proceed with it or newer version
                         if not self.force_download:         
-                            with open(os.path.join(self.mpadb,'mpa_previous')) as mpa_previous:
+                            with open(os.path.join(self.db_dir,'mpa_previous')) as mpa_previous:
                                 previous_db_version = ''.join([line.strip() for line in mpa_previous if not line.startswith('#')])
-                            with open(os.path.join(self.mpadb, 'mpa_latest')) as mpa_latest:
+                            with open(os.path.join(self.db_dir, 'mpa_latest')) as mpa_latest:
                                 latest_db_version = ''.join([line.strip() for line in mpa_latest if not line.startswith('#')])
                                 
                             choice = ''
@@ -626,12 +626,12 @@ class MetaphlanDatabaseController():
 
                             # if not, rename mpa_previous to mpa_latest and use it
                             if choice.upper() == 'N':
-                                os.rename(os.path.join(self.mpadb,'mpa_previous'),os.path.join(self.mpadb,'mpa_latest')) 
+                                os.rename(os.path.join(self.db_dir,'mpa_previous'),os.path.join(self.db_dir,'mpa_latest')) 
             else:
-                if not os.path.exists(os.path.join(self.mpadb, 'mpa_latest')):
-                    error("Database cannot be downloaded with the --offline option activated and no existing database was detected in {}".format(self.mpadb), init_new_line = True, exit = True) 
+                if not os.path.exists(os.path.join(self.db_dir, 'mpa_latest')):
+                    error("Database cannot be downloaded with the --offline option activated and no existing database was detected in {}".format(self.db_dir), init_new_line = True, exit = True) 
         
-            with open(os.path.join(self.mpadb, 'mpa_latest')) as mpa_latest:
+            with open(os.path.join(self.db_dir, 'mpa_latest')) as mpa_latest:
                 latest_db_version = ''.join([line.strip() for line in mpa_latest if not line.startswith('#')])
                 self.index = latest_db_version
 
@@ -639,18 +639,18 @@ class MetaphlanDatabaseController():
 
     def prepare_indexes(self):
         """Prepare for building indexes"""
-        if len(glob(os.path.join(self.mpadb, self.index + "*.fna"))) > 1 and not glob(os.path.join(self.mpadb, self.index + ".fna")):
+        if len(glob(os.path.join(self.db_dir, self.index + "*.fna"))) > 1 and not glob(os.path.join(self.db_dir, self.index + ".fna")):
             info('Joining FASTA databases', init_new_line = True )
-            if not os.path.exists(os.path.join(self.mpadb, self.index + "_VSG.fna")) and self.profile_vsc:
+            if not os.path.exists(os.path.join(self.db_dir, self.index + "_VSG.fna")) and self.profile_vsc:
                 error('Viral markers are missing. Please re-download the database', init_new_line = True, exit=True)
-            with open(os.path.join(self.mpadb, self.index + ".fna"), 'w') as fna_h:
-                for fna_file in iglob(os.path.join(self.mpadb, self.index + "_*.fna")):
+            with open(os.path.join(self.db_dir, self.index + ".fna"), 'w') as fna_h:
+                for fna_file in iglob(os.path.join(self.db_dir, self.index + "_*.fna")):
                     with open(fna_file, 'r') as fna_r:
                         for line in fna_r:
                             fna_h.write(line)
 
         # remove partial FASTA file except for ViralDB
-        for fna_file in iglob(os.path.join(self.mpadb, self.index + "_*.fna")):
+        for fna_file in iglob(os.path.join(self.db_dir, self.index + "_*.fna")):
             if not fna_file.endswith('_VSG.fna') and not fna_file.endswith('{}.fna'.format(self.index)):
                 info('Removing uncompressed databases', init_new_line = True)
                 os.remove(fna_file)
@@ -666,28 +666,28 @@ class MetaphlanDatabaseController():
                 error('OSError: "{}"\nFatal error running BowTie2 at {}. Please check BowTie2 installation and path\n'.format(e,self.bowtie2_exe), exit=True)
 
         # check bowtie2 indexes, if not present, build them.
-        if not glob(os.path.join(self.mpadb, self.index + "*.bt2l")):
+        if not glob(os.path.join(self.db_dir, self.index + "*.bt2l")):
             self.build_bwt_indexes()
         else:
             try:
-                subp.check_call([self.bowtie2_exe+'-inspect', '-n', os.path.join(self.mpadb, self.index)], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
+                subp.check_call([self.bowtie2_exe+'-inspect', '-n', os.path.join(self.db_dir, self.index)], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
             except Exception as e:
                 warning('Downloaded indexes are not compatible with the installed version of Bowtie2', init_new_line = True)
                 info('Building indexes from the FASTA files', init_new_line = True)
-                for btw_file in iglob(os.path.join(self.mpadb, self.index + "*.bt2l")):
+                for btw_file in iglob(os.path.join(self.db_dir, self.index + "*.bt2l")):
                     os.remove(btw_file)
                 self.build_bwt_indexes()
         try:
-            for bt2 in glob(os.path.join(self.mpadb, self.index + "*.bt2l")):
+            for bt2 in glob(os.path.join(self.db_dir, self.index + "*.bt2l")):
                 os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
         except PermissionError as e:
-            error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.mpadb, self.self.index + "*.bt2l")))
+            error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.db_dir, self.self.index + "*.bt2l")))
 
     def build_bwt_indexes(self):
         """Build BowTie indexes"""
-        fna_file = os.path.join(self.mpadb, self.index + ".fna")
+        fna_file = os.path.join(self.db_dir, self.index + ".fna")
         
-        bt2_base = os.path.join(self.mpadb, self.index)
+        bt2_base = os.path.join(self.db_dir, self.index)
         bt2_cmd = [self.bowtie2_build, '--quiet']
 
         if self.nproc > 1:
@@ -711,7 +711,7 @@ class MetaphlanDatabaseController():
     def __init__(self, args):
         self.verbose = args.verbose
         self.index = args.index
-        self.mpadb = args.mpadb
+        self.db_dir = args.db_dir
         self.nproc = args.nproc
         self.force_download = args.force_download
         self.offline = args.offline
@@ -813,9 +813,9 @@ class VSCController():
         self.database_controller = database_controller
 
         #database  
-        self.mpadb = args.mpadb
-        self.vsc_fna = os.path.join(self.mpadb,"{}_VSG.fna".format(self.database_controller.get_index()))
-        self.vsc_vinfo = os.path.join(self.mpadb,"{}_VINFO.csv".format(self.database_controller.get_index()))
+        self.db_dir = args.db_dir
+        self.vsc_fna = os.path.join(self.db_dir,"{}_VSG.fna".format(self.database_controller.get_index()))
+        self.vsc_vinfo = os.path.join(self.db_dir,"{}_VINFO.csv".format(self.database_controller.get_index()))
 
 class VSC_bt2_controller(VSCController):
     """VSC controller class for short reads"""
@@ -896,13 +896,13 @@ class VSC_bt2_controller(VSCController):
     
     def initialize_mapping(self):
         """Initialize parameters for mapping to viral database"""
-        self.database_controller.set_mpadb(self.tmp_dir)
+        self.database_controller.set_db_dir(self.tmp_dir)
         self.database_controller.set_index(os.path.basename(self.top_marker_file).split('.')[0])
         self.database_controller.prepare_indexes()
 
         # set parameters for bowtie mapping
         self.mapping_controller.set_inp(self.reads_file)
-        self.mapping_controller.set_mpadb(self.tmp_dir)
+        self.mapping_controller.set_db_dir(self.tmp_dir)
         self.mapping_controller.set_index(os.path.basename(self.top_marker_file).split('.')[0])        
         self.mapping_controller.set_input_type(self.input_type)
         self.mapping_controller.set_samout(self.vscSamFile)
@@ -995,13 +995,13 @@ class MappingController:
         """
         self.inp = value
 
-    def set_mpadb(self, value):
+    def set_db_dir(self, value):
         """Sets the path to the MetaPhlAn database
 
         Args:   
             value (str): path to the MetaPhlAn database
         """    
-        self.mpadb = value
+        self.db_dir = value
 
     def set_input_type(self, value):
         """Sets the input type  
@@ -1067,7 +1067,7 @@ class MappingController:
         self.inp = args.inp
         self.input_type = args.input_type
         self.mapout = args.mapout
-        self.mpadb = args.mpadb
+        self.db_dir = args.db_dir
         self.samout = args.samout
         self.min_alignment_len = args.min_alignment_len
         self.min_mapq_val = args.min_mapq_val
@@ -1090,25 +1090,25 @@ class Bowtie2Controller(MappingController):
 
     def check_bowtie2_database(self):
         """Checks the presence and consistency of the Bowtie2 database"""
-        if glob(os.path.join(self.mpadb, "{}*.{}".format(self.index, 'bt2*'))):
+        if glob(os.path.join(self.db_dir, "{}*.{}".format(self.index, 'bt2*'))):
             
-            if glob(os.path.join(self.mpadb, "{}*.{}".format(self.index, 'bt2*')))[0].endswith('l'):
+            if glob(os.path.join(self.db_dir, "{}*.{}".format(self.index, 'bt2*')))[0].endswith('l'):
                 bt2_ext = 'bt2l'
             else:
                 bt2_ext = 'bt2'
 
-            self.mpadb = os.path.join(self.mpadb, "{}".format(self.index))
+            self.db_dir = os.path.join(self.db_dir, "{}".format(self.index))
 
         else:
             error('No MetaPhlAn BowTie2 database was found at: {}'.format(
-                self.mpadb), exit=True)
+                self.db_dir), exit=True)
         #bt2_ext = 'bt2l'
-        if not all([os.path.exists(".".join([str(self.mpadb), p]))
+        if not all([os.path.exists(".".join([str(self.db_dir), p]))
                     for p in ["1." + bt2_ext, "2." + bt2_ext, "3." + bt2_ext, "4." + bt2_ext, "rev.1." + bt2_ext, "rev.2." + bt2_ext]]):
-            error('No MetaPhlAn BowTie2 database found (--index option)!\nExpecting location {}'.format(self.mpadb), exit=True)
-        if not (abs(os.path.getsize(".".join([str(self.mpadb), "1." + bt2_ext])) - os.path.getsize(".".join([str(self.mpadb), "rev.1." + bt2_ext]))) <= 1000):
+            error('No MetaPhlAn BowTie2 database found (--index option)!\nExpecting location {}'.format(self.db_dir), exit=True)
+        if not (abs(os.path.getsize(".".join([str(self.db_dir), "1." + bt2_ext])) - os.path.getsize(".".join([str(self.db_dir), "rev.1." + bt2_ext]))) <= 1000):
             error('Partial MetaPhlAn BowTie2 database found at {}. Please remove and rebuild the database'.format(
-                self.mpadb), exit=True)
+                self.db_dir), exit=True)
 
     def init_mapping_arguments(self):
         """Automatically set the mapping arguments"""
@@ -1124,7 +1124,7 @@ class Bowtie2Controller(MappingController):
             list: the command for the bowtie2 execution
         """
         bowtie2_cmd = [self.bowtie2_exe if self.bowtie2_exe else 'bowtie2', "--seed", "1992", "--quiet", "--no-unal", "--{}".format(self.bt2_ps),
-                       "-S", "-", "-U", "-", "-x", self.mpadb]
+                       "-S", "-", "-U", "-", "-x", self.db_dir]
         if int(self.nproc) > 1:
             bowtie2_cmd += ["-p", str(self.nproc)]
         if self.input_type == "fasta":
@@ -1295,14 +1295,14 @@ class Minimap2Controller(MappingController):
     def build_mm2_index(self): 
         """Build mm2 index with the selected parameters"""
         # Check fasta file
-        fna_file = os.path.join(self.mpadb, self.index + ".fna")
+        fna_file = os.path.join(self.db_dir, self.index + ".fna")
         if not glob(fna_file):
             error('No Metaphlan database found at: {} to build the minimap index'.format(fna_file), exit=True)
                             
         # Build mm2 index
         if self.verbose:
             info('Building minimap2 index for parameters:{}'.format(self.mm2_ps_str.replace("_"," -")), init_new_line = True)
-        mmi_index = os.path.join(self.mpadb, self.index + self.mm2_ps_str + ".mmi")
+        mmi_index = os.path.join(self.db_dir, self.index + self.mm2_ps_str + ".mmi")
         mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-d", mmi_index, fna_file]
 
         try:
@@ -1320,7 +1320,7 @@ class Minimap2Controller(MappingController):
 
     def check_mm2_database(self): 
         """Checks the presence and consistency of the mpa database"""
-        mmi_index = os.path.join(self.mpadb, self.index + self.mm2_ps_str + ".mmi")
+        mmi_index = os.path.join(self.db_dir, self.index + self.mm2_ps_str + ".mmi")
 
         if not glob(mmi_index):
             ## check minimap2 
@@ -1329,12 +1329,12 @@ class Minimap2Controller(MappingController):
             except Exception as e:
                 error('OSError: "{}"\nFatal error running minimap2 at {}. Please check minimap2 installation and path'.format(e,self.minimap2_exe), exit=True)
             ## build the index
-            self.mpadb = self.build_mm2_index()
+            self.db_dir = self.build_mm2_index()
 
         elif os.path.getsize(mmi_index) < (30*10**9):
             warning('Small minimap index found at: {}, please check and remove if needed'.format(mmi_index), init_new_line = True)
         else:
-            self.mpadb = mmi_index
+            self.db_dir = mmi_index
 
     def init_mapping_arguments(self):
         """Automatically set the mapping arguments"""
@@ -1348,8 +1348,8 @@ class Minimap2Controller(MappingController):
             list: the command for the Minimap2 execution
         """
         sp_tmp = ".".join(self.mapout.split(".")[:-2]) if self.mapout.endswith("bz2") else ".".join(self.mapout.split(".")[-1])
-        # mm2_cmd = [self.minimap2_exe, "-x", "asm20", "-B", "3", "-O", "3,12", "--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.mpadb, self.inp]
-        mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.mpadb, self.inp]
+        # mm2_cmd = [self.minimap2_exe, "-x", "asm20", "-B", "3", "-O", "3,12", "--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
+        mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
         if int(self.nproc) > 3:
             mm2_cmd += ["-t", str(self.nproc)]
         return mm2_cmd
@@ -2296,7 +2296,7 @@ def read_params():
     arg = g.add_argument
     arg('--force', action='store_true',
         help="Force profiling of the input file by removing the mapout file")
-    arg('--mpadb', metavar="METAPHLAN_DB", type=str, default=DEFAULT_DB_FOLDER,
+    arg('--db_dir', metavar="METAPHLAN_DB", type=str, default=DEFAULT_DB_FOLDER,
         help=("Folder containing the MetaPhlAn database. You can specify the location by exporting the DEFAULT_DB_FOLDER variable in the shell (old --bowtie2db option)."
               "[default "+DEFAULT_DB_FOLDER+"]\n"))
     arg('-x', '--index', type=str, default='latest',
