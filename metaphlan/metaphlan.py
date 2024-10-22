@@ -3,8 +3,10 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it), '
               'Nicola Segata (nicola.segata@unitn.it), '
               'Duy Tin Truong, '
-              'Francesco Asnicar (f.asnicar@unitn.it)')
-__version__ = '4.0.3'
+              'Francesco Asnicar (f.asnicar@unitn.it), '
+              'Claudia Mengoni (claudia.mengoni@unitn.it), '
+              'Linda Cova (linda.cova@unitn.it)')
+__version__ = '4.2.0'
 __date__ = '24 Oct 2022'
 
 
@@ -30,7 +32,11 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 import pysam
 import pandas as pd
-import shutil
+#import shutil
+from packaging import version
+import biom
+import biom.table
+import json
 
 from collections import defaultdict as defdict
 try:
@@ -343,39 +349,62 @@ class MetaphlanDatabaseController():
     """MetaphlanDatabaseController class"""
 
     def set_mpadb(self, value):
+        """Sets the clade path of MetaPhlAn database
+
+        Args:
+            value (str): the path to the MetaPhlAn database
+        """
         self.mpadb = value
 
     def set_index(self, value):
+        """Sets the clade path of MetaPhlAn database
+
+        Args:
+            value (str): the database index
+        """
         self.index = value
 
     def report(self, blocknum, block_size, total_size):
-        """Print download progress message"""
+        """Prints the download progress message
+        
+        Args:   
+            blocknum (int): the block number
+            block_size (int): the block size
+            total_size (int): the total
+        """
         if blocknum == 0:
             self.start_time = time.time()
             if total_size > 0:
                 info("Downloading file of size: {:.4f} MB".format(byte_to_megabyte(total_size)), init_new_line = True)
+                status = "        \r"
+                sys.stderr.write(status)
         else:
             total_downloaded = blocknum * block_size
             status = "{:3.2f} MB ".format(byte_to_megabyte(total_downloaded))
 
-            if total_size > 0.001: # don't do it if very small file
-                percent_downloaded = total_downloaded * 100.0 / total_size
-                # use carriage return plus sys.stderr to overwrite stderr
-                download_rate = total_downloaded / (time.time() - self.start_time)
-                estimated_time = (total_size - total_downloaded) / download_rate
-                estimated_minutes = int(estimated_time / 60.0)
-                estimated_seconds = estimated_time - estimated_minutes * 60.0
-                status += ("{:3.2f} %  {:5.2f} MB/sec {:2.0f} min {:2.0f} sec "
-                           .format(min(percent_downloaded,100),
-                                   byte_to_megabyte(download_rate),
-                                   estimated_minutes, estimated_seconds))
+            percent_downloaded = total_downloaded * 100.0 / total_size
+            # use carriage return plus sys.stderr to overwrite stderr
+            download_rate = total_downloaded / (time.time() - self.start_time)
+            estimated_time = (total_size - total_downloaded) / download_rate
+            estimated_minutes = int(estimated_time / 60.0)
+            estimated_seconds = estimated_time - estimated_minutes * 60.0
+            status += ("{:3.2f} %  {:5.2f} MB/sec {:2.0f} min {:2.0f} sec "
+                        .format(min(percent_downloaded,100),
+                                byte_to_megabyte(download_rate),
+                                estimated_minutes, estimated_seconds))
 
             status += "        \r"
             sys.stderr.write(status)
 
 
     def calculate_md5(self, file_path, md5):
-        """Calculate md5 of .tar.bz2 and read md5"""
+        """Calculates the md5 of .tar.bz2 or reads the md5 file
+        
+        Args:   
+            file_path (str): the path to the .tar.bz2 file
+            md5 (bool): whether to calculate the md5 or read the md5 file
+        """ 
+        info('Checking md5 of {}'.format(file_path), init_new_line = True)
         if os.path.isfile(file_path):
             # read md5
             if md5:
@@ -395,7 +424,13 @@ class MetaphlanDatabaseController():
 
 
     def download(self, url, download_file, force=False):
-        """Download a file from a url"""
+        """Download a file from a url
+        
+        Args: 
+            url (str): the url of the file to download
+            download_file (str): the path to the file to download
+            force (bool, optional): whether to force download the file. Defaults to False.
+        """
         if not os.path.isfile(download_file) or force:
             try:
                 info("Downloading " + url, init_new_line = True)
@@ -407,7 +442,13 @@ class MetaphlanDatabaseController():
 
 
     def download_and_untar(self, download_file_name, folder, origin):
-        """Download a file and untar it"""
+        """Download a file and untar it
+        
+        Args:   
+            download_file_name (str): the name of the file to download
+            folder (str): the path to the folder to untar the file
+            origin (str): the url of the file to download
+        """
         # local path of the tarfile and md5file
         tar_file = os.path.join(folder, download_file_name + ".tar")
         md5_file = os.path.join(folder, download_file_name + ".md5")
@@ -427,8 +468,8 @@ class MetaphlanDatabaseController():
 
         # compare checksums
         if md5_tar != md5_md5:
-            error("MD5 checksums do not correspond! If this happens again, "
-                  "you should remove the database files and rerun MetaPhlAn "
+            error("MD5 checksums do not correspond!"
+                  "You should remove the database files and rerun MetaPhlAn "
                   "so they are re-downloaded", init_new_line = True, exit = True)
 
         # untar
@@ -472,37 +513,55 @@ class MetaphlanDatabaseController():
                     for data in iter(lambda: bz2_h.read(100 * 1024), b''):
                         fna_h.write(data)
             os.remove(bz2_file)  
+ 
+    def check_database(self):
+        """Check if all the database files are present and the database installed
+        
+        Returns:    
+            bool: True if the database is installed, False otherwise"""
+        if os.path.isdir(self.mpadb) and len(glob(os.path.join(self.mpadb, "*{}*bt2l".format(self.index)))) >= 6:
+            if os.path.exists(os.path.join(self.mpadb, self.index + "_VSG.fna")) and os.path.exists(os.path.join(self.mpadb, self.index + "_VINFO.csv")):
+                self.database_pkl = self.set_pkl()
+                return True
 
-
-    def check_and_install_database(self):
-
-        # Create the folder if it does not already exist
+    def install_database(self):
+        """Install the database"""       
         if not os.path.isdir(self.mpadb):
             try:
                 os.makedirs(self.mpadb)
             except EnvironmentError as e:
                 error('EnvironmentError "{}"\n Unable to create folder for database install: '.format(e, self.mpadb), exit = True)
         
-        # database present locally and not force download, return 
-        if len(glob(os.path.join(self.mpadb, "*{}*".format(self.index)))) >= 7 and not self.force_download:
-            self.database_pkl = self.set_pkl()
-            return self.index
+        self.download_unpack_tar()
+        self.prepare_indexes()
+
+    def check_and_install_database(self):
+        """Check if the database is installed and install it if not
+        
+        Returns:
+            str: the index of the database"""
+        # check if the database is already present locally 
+        if not self.force_download:
+            if self.check_database():
+                return self.index
         
         # not enough database files present locally and offline option is on
         if self.offline:
-            error("Database cannot be downloaded with the --offline option activated and database files for {} were not detected in {}".format(self.index, self.mpadb), init_new_line = True, exit = True)
+            error("The database cannot be downloaded with the --offline option activated and some database files for {} are missing in {}".format(self.index, self.mpadb), init_new_line = True, exit = True)
 
         # database not present, download and install
-        info("Downloading MetaPhlAn database\n Please note due to the size this might take a few minutes.", init_new_line = True)
-        self.download_unpack_tar()
-        self.prepare_indexes()
-      
+        info("MetaPhlAn database not present or partially present in {}. \n Downloading database\n Please note due to the size this might take a few minutes.".format(self.mpadb), init_new_line = True)
+        self.install_database()      
         info("Download complete.", init_new_line = True)
-        self.database_pkl = self.set_pkl()
-        
-        return self.index
+
+        # check if the database is installed
+        if self.check_database():
+            return self.index
+        else:
+            error('Database installation failed. Please check the installation and try again.', init_new_line = True, exit = True)
 
     def set_pkl(self):
+        """Set the database pkl file"""
         if os.path.isfile(os.path.join(self.mpadb, "{}.pkl".format(self.index))):
             mpa_pkl = os.path.join(self.mpadb, "{}.pkl".format(self.index))
         else:
@@ -514,12 +573,16 @@ class MetaphlanDatabaseController():
         return database_pkl 
     
     def get_index(self):
+        """Get the index of the database"""
         return self.index
     
 
     def resolve_index(self):
-        '''Find out what is the index of the latest mpa DB available online or locally''' 
-
+        """Find out what is the index of the latest mpa DB available online or locally
+        
+        Returns:    
+            str: the index of the latest mpa DB available online or locally
+        """
         if self.index == 'latest':
             if not self.offline:
                 # check internet connection
@@ -572,26 +635,24 @@ class MetaphlanDatabaseController():
                 latest_db_version = ''.join([line.strip() for line in mpa_latest if not line.startswith('#')])
                 self.index = latest_db_version
 
-        # self.database_pkl = self.set_pkl()
-        ## setting pkl here causes problems if the db is not installed (when running --install)
-
         return self.index
 
     def prepare_indexes(self):
         """Prepare for building indexes"""
-
-        info('Joining FASTA databases', init_new_line = True )
         if len(glob(os.path.join(self.mpadb, self.index + "*.fna"))) > 1 and not glob(os.path.join(self.mpadb, self.index + ".fna")):
+            info('Joining FASTA databases', init_new_line = True )
+            if not os.path.exists(os.path.join(self.mpadb, self.index + "_VSG.fna")) and self.profile_vsc:
+                error('Viral markers are missing. Please re-download the database', init_new_line = True, exit=True)
             with open(os.path.join(self.mpadb, self.index + ".fna"), 'w') as fna_h:
                 for fna_file in iglob(os.path.join(self.mpadb, self.index + "_*.fna")):
                     with open(fna_file, 'r') as fna_r:
                         for line in fna_r:
                             fna_h.write(line)
 
-        # remove partial FASTA file but ViralDB
-        info('Removing uncompressed databases', init_new_line = True)
+        # remove partial FASTA file except for ViralDB
         for fna_file in iglob(os.path.join(self.mpadb, self.index + "_*.fna")):
             if not fna_file.endswith('_VSG.fna') and not fna_file.endswith('{}.fna'.format(self.index)):
+                info('Removing uncompressed databases', init_new_line = True)
                 os.remove(fna_file)
         
         # check bowtie2
@@ -621,7 +682,6 @@ class MetaphlanDatabaseController():
                 os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
         except PermissionError as e:
             error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.mpadb, self.self.index + "*.bt2l")))
-        
 
     def build_bwt_indexes(self):
         """Build BowTie indexes"""
@@ -638,7 +698,8 @@ class MetaphlanDatabaseController():
 
         bt2_cmd += ['-f', fna_file, bt2_base]
 
-        info('Building Bowtie2 indexes', init_new_line = True)
+        if self.verbose:
+            info('Building Bowtie2 indexes', init_new_line = True)
 
         try:
             subp.check_call(bt2_cmd)
@@ -648,6 +709,7 @@ class MetaphlanDatabaseController():
         os.remove(fna_file)
 
     def __init__(self, args):
+        self.verbose = args.verbose
         self.index = args.index
         self.mpadb = args.mpadb
         self.nproc = args.nproc
@@ -657,15 +719,14 @@ class MetaphlanDatabaseController():
         self.bowtie2_exe = args.bowtie2_exe if args.bowtie2_exe else 'bowtie2'
         self.bowtie2_build = args.bowtie2_build
         self.long_reads = args.long_reads
+        self.profile_vsc = args.profile_vsc
 
 
 class VSCController():
     """ Class for controlling the viral profiling"""
-            
 
     def vsc_samtools(self):
         """Convert SAM to BAM and sort it"""
-
         try:
             # stv_command = ['samtools','view','-bS', os.path.basename(self.vscBamFile).split('.')[0]+'.sam','-@',str(self.nproc)]
             stv_command = ['samtools','view','-bS', self.vscSamFile,'-@',str(self.nproc)]
@@ -698,8 +759,6 @@ class VSCController():
         coverage_positions = defdict(dict)
         ref_to_len = dict(zip(bamHandle.references,bamHandle.lengths))
         for pileupcolumn in bamHandle.pileup():
-            # for c, length in zip(bamHandle.references,bamHandle.lengths):
-            
             c = pileupcolumn.reference_name
             
             tCoverage = 0
@@ -735,7 +794,7 @@ class VSCController():
             vsc_out_df = vsc_out_df.merge(vsc_info_df, on='M-Group/Cluster').sort_values(by='breadth_of_coverage', ascending=False).set_index('M-Group/Cluster')
             vsc_out_df.to_csv(outf,sep='\t',na_rep='-')
             if vsc_out_df.shape[0] == 0:
-                warning('No viral clusters remaining after filtering, the output report is empty', init_new_line = True)
+                warning('No viral clusters detected, the output report is empty', init_new_line = True)
 
     def __init__(self, args, mapping_controller, database_controller):
         # parsing previous mapout run
@@ -762,11 +821,20 @@ class VSC_bt2_controller(VSCController):
     """VSC controller class for short reads"""
 
     def filter_vsc_report(self, vsc_df):
-        """Filter the VSC report to keep only selected markers"""
+        """Returns the VSC report (no need to filtermby depth the bowtie2 mapping)"""
         return vsc_df
 
     def extract_viral_mappings_line(self, o):
-        """"Extraction of reads mapping to viral markers"""
+        """"Extraction of reads mapping to viral markers
+        
+        Args:   
+            o (str): the line of the SAM file
+        
+        Returns:
+            str: the marker group
+            str: the marker cluster
+            SeqRecord: the read record
+        """
         mCluster = o[2]
         mGroup = o[2].split('|')[2].split('-')[0]
                             
@@ -775,12 +843,16 @@ class VSC_bt2_controller(VSCController):
         else:
             rr=SeqRecord(Seq(o[9]).reverse_complement(),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
         if o[10] == "*":
-            rr.letter_annotations['phred_quality'] = None ## Remove phred quality if not present in SAM
+            rr.letter_annotations['phred_quality'] = None # Remove phred quality if not present in SAM
 
         return mGroup, mCluster, rr
     
     def get_viral_mapping(self, sam_line):
-        """When reading a SAM file, save viral mappings to the VSCController variables"""
+        """When reading a SAM file, save viral mappings to the VSCController variables
+        
+        Args:   
+            sam_line (str): the line of the SAM file
+        """
         mGroup, mCluster, rr = self.extract_viral_mappings_line(sam_line)
         self.viral_markers[mGroup].append(mCluster)
         self.viral_reads.append(rr)
@@ -795,13 +867,12 @@ class VSC_bt2_controller(VSCController):
 
     def process_SGB_mapping(self):
         """From reads detected in the first bowtie2 run, extracts the reads/markers for a second bowtie2 run"""
-        ## self.extract_viral_mappings() # Do this when reading the SAM for the first time
         self.infer_sam_input_type()
         SeqIO.write(self.viral_reads,self.reads_file, self.input_type) # write viral reads to remap
 
         VSCs_markers = SeqIO.index(self.vsc_fna, "fasta")
         selectedMarkers=[]
-        for grp,v in self.viral_markers.items():
+        for _,v in self.viral_markers.items():
 
             cv=Counter(v)
             if (len(cv) > 1):
@@ -871,7 +942,7 @@ class VSC_mm2_controller(VSCController):
     """VSC controller class for long reads"""
 
     def infer_sam_input_type(self):
-        """Infer the input type for the viral profiling"""
+        """Infers the input type for the viral profiling"""
         if not self.input_type in ['fastq','fasta']:
             with open(self.vscSamFile) as samfile:
                 for line in samfile:
@@ -882,7 +953,7 @@ class VSC_mm2_controller(VSCController):
                     break
 
     def check_vsc_files(self):
-        """Check if viral sam is present"""
+        """Checks if viral sam is present"""
         if not os.path.exists(self.vscSamFile):
             error('There was an error in the VSCs file lookup.\n \
                 It may be that there are not enough reads to profile (not enough depth).\n \
@@ -892,7 +963,14 @@ class VSC_mm2_controller(VSCController):
             warning('No viral mappings in the viral sam file: {}'.format(self.vscSamFile), init_new_line = True, exit=True)        
 
     def filter_vsc_report(self, vsc_df):
-        """Filter the VSC report to keep the top marker by depth of coverage for each cluster"""
+        """Filter the VSC report to keep the top marker by depth of coverage for each cluster
+        
+        Args:
+            vsc_df (DataFrame): the VSC report
+            
+        Returns:
+            DataFrame: the filtered VSC report
+        """
         return vsc_df.loc[vsc_df.groupby('M-Group/Cluster')['depth_of_coverage_mean'].idxmax()].reset_index(drop=True)
     
     def run_analysis(self):
@@ -910,38 +988,69 @@ class MappingController:
     """MappingController interface"""
 
     def set_inp(self, value):
+        """Sets the input file
+            
+        Args:   
+            value (str): the input file
+        """
         self.inp = value
 
     def set_mpadb(self, value):
+        """Sets the path to the MetaPhlAn database
+
+        Args:   
+            value (str): path to the MetaPhlAn database
+        """    
         self.mpadb = value
 
     def set_input_type(self, value):
+        """Sets the input type  
+
+        Args:   
+            value (str): the input type
+        """
         self.input_type = value    
     
     def set_samout(self, value):
+        """Sets the SAM output file
+
+        Args:   
+            value (str): the SAM output file
+        """
         self.samout = value
 
     def set_mapout(self, value):
+        """Sets the mapping output file
+
+        Args:   
+            value (str): the mapping output file
+        """        
         self.mapout = value    
 
     def get_index(self):
+        """Get the index of the database""" 
         return self.index
     
     def set_index(self, value):
+        """Set the index of the database
+            
+        Args:
+            value (str): the index of the database
+        """
         self.index = value
     
     def get_sample_id(self):
+        """Get the sample id"""
         return self.sample_id
     
     def set_vsc_controller(self, value):
+        """Set the VSC controller
+
+        Args:
+            value (VSCController): the VSC controller
+        """
         self.vsc_controller = value
 
-    def run_mapping(self):
-        pass
-    
-    def get_reads2markers(self):
-        pass
-    
     def init_mapout(self):
         """Inits the mapping output file"""
         if self.no_map:
@@ -968,6 +1077,7 @@ class MappingController:
         self.read_min_len = args.read_min_len
         self.tmp_dir = args.tmp_dir
         self.vsc_controller = None
+        self.verbose = args.verbose
     
 class Bowtie2Controller(MappingController):
     """Bowtie2Controller class"""
@@ -1021,14 +1131,11 @@ class Bowtie2Controller(MappingController):
             bowtie2_cmd += ["-f"]
         return bowtie2_cmd
 
-    # To refactor?
     def run_bowtie2(self):
         """Runs Bowtie2"""
         try:
-            info("Running BowTie2", init_new_line=True)
-            ## added split reads option
-            # read_fastx = '/shares/CIBIO-Storage/CM/scratch/users/claudia.mengoni/tools/MetaPhlAn/metaphlan/utils/read_fastx.py'
-            # read_fastx = "/shares/CIBIO-Storage/CM/scratch/users/linda.cova/tools/MetaPhlAn_refactored/metaphlan/utils/read_fastx.py"
+            if self.verbose:
+                info("Running BowTie2", init_new_line=True)
             read_fastx = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'utils', 'read_fastx.py')
 
             if self.inp:
@@ -1193,7 +1300,8 @@ class Minimap2Controller(MappingController):
             error('No Metaphlan database found at: {} to build the minimap index'.format(fna_file), exit=True)
                             
         # Build mm2 index
-        info('Building minimap2 index for parameters:{}'.format(self.mm2_ps_str.replace("_"," -")), init_new_line = True)
+        if self.verbose:
+            info('Building minimap2 index for parameters:{}'.format(self.mm2_ps_str.replace("_"," -")), init_new_line = True)
         mmi_index = os.path.join(self.mpadb, self.index + self.mm2_ps_str + ".mmi")
         mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-d", mmi_index, fna_file]
 
@@ -1263,7 +1371,8 @@ class Minimap2Controller(MappingController):
         """Runs Minimap2"""
         try:
             # No read_fastx for Minimap2
-            info("Running Minimap2", init_new_line=True)
+            if self.verbose:
+                info("Running Minimap2", init_new_line=True)
             p = subp.Popen(self.get_minimap2cmd(), stdout=subp.PIPE, stderr=subp.DEVNULL)
             # readin.stdout.close()
             lmybytes, outf = (mybytes, bz2.BZ2File(self.mapout, "w")) if self.mapout.endswith(".bz2") else (str, open(self.mapout, "w"))
@@ -1486,7 +1595,13 @@ class MetaphlanAnalysis:
         outf.write('#{}\n'.format('\t'.join([self.sample_id_key, self.sample_id])))
     
     def report_results(self, tree, total_metagenome, avg_read_length):
-        """Reports the MetaPhlAn results"""
+        """Reports the MetaPhlAn results
+        
+        Args:
+            tree (Tree): the MetaPhlAn tree
+            total_metagenome (int): the total metagenome size
+            avg_read_length (int): the average read length
+        """
         self.tree = tree
         self.total_metagenome = total_metagenome
         self.avg_read_length = avg_read_length
@@ -1518,9 +1633,50 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
                 if taxid and clade.split('|')[-1][0] != 't': 
                     rank = ranks2code[clade.split('|')[-1][0]]       
                     leaf_taxid = taxid.split('|')[-1]
-                    taxpathsh = '|'.join([re.sub(r'^[a-z]__', '', name) if '_unclassified' not in name else '' for name in clade.split('|')])
+                    taxpathsh = '|'.join([re.sub(r'^[a-z]__', '', name) for name in clade.split('|')])
                     outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(relab*self.fraction_mapped) ] ) + '\n' )
-                    
+    
+
+
+    def to_biomformat(self, clade_name):
+        """Converts the clade name to a BIOM format 
+
+        Args:   
+            clade_name (str): the clade name
+        """
+        return {'taxonomy': clade_name.split(self.biom_mdelim)}
+    
+    def report_biom_output(self):
+        """Reports the MetaPhlAn results in the BIOM output format"""
+        json_key = "MetaPhlAn"
+        clade2abundance = self.get_clade2abundance()
+        out_stream = open(self.output,"w") if self.output else sys.stdout
+        if len(clade2abundance) == 0:
+            biom_table = biom.Table([], [], [])
+            biom_table.to_json(json_key, direct_io=out_stream)
+        else:
+            packed=list()
+            for clade, values in clade2abundance.items():
+                taxid, relab = values
+                if clade.split(self.biom_mdelim)[-1].startswith('s__'): 
+                    packed.append([[relab], clade, taxid])
+            data, clade_names, _ = zip(*packed)
+            data = np.array(data)
+            sample_ids = [self.sample_id]
+            table_id = 'MetaPhlAn_Analysis'
+            if version.parse(biom.__version__) < version.parse('2.0.0'):
+                biom_table = biom.table.table_factory(data, sample_ids, clade_names, sample_metadata=None, 
+                                                      observation_metadata=list(map(self.to_biomformat, clade_names)),
+                                                      table_id=table_id, constructor= biom.table.DenseOTUTable)
+                json.dump(biom_table.getBiomFormatObject(json_key), out_stream)
+
+            else:  
+                biom_table = biom.table.Table(data, clade_names, sample_ids, sample_metadata=None, 
+                                              observation_metadata=list(map(self.to_biomformat, clade_names)),
+                                              table_id=table_id, input_is_dense=True)
+                biom_table.to_json(json_key, direct_io=out_stream)
+
+
     def get_clade2abundance(self):
         """Gets the filtered clade to relative abundance dictionary
 
@@ -1541,6 +1697,8 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
         self.get_mapped_fraction()
         if self.cami_output:
             self.report_cami_output()
+        elif self.biom_output:
+            self.report_biom_output()
         else:
             out_stream = open(self.output,"w") if self.output else sys.stdout
             with out_stream as outf:
@@ -1568,8 +1726,10 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
         super().__init__(args, database_controller, index)
         self.tax_lev = args.tax_lev
         self.cami_output = args.CAMI_format_output
+        self.biom_output = args.biom_format_output
+        self.biom_mdelim = args.biom_mdelim
         self.use_group_representative = args.use_group_representative
-        self.unclassified_estimation = args.unclassified_estimation
+        self.unclassified_estimation = not args.skip_unclassified_estimation
         
         
 class RelativeAbundanceReadStatsAnalysis(MetaphlanAnalysis):
@@ -1694,13 +1854,26 @@ class Metaphlan:
         return {r: m for r, m in reads2markers.items() if ('SGB' in m[0] or 'EUK' in m[0]) and not 'VDB' in m[0]}, {r: m for r, m in reads2markers.items() if 'VDB' in m[0] and not ('SGB' in m[0] or 'EUK' in m[0])}
 
     def make_gen_fastq(self, reader):
+        """Read fastq file in chunks
+        
+        Args:
+            reader (function): the reader function
+        """
         b = reader(1024 * 1024) 
         while (b):
             yield b
             b = reader(1024 * 1024)
 
     def rawpycount(self, filename, intype):
-        """Counts lines in a fastq file"""
+        """Counts lines in a fastq file
+        
+        Args:
+            filename (str): the file name
+            intype (str): the input type
+        
+        Returns:
+            int: the number of bases
+        """
         f = bz2.BZ2File(filename, 'rb') if filename.endswith(".bz2") else gzip.open(filename, 'rb') if filename.endswith('.gz') else open(filename, 'rb')
         f_gen = self.make_gen_fastq(f.read)
         total_metagenome = sum( buf.count(b'\n') for buf in f_gen) if intype == 'fastq' else sum( buf.count(b'>') for buf in f_gen)
@@ -1708,7 +1881,15 @@ class Metaphlan:
         return int(total_metagenome/4) if intype == 'fastq' else int(total_metagenome)
     
     def rawpycount_bases(self, filename, intype, tot=True):
-        """Counts bases in a fastq file"""
+        """Counts bases in a fastq file
+        
+        Args:
+            filename (str): the filename
+            intype (str): the input type
+            tot (bool): whether to count the total number of bases or the number of bases per read
+        
+        Returns:
+            int or dict: the total number of bases or the number of bases per read"""
         f = bz2.BZ2File(filename, 'rb') if filename.endswith(".bz2") else gzip.open(filename, 'rb') if filename.endswith('.gz') else open(filename, 'rb')
         f_gen = self.make_gen_fastq(f.read)
         
@@ -1746,6 +1927,12 @@ class Metaphlan:
         return nbases
     
     def subsample_file(self, sample, out):
+        """Subsamples the reads of the file
+
+        Args:
+            sample (set): the set of reads to sample
+            out (file): the output file
+        """
         length, read_num = 0, -1
         counter=0
         out_l = out
@@ -1772,6 +1959,11 @@ class Metaphlan:
         out.close()
 
     def prepare_subsample_output(self):
+        """Prepares the output file for subsampling
+        
+        Returns:
+            file: the output file
+        """
         if self.subsampling_output is None:
             if self.subsampling_paired:
                 self.subsampling_output = list()
@@ -1801,6 +1993,7 @@ class Metaphlan:
 
 
     def subsample_reads(self):
+        """Subsamples the reads of the input file"""
         self.total_metagenome = execute_pool(((self.rawpycount, inp_f, self.input_type) for inp_f in self.inp.split(',')), 2)
 
         if self.subsampling >= sum(self.total_metagenome):
@@ -1836,6 +2029,7 @@ class Metaphlan:
 
 
     def subsample_bases(self):
+        """Subsamples the bases of the input file"""
         r2rl = self.rawpycount_bases(self.inp, self.input_type, tot=False)
         self.total_metagenome = sum(r2rl.values())
 
@@ -2007,10 +2201,10 @@ class Metaphlan:
 
 
     def run_metaphlan(self):
-        """Runs the MetaPhlAn pipeline"""        
-        
+        """Runs the MetaPhlAn pipeline"""    
         self.index=self.database_controller.check_and_install_database()
-        info('The database is installed ({})'.format(self.index), stderr=True, exit=self.install)
+        if self.verbose:
+            info('The database is installed ({})'.format(self.index), stderr=True, exit=self.install)
         if (self.subsampling_paired or self.subsampling) and not self.mapping_subsampling:
             if not (self.long_reads or self.split_reads):
                 self.subsample_reads()
@@ -2037,7 +2231,6 @@ class Metaphlan:
         self.split_reads = args.split_reads
         self.database_controller = MetaphlanDatabaseController(args)
         self.index = self.database_controller.resolve_index()
-        # here should be the code choosing the mapping controller in the future
         self.mapping_controller = Bowtie2Controller(args, self.index) if not self.long_reads else Minimap2Controller(args, self.index, self.database_controller)
         self.metaphlan_analysis = self.init_metaphlan_analysis(args)
         self.input_type = args.input_type
@@ -2223,18 +2416,18 @@ def read_params():
         type=str, default=None, help="The sam output file\n")
     arg('--CAMI_format_output', action='store_true',
         help="Report the profiling using the CAMI output format\n")
-    arg('--unclassified_estimation', action='store_true',
-        help="Scale relative abundances to the number of reads mapping to identified clades in order to estimate unclassified taxa\n")
-    arg('--biom', '--biom_output_file',  metavar="biom_output", type=str, default=None,
-        help="If requesting biom file output: The name of the output file in biom format \n")
-    arg('--mdelim', '--metadata_delimiter_char',  metavar="mdelim", type=str, default="|",
-        help="Delimiter for bug metadata: - defaults to pipe. e.g. the pipe in k__Bacteria|p__Proteobacteria \n")
+    arg('--skip_unclassified_estimation', action='store_true',
+        help="Do not scale relative abundances to the estimate unclassified taxa\n")
+    arg('--biom_format_output',action='store_true',
+        help="Report the profiling using the biom output format\n")
+    arg('--biom_mdelim',  metavar="mdelim", type=str, default="|",
+        help="Delimiter for metadata in the biom output format [default '|'] \n")
     g = p.add_argument_group('Viral Sequence Clusters Analisys')
     arg = g.add_argument
     arg("--profile_vsc", action="store_true",help="Add this parameter to profile Viruses with VSCs approach.")
     arg("--vsc_out", help="Path to the VSCs breadth-of-coverage output file", default="mp3_viruses.csv")
     arg("--vsc_breadth", help="Minimum Breadth of Coverage for a Viral Group to be reported.\n"
-    "Default is 0.75 (at least 75 percent breadth to report)", default=0.75,type=float)
+    "Default is 0.75 (at least 75 percent breadth to report), 0.5 for long reads", default=None,type=float)
     g = p.add_argument_group('Long reads arguments')
     arg = g.add_argument
     arg('--long_reads', action="store_true",help="Add this parameter to profile long reads.")
@@ -2306,7 +2499,9 @@ def check_params(args):
     if args.input_type not in ['fasta', 'fastq'] and args.no_map:
         error('The --no_map parameter can only be used with FASTA or FASTQ input formats', exit=True)
     if args.CAMI_format_output and args.t != 'rel_ab':
-        error('The --CAMI_format_output parameter can only be used with the default analysis type (rel_ab)', exit=True)               
+        error('The --CAMI_format_output parameter can only be used with the default analysis type (rel_ab)', exit=True)    
+    if args.biom_format_output and args.t != 'rel_ab':
+        error('The --biom_format_output parameter can only be used with the default analysis type (rel_ab)', exit=True)         
     if args.force and os.path.exists(args.mapout):
         os.remove(args.mapout)
         warning("Previous mapping output file has been removed from: {}".format(args.mapout)) 
@@ -2344,6 +2539,8 @@ def check_params(args):
             args.inp = args.forward + ',' + args.reverse
     if args.min_mapq_val is None:
         args.min_mapq_val = 50 if args.long_reads else 5
+    if args.vsc_breadth is None:
+        args.vsc_breadth = 0.5 if args.long_reads else 0.75
     ## checks for long reads
     if args.long_reads:
         if args.inp is None and args.input_type in ['fastq', 'fasta']:
