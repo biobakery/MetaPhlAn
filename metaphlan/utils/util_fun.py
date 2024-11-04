@@ -30,6 +30,7 @@ def info(message, init_new_line=True, stderr=True, exit=False, exit_value=0):
     if exit:
         sys.exit(exit_value)
 
+
 def warning(message, init_new_line=True, exit=False, exit_value=0):
     """Prints an Warning message
 

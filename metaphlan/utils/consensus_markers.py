@@ -86,7 +86,7 @@ class ConsensusMarker:
 
     @classmethod
     def from_dict(cls, d):
-        return cls(d['marker'], d['sequence'], breadth=d['breath'], avg_depth=d['avg_depth'] if 'avg_depth' in d else None)
+        return cls(d['marker'], d['sequence'], breadth=d['breadth'] if 'breadth' in d else d['breath'], avg_depth=d['avg_depth'] if 'avg_depth' in d else None)
 
 
     def __init__(self, name, sequence, breadth=None, avg_depth=None):

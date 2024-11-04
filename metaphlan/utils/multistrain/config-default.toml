@@ -1,0 +1,55 @@
+# TOML configuration file
+# see https://toml.io/en/v1.0.0 for syntax
+
+fix_pairend = true  # whether to fix pair end information from metaphlan output, requires SAM in input
+dedup_reads = false  # whether to run samtools rmdup to remove duplicate reads
+
+# read mapping filtering
+min_mapping_quality = 1  # minimum mapQ
+filter_indels = true  # remove indel alignments
+min_read_pident = 90  # minimum percentage of identity to keep a read
+
+# base filtering
+min_base_coverage = 1  # minimum base coverage
+min_base_quality = 30  # minimum PHRED base quality
+
+error_rate = 'phred'  # expected sequencing error rate of bases with qualities >= min_base_quality. [phred, estimate, float]
+error_rate_estimation_positions = 100000   # min positions to take the estimate otherwise...
+error_rate_fallback = 'phred'  # use the fallback value
+
+trim_marker_ends = 50  # how many positions to trim from the end of the markers
+min_marker_breadth = 0.3  # minimum breadth of coverage (at coverage = 1x) for the marker to be kept
+unusual_coverage_marker = 0.3  # the percentage of unusually covered positions to discard the whole marker
+q_uniformity_alpha = 0.05  # the alpha q value for the uniformity test for the marker to be reported (note that it's still kept)
+
+polymorphism_q_alpha = 0.001  # the maximum q-value in the polymorphism test
+
+#min_significant_biallelic_loci = 20  # minimum biallelic significant loci to try to fit the distribution, below that the ratio will default to r_fallback (see below)
+#frequency_distribution = "t"  # Continuous distribution to fit, can be one of (t, normal, cauchy)
+#sob_mean_base_coverage = 500  # maximum mean base coverage to use sum-of-binomials (above that use only normal distribution)
+#max_cvm = 50  # maximum Cramer von Mises criterion value for the distribution fit to be acceptable
+
+max_w_across = 0
+min_w_along = 1
+
+snp_rate_fallback = 0.01  # the snp rate to use when fitting fails
+r_fallback = 0.5  # the major/minor ratio to use when fitting fails
+
+
+min_output_quality = 10  # Minimum PHRED base quality to consider the base as called, otherwise place a gap. [e.g. 10 ~ 90%, 20 ~ 99%, 30 ~ 99.9% confidence]
+
+min_output_breadth = 80  # Minimum breadth of coverage to output the marker [%]
+min_output_snp_rate = 0.5  # Minimum SNP rate to report the second strain [%]
+min_recall = 80  # Minimum recall to report the second strain [%]
+min_precision = 80  # Minimum precision to report the second strain [%]
+min_precision_support = 100  # Minimum precision support to report the second strain
+max_r_var = 0.1  # Maximum variance of the strain ratio to consider reliable fit and report the second strain, nan to turn off filtering
+max_snp_rate_var = 0.1  # Maximum variance of the snp rate to consider reliable fit and report the second strain, nan to turn off filtering
+
+# min_output_breadth = 0
+# min_output_snp_rate = 0
+# min_recall = 0
+# min_precision = 0
+# min_precision_support = 0
+# max_r_var = nan
+# max_snp_rate_var = nan
