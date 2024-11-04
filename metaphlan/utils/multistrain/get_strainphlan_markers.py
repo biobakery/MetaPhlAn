@@ -9,12 +9,10 @@ from metaphlan.utils import info
 ACTG = 'ACTG'
 
 
-def get_strainphlan_markers(strain_resolved_markers, df_results, output_dir, config):
+def get_strainphlan_markers(strain_resolved_markers, df_results, output_dir_linkages, config):
     strain_resolved_markers_by_sgb = defaultdict(list)
     for srm in strain_resolved_markers:
         strain_resolved_markers_by_sgb[srm['sgb_id']].append(srm)
-
-    info('Reading and processing markers')
 
     def calc_breadth(s):
         t = config['trim_marker_ends']
@@ -72,7 +70,7 @@ def get_strainphlan_markers(strain_resolved_markers, df_results, output_dir, con
         pred_recall = pred_completeness * np.median(breadths_min) / 100
 
         # precision
-        merging_results_path = output_dir / 'per_sgb' / sgb_id / 'merging_results_before.pic'
+        merging_results_path = output_dir_linkages / f'mrb_{sgb_id}.pic'
         with open(merging_results_path, 'rb') as f:
             merging_results = pickle.load(f)
 

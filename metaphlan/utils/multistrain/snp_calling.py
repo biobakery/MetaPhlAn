@@ -1,4 +1,4 @@
-from collections import Counter, defaultdict
+from collections import Counter
 
 import numpy as np
 import pandas as pd
@@ -6,192 +6,11 @@ import scipy.stats as sps
 import statsmodels.stats.multitest as smsm
 
 
-def reuse_error_rate(error_rate_info_file):
-    with open(error_rate_info_file) as f:
-        try:
-            line = next(f)
-        except StopIteration:
-            line = ''
-        if line.startswith('PCR_duplicates'):
-            next(f)
-            mismatches_1 = int(next(f).strip().split('\t')[1])
-            matches_1 = int(next(f).strip().split('\t')[1])
-            next(f)
-            next(f)
-            next(f)
-            next(f)
-            try:
-                line = next(f)
-            except StopIteration:
-                line = ''
-        else:
-            mismatches_1 = 0
-            matches_1 = 0
-
-        if line.startswith('Pair-end mates overlap'):
-            next(f)
-            mismatches_2 = int(next(f).strip().split('\t')[1])
-            matches_2 = int(next(f).strip().split('\t')[1])
-            next(f)
-            next(f)
-            next(f)
-        else:
-            mismatches_2 = 0
-            matches_2 = 0
-
-    return matches_1, matches_2, mismatches_1, mismatches_2
-
-
-def save_error_rate(matches_1, matches_2, mismatches_1, mismatches_2, qual_c, config, error_rate_info_file):
-    n_positions_1 = matches_1 + mismatches_1
-    with open(error_rate_info_file, 'w') as f:
-        if n_positions_1 > 0:
-            err_rate_1 = mismatches_1 / n_positions_1
-            if err_rate_1 > 0:
-                e_phred_1 = -10 * np.log10(err_rate_1)
-            else:
-                e_phred_1 = 'MAX'
-            qual_s = '{' + ', '.join(f'{q}: {v / qual_c.total():.1%}' for q, v in qual_c.items()) + '}'
-            f.write('PCR_duplicates:\n')
-            f.write(f'evaluated_positions\t{n_positions_1}\n')
-            f.write(f'mismatches\t{mismatches_1}\n')
-            f.write(f'matches\t{matches_1}\n')
-            f.write(f'error_rate\t{err_rate_1}\n')
-            f.write(f'empirical_phred\t{e_phred_1}\n')
-            f.write(f'base_qualities\t{qual_s}\n')
-            f.write(f'base_quality_threshold\t{config["min_base_quality"]}\n')
-
-        n_positions_2 = matches_2 + mismatches_2
-        if n_positions_2 > 0:
-            err_rate_2 = mismatches_2 / n_positions_2
-            if err_rate_2 > 0:
-                e_phred_2 = -10 * np.log10(err_rate_2)
-            else:
-                e_phred_2 = 'MAX'
-            f.write('Pair-end mates overlap:\n')
-            f.write(f'evaluated_positions\t{n_positions_2}\n')
-            f.write(f'mismatches\t{mismatches_2}\n')
-            f.write(f'matches\t{matches_2}\n')
-            f.write(f'error_rate\t{err_rate_2}\n')
-            f.write(f'empirical_phred\t{e_phred_2}\n')
-            f.write(f'base_quality_threshold\t{config["min_base_quality"]}\n')
-
-
-def estimate_error_rate_pcr_duplicates(sam_file, config):
-    matches = 0
-    mismatches = 0
-    qual_c = Counter()
-
-    last_pos = -1
-    group_reads = []
-    for read in sam_file.fetch():
-        if not read.is_paired or not read.mate_is_mapped: # only pair-end with mapped mates
-            continue
-
-        if read.pos == last_pos:
-            group_reads.append(read)
-        else:
-            if len(group_reads) > 1:
-                gb = defaultdict(list)
-                for r in group_reads:
-                    gb[(r.rnext, r.pnext, r.rlen)].append(r)
-
-                for k, reads in gb.items():
-                    if len(reads) < 2:
-                        continue
-
-                    seqs = [[b if q >= config['min_base_quality'] else '-'
-                             for b, q in zip(r.query_sequence, r.query_qualities)] for r in reads]
-                    for r in reads:
-                        for q in r.query_qualities:
-                            qual_c[q] += 1
-
-                    for b in zip(*seqs):
-                        b = [x for x in b if x != '-']
-                        if not len(b):
-                            continue
-                        if all(x == b[0] for x in b):
-                            matches += len(b)
-                        else:
-                            m = Counter(b).most_common(1)[0][1]
-                            mm = len(b) - m
-                            matches += m
-                            mismatches += mm
-
-            group_reads = [read]
-            last_pos = read.pos
-
-    return matches, mismatches, qual_c
-
-
-def estimate_error_rate_overlaps(sam_file, config):
-    ACTG = 'ACTG'
-
-    matches = 0
-    mismatches = 0
-
-    waiting_for_mate = {}
-    for read in sam_file.fetch():
-        if read.qname in waiting_for_mate:
-            r1 = waiting_for_mate[read.qname]
-            r2 = read
-
-            del waiting_for_mate[read.qname]
-
-            ref_pos_1 = r1.get_reference_positions(full_length=True)
-            read_seq_1 = r1.query_alignment_sequence
-            read_quals_1 = r1.query_qualities
-
-            s1 = {}
-            for p, b, q in zip(ref_pos_1, read_seq_1, read_quals_1):
-                if q < config['min_base_quality']:
-                    continue
-                if b not in ACTG:
-                    continue
-                s1[p] = b
-
-            ref_pos_2 = r2.get_reference_positions(full_length=True)
-            read_seq_2 = r2.query_alignment_sequence
-            read_quals_2 = r2.query_qualities
-
-            for p, b2, q in zip(ref_pos_2, read_seq_2, read_quals_2):
-                if q < config['min_base_quality']:
-                    continue
-                if p not in s1:
-                    continue
-                if b2 not in ACTG:
-                    continue
-
-                b1 = s1[p]
-
-                if b1 == b2:
-                    matches += 2
-                else:
-                    matches += 1
-                    mismatches += 1
-
-            continue
-
-        if not read.is_paired or not read.mate_is_mapped or (read.mate_is_forward == read.is_forward):  # proper pair
-            continue
-        if read.reference_id != read.next_reference_id:  # same reference
-            continue
-        if read.pos > read.pnext:  # mate is after this one (process the pair only once)
-            continue
-        if read.pos + read.qlen < read.pnext:  # mate is not too far (overlap impossible)
-            continue
-
-        waiting_for_mate[read.qname] = read
-
-    return matches, mismatches
-
-
-def run_pileup(sam_file, config, error_rate):
+def run_pileup(sam_file, config):
     """
     Returns a dataframe with all loci (filtered for SGB markers and min base coverage), with calculated p-values
     :param sam_file: pysam opened file
     :param config:
-    :param error_rate: Error rate, either float or "phred" to be calculated
     :return:
     """
 
@@ -228,9 +47,8 @@ def run_pileup(sam_file, config, error_rate):
 
         base_frequency = Counter(bases)
 
-        if error_rate == 'phred':
-            qualities = np.array(qualities)
-            error_rate = np.mean(10 ** (-qualities / 10))
+        qualities = np.array(qualities)
+        error_rate = np.mean(10 ** (-qualities / 10))
 
         if marker not in base_frequencies:
             le = marker_to_length[marker]

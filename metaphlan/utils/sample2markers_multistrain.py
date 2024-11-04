@@ -17,10 +17,10 @@ try:
 except ModuleNotFoundError:
     import tomli as tomllib  # https://github.com/hukkin/tomli
 
-from metaphlan.utils.multistrain.pipeline import run
-from metaphlan.utils.multistrain.utils import ArgumentType, error
-from metaphlan.utils.database_controller import StrainphlanDatabaseController
-from metaphlan.utils import info
+from . import info
+from .multistrain.pipeline import run
+from .multistrain.utils import ArgumentType, error
+from .database_controller import StrainphlanDatabaseController
 
 
 def read_params():
@@ -36,13 +36,16 @@ def read_params():
                    help="Path to the MetaPhlAn database pkl file")
     p.add_argument('-t', '--threads', type=ArgumentType.positive_int, default=1, help="Number of threads")
     # TODO: quasi markers behavior
-    # TODO: target (what to calculate) + save_files (what not to remove) + reuse (what to potentially reuse)
+    # TODO: config or arguments?
     p.add_argument('--config', type=ArgumentType.existing_file, default=None, help="Path to a config file")
-    p.add_argument('--reuse', type=str, default='all', choices=['none', 'bam', 'pileup', 'all'],
+    p.add_argument('--target', type=str, choices=['pileup', 'reconstructed_markers'], default="reconstructed_markers",
+                   help="What to calculate: pileup (only pileup file), reconstructed_markers (full reconstruction "
+                        "for phylogeny)")
+    p.add_argument('--reuse', type=str, default='all', choices=['none', 'pileup', 'all'],
                    help="Which intermediate files to reuse. None re-runs everything. "
                         "Bam will reuse the sorted bam file.")
-    p.add_argument('--save_intermediate_files', action='store_true', default=False,
-                   help="Whether to store the intermediate files (potentially big)")
+    p.add_argument('--save_bam_file', action='store_true', default=False,
+                   help="Whether to keep the preprocessed BAM file")
 
     return p
 
@@ -77,8 +80,7 @@ def check_samtools():
 
 def try_run(*args):
     try:
-        run(*args, marker_to_clade=try_run.marker_to_clade)
-        return True
+        return run(*args, marker_to_clade=try_run.marker_to_clade)
     except Exception as e:
         error(f'Error running sample {args[0]}')
         error(str(e))
@@ -104,14 +106,8 @@ def main():
     mp_version = mp_db_controller.get_database_name()
 
 
-    ss_args = []
-    for sample_path in args.input:
-        if sample_path.suffix == '.bz2':
-            sample_name = sample_path.with_suffix('').stem
-        else:
-            sample_name = sample_path.stem
-        output_dir = args.output_dir / sample_name
-        ss_args.append((sample_path, output_dir, config, args.save_intermediate_files, args.reuse, mp_version))
+    ss_args = [(sample_path, args.output_dir, config, args.target, args.save_bam_file, args.reuse, mp_version)
+               for sample_path in args.input]
 
     info(f'Running on {len(ss_args)} samples')
     if args.threads == 1 or len(ss_args) == 1:
