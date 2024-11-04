@@ -441,7 +441,7 @@ class Strainphlan:
         sample2markers = {}
         clades_to_check = set()
         all_markers = set()
-        info('Processing samples...')
+        info(f'Processing {len(self.samples)} samples...')
         consensus_markers = execute_pool(((ConsensusMarkers.from_file, sample_path) for sample_path in self.samples),
                                          nprocs=self.nprocs, return_generator=True, ordered=True)
         for sample_path, cm in zip(self.samples, consensus_markers):
@@ -635,10 +635,10 @@ def read_params():
     """
     p = ap.ArgumentParser(description="", formatter_class=ap.ArgumentDefaultsHelpFormatter)
     p.add_argument('-d', '--database', type=str, default='latest',
-                   help="The input MetaPhlAn {} database".format(__version__))
+                   help=f"The input MetaPhlAn {__version__} database: either 'latest' or a path to a .pkl file")
     p.add_argument('-m', '--clade_markers', type=str, default=None,
                    help="The clade markers as FASTA file")
-    p.add_argument('-s', '--samples', type=str, nargs='+',
+    p.add_argument('-s', '--samples', type=str, nargs='+', default=[],
                    help="The reconstructed markers for each sample")
     p.add_argument('-r', '--references', type=str, nargs='+', default=[],
                    help="The reference genomes")

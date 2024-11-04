@@ -1,13 +1,10 @@
-import setuptools
-from setuptools.command.install import install
+import sys
 from io import open
-import sys, shutil, os, zipfile, tarfile, subprocess, tempfile, re, time
-from urllib.request import urlretrieve
 
-from metaphlan import download_unpack_zip
+import setuptools
 
-
-install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'hclust2', 'requests', 'dendropy', 'pysam', 'phylophlan'],
+install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'hclust2', 'requests', 'dendropy',
+                    'pysam', 'phylophlan', 'networkx', 'statsmodels', 'tqdm'],
 
 if sys.version_info[0] < 3:
     sys.stdout.write('MetaPhlAn requires Python 3 or higher. Please update you Python installation')
@@ -20,15 +17,18 @@ setuptools.setup(
     url='http://github.com/biobakery/MetaPhlAn/',
     license='LICENSE.txt',
     packages=setuptools.find_packages(),
-    package_data = { 'metaphlan' : [
-        'metaphlan_databases/*.txt',
-        'utils/*',
-        'utils/treeshrink/*',
-        'utils/treeshrink/scripts/*',
-        'utils/treeshrink/R_scripts/*',
-        'utils/treeshrink/Rlib/BMS/*',
-        'utils/treeshrink/Rlib/BMS/*/*',
-    ] },    
+    package_data={
+        'metaphlan': [
+            'metaphlan_databases/*.txt',
+            'utils/*',
+            'utils/treeshrink/*',
+            'utils/treeshrink/scripts/*',
+            'utils/treeshrink/R_scripts/*',
+            'utils/treeshrink/Rlib/BMS/*',
+            'utils/treeshrink/Rlib/BMS/*/*',
+            'utils/multistrain/config-default.toml',
+        ]
+    },
     entry_points={
         'console_scripts': [
             'metaphlan = metaphlan.metaphlan:main',
@@ -40,6 +40,7 @@ setuptools.setup(
             'plot_tree_graphlan.py = metaphlan.utils.plot_tree_graphlan:main',
             'read_fastx.py = metaphlan.utils.read_fastx:main',
             'sample2markers.py = metaphlan.utils.sample2markers:main',
+            'sample2markers_multistrain.py = metaphlan.utils.sample2markers_multistrain:main',
             'strain_transmission.py = metaphlan.utils.strain_transmission:main',
             'sgb_to_gtdb_profile.py = metaphlan.utils.sgb_to_gtdb_profile:main',
             'metaphlan2krona.py = metaphlan.utils.metaphlan2krona:main',

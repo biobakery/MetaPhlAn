@@ -6,6 +6,8 @@ __date__ = '11 Mar 2024'
 import os
 import pickle
 import bz2
+import pathlib
+from collections.abc import Iterable
 
 import pandas as pd
 from Bio import SeqIO
@@ -40,7 +42,8 @@ class MetaphlanDatabaseController:
 
 
     def get_markers2clade(self):
-        """Retrieve information from the MetaPhlAn database
+        """
+        Get a dictionary mapping marker names to clade
 
         Returns:
             dict[str, str]: the dictionary assigning markers to clades
@@ -50,6 +53,12 @@ class MetaphlanDatabaseController:
 
 
     def get_clade2markers(self):
+        """
+        Get a dictionary mapping clades to lists of markers
+
+        Returns:
+            dict[str, Iterable]:
+        """
         markers2clade = self.get_markers2clade()
         markers2clade = pd.Series(markers2clade)
         return markers2clade.groupby(markers2clade).groups
@@ -141,11 +150,12 @@ class MetaphlanDatabaseController:
         """Resolves the path to the MPA database
 
         Args:
-            database (str): the name or path of the database
+            database (pathlib.Path|str): the name or path of the database
 
         Returns:
             str: the resolved path to the database
         """
+        database = str(database)
         if database == 'latest':
             if os.path.exists(os.path.join(self.default_db_folder, 'mpa_latest')):
                 with open(os.path.join(self.default_db_folder, 'mpa_latest'), 'r') as mpa_latest:
@@ -176,6 +186,12 @@ class MetaphlanDatabaseController:
         return sgb2size
 
     def __init__(self, database, bowtie2db=None):
+        """
+
+        Args:
+            database (pathlib.Path|str):
+            bowtie2db:
+        """
         self.mpa_script_folder = os.path.dirname(os.path.abspath(__file__))
         if bowtie2db is None:
             self.default_db_folder = os.path.join(
