@@ -224,8 +224,8 @@ if (opt$diversity == "beta"){
   # CLR or Aitchison
   if (opt$metric == "clr" || opt$metric == "aitchison"){
     # Centered Log-Ratio
-    ait_norm_mpa_table <- compositions::clr(mpa_table)
-    mat <- as.matrix(compositions::as.data.frame.rmult(ait_norm_mpa_table))
+    ait_norm_mpa_table <- compositions::clr(t(mpa_table))
+    mat <- t(as.matrix(compositions::as.data.frame.rmult(ait_norm_mpa_table)))
 
     if (opt$metric == "aitchison"){
       # Aitchison
