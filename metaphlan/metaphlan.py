@@ -777,6 +777,8 @@ class Bowtie2Controller(MappingController):
             readin.stdout.close()
             lmybytes, outf = (mybytes, bz2.BZ2File(self.mapout, "w")) if self.mapout.endswith(".bz2") else (str, open(self.mapout, "w"))
             
+            nreads, avg_read_len = self.get_nreads_and_avg_rlen(p.stderr.readlines())
+
             try:
                 if self.samout:
                     if self.samout[-4:] == '.bz2':
@@ -785,6 +787,9 @@ class Bowtie2Controller(MappingController):
                         sam_file = open(self.samout, 'wb')
             except IOError as e:
                 error('IOError: "{}"\nUnable to open sam output file.\n'.format(e), exit=True)
+
+            if self.samout:
+                sam_file.write(lmybytes('@CO\tindex:{}\n'.format(self.index))) 
             for line in p.stdout:
                 if self.samout:
                     sam_file.write(line)
@@ -798,6 +803,7 @@ class Bowtie2Controller(MappingController):
             if self.samout:
                 sam_file.close()
             p.communicate()
+
             nreads, avg_read_len = self.get_nreads_and_avg_rlen(readin.stderr.readlines())
             outf.write(lmybytes('#nreads\t{}\n'.format(nreads)))
             outf.write(lmybytes('#avg_read_length\t{}'.format(avg_read_len)))
@@ -980,7 +986,7 @@ class Minimap2Controller(MappingController):
         """
         sp_tmp = ".".join(self.mapout.split(".")[:-2]) if self.mapout.endswith("bz2") else ".".join(self.mapout.split(".")[-1])
         # mm2_cmd = [self.minimap2_exe, "-x", "asm20", "-B", "3", "-O", "3,12", "--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
-        mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
+        mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-v","0","--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
         if int(self.nproc) > 3:
             mm2_cmd += ["-t", str(self.nproc)]
         return mm2_cmd
@@ -1005,7 +1011,7 @@ class Minimap2Controller(MappingController):
             if self.verbose:
                 info("Running Minimap2", init_new_line=True)
             p = subp.Popen(self.get_minimap2cmd(), stdout=subp.PIPE, stderr=subp.DEVNULL)
-            # readin.stdout.close()
+            #readin.stdout.close()
             lmybytes, outf = (mybytes, bz2.BZ2File(self.mapout, "w")) if self.mapout.endswith(".bz2") else (str, open(self.mapout, "w"))
             
             try:
@@ -1018,6 +1024,9 @@ class Minimap2Controller(MappingController):
                     viral_sam = open(self.vsc_controller.vscSamFile, 'wb')
             except IOError as e:
                 error('IOError: "{}"\nUnable to open sam output file.\n'.format(e), exit=True)
+            
+            if self.samout:
+                sam_file.write(lmybytes('@CO\tindex:{}\n'.format(self.index))) 
             for line in p.stdout:
                 if self.samout:
                     sam_file.write(line)
