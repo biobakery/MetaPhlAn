@@ -777,8 +777,6 @@ class Bowtie2Controller(MappingController):
             readin.stdout.close()
             lmybytes, outf = (mybytes, bz2.BZ2File(self.mapout, "w")) if self.mapout.endswith(".bz2") else (str, open(self.mapout, "w"))
             
-            nreads, avg_read_len = self.get_nreads_and_avg_rlen(p.stderr.readlines())
-
             try:
                 if self.samout:
                     if self.samout[-4:] == '.bz2':
