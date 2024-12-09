@@ -94,9 +94,14 @@ class TaxClade:
             rat_nreads (list): the list of the filtered markers as a tuple marker length and number of reads mapping
         """
         rat_nreads = sorted(rat_nreads, key = lambda x: x[1])  
-        rat_v,nreads_v = zip(*rat_nreads)                
-        quant = int(self.stat_q * len(rat_nreads))
-        ql,qr,qn = (quant, -quant, quant)       
+        rat_v,nreads_v = zip(*rat_nreads) 
+        
+        if self.synth: 
+            self.stat_q = 0 
+            ql,qr,qn = (0, len(rat_nreads), 0)  
+        else:
+            quant = int(self.stat_q * len(rat_nreads))
+            ql,qr,qn = (quant, -quant, quant)       
         if self.stat == 'avg_g' or (not qn and self.stat in ['wavg_g','tavg_g']):
             self.coverage = sum(nreads_v) / float(sum(rat_v))
         elif self.stat == 'avg_l' or (not qn and self.stat in ['wavg_l','tavg_l']):
@@ -125,7 +130,10 @@ class TaxClade:
         Args:
             rat_nreads (list): the list of the filtered makers as a tuple marker length and number of reads mapping
         """
-        self.nreads = int(np.mean([float(n)/(np.absolute(r - self.avg_read_length) + 1) for r,n in rat_nreads if n > 0]) * self.glen)
+        if self.synth: 
+            self.nreads = int(np.mean([n for r,n in rat_nreads]))
+        else:
+            self.nreads = int(np.mean([float(n)/(np.absolute(r - self.avg_read_length) + 1) for r,n in rat_nreads if n > 0]) * self.glen)
     
     def filter_markers_for_ext(self):
         """Filters the makers for external hits
@@ -197,6 +205,7 @@ class TaxClade:
         self.coverage = None
         self.rel_abundance = None
         self.glen = None
+        self.synth = True if self.name.split('__')[-1] in self.synths else False
         
     stat = None
     stat_q = None
@@ -206,6 +215,7 @@ class TaxClade:
     taxa2clades = None
     markers2exts = None
     avg_read_length = None
+    synths = None
     
 
 class TaxTree:
@@ -305,7 +315,7 @@ class TaxTree:
         total = 0 # total instead of total_reads because it is bases for long reads
         for clade in self.all_clades.values():
             clade.compute_coverage()
-            if len(clade.children) == 0 and clade.coverage > 0:
+            if len(clade.children) == 0 and clade.coverage > 0 and clade.synth:
                 total_ab += clade.coverage
                 total += clade.nreads        
         for clade in self.all_clades.values():
@@ -327,7 +337,8 @@ class TaxTree:
             clade2profiles[clade.get_full_name()] = normalized_counts
         return clade2profiles
 
-    def __init__(self, database_pkl, ignore_markers, stat, stat_q, perc_nonzero, avoid_disqm, avg_read_length):
+    def __init__(self, database_pkl, ignore_markers, stat, stat_q, perc_nonzero, avoid_disqm, avg_read_length, synths):
+        TaxClade.synths = synths
         self.mpa = database_pkl
         self.ignore_markers = ignore_markers
         self.root = TaxClade('root', 0) #if not long_reads else TaxClade_longreads('root', 0)
@@ -777,8 +788,6 @@ class Bowtie2Controller(MappingController):
             readin.stdout.close()
             lmybytes, outf = (mybytes, bz2.BZ2File(self.mapout, "w")) if self.mapout.endswith(".bz2") else (str, open(self.mapout, "w"))
             
-            nreads, avg_read_len = self.get_nreads_and_avg_rlen(p.stderr.readlines())
-
             try:
                 if self.samout:
                     if self.samout[-4:] == '.bz2':
@@ -1215,6 +1224,18 @@ class Minimap2Controller(MappingController):
         self.mapping_subsampling = args.mapping_subsampling ## needed to know if readlength is needed from sam
 
 class MetaphlanAnalysis:
+    def report_synthetic(self):
+        rep_synth=set()
+        out_stream_2 = open(os.path.join(os.path.split(self.output)[0],'syn_'+os.path.split(self.output)[1]), "w")
+        with out_stream_2 as outf:
+            outf.write( "\t".join( ['Synth_seq', 'Coverage', 'N_reads'] ) + "\n" )
+            for clade in self.tree.all_clades.values():
+                if clade.synth and clade.name.split('__')[-1] not in rep_synth and clade.coverage > 0:
+                    outf.write( "\t".join( [clade.name.split('__')[-1],  str(clade.coverage), str(clade.nreads)] ) + "\n" )
+                    rep_synth.add(clade.name.split('__')[-1])
+        if len(rep_synth) == 0:
+            warning( "No synthetic sequences were detected\n" )
+
     def get_mapped_fraction(self):
         """Gets the estimated fraction of mapped reads (bases for long reads)""" 
         self.mapped = self.tree.relative_abundances()
@@ -1258,7 +1279,7 @@ class MetaphlanAnalysis:
         self.mapped = None
         self.avg_read_length = None        
         self.tree = None
-        
+        self.synth = args.synth
 
 class RelativeAbundanceAnalysis(MetaphlanAnalysis):
     def report_cami_output(self):
@@ -1325,7 +1346,7 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
         """
         clade2abundance = {}
         for clade in self.tree.all_clades.values():
-            if clade.coverage > 0 and (self.tax_lev == 'a' or clade.name.startswith(self.tax_lev + '__')):
+            if clade.coverage > 0 and (self.tax_lev == 'a' or clade.name.startswith(self.tax_lev + '__')) and not clade.synth:
                 clade2abundance[clade.get_full_name()] = (clade.get_full_taxids(), clade.rel_abundance)
         if len(clade2abundance) > 0:
             clade2abundance = dict(sorted(clade2abundance.items(), reverse=True, key=lambda x:x[1][1]+(100.0*(8-(x[0].count("|"))))))
@@ -1361,6 +1382,8 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
             if add_repr is not None:
                 warning("The metagenome profile contains clades that represent multiple species merged into a single representant. "
                         "An additional column listing the merged species is added to the MetaPhlAn output.")
+        if self.synth:
+            super().report_synthetic()
             
     def __init__(self, args, database_controller, index):
         super().__init__(args, database_controller, index)
@@ -1381,7 +1404,7 @@ class RelativeAbundanceReadStatsAnalysis(MetaphlanAnalysis):
         """
         clade2abundance = {}
         for clade in self.tree.all_clades.values():
-            if clade.coverage > 0 and (self.tax_lev == 'a' or clade.name.startswith(self.tax_lev + '__')):
+            if clade.coverage > 0 and (self.tax_lev == 'a' or clade.name.startswith(self.tax_lev + '__')) and not clade.synth:
                 clade2abundance[clade.get_full_name()] = (clade.get_full_taxids(), clade.rel_abundance, clade.coverage, clade.nreads)
         if len(clade2abundance) > 0:
             clade2abundance = dict(sorted(clade2abundance.items(), reverse=True, key=lambda x:x[1][1]+(100.0*(8-(x[0].count("|"))))))
@@ -1403,11 +1426,12 @@ class RelativeAbundanceReadStatsAnalysis(MetaphlanAnalysis):
             for clade, values in clade2abundance.items():
                 taxid, relab, coverage, nreads = values
                 outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped), str(coverage), str(nreads)] ) + "\n" )         
-            
+        if self.synth:
+            super().report_synthetic()       
     def __init__(self, args, database_controller, index):
         super().__init__(args, database_controller, index)
         self.tax_lev = args.tax_lev
-        self.unclassified_estimation = args.unclassified_estimation
+        self.unclassified_estimation = not args.skip_unclassified_estimation
     
 class CladeProfilesAnalysis(MetaphlanAnalysis):
     def report_results(self, tree, total_metagenome, avg_read_length):
@@ -1479,7 +1503,7 @@ class Metaphlan:
     def build_taxonomy_tree(self):
         """Build the MetaPhlAn taxonomy tree"""
         self.tree = TaxTree(self.database_controller.database_pkl, self.ignore_markers,
-                       self.stat, self.stat_q, self.perc_nonzero, self.avoid_disqm, self.avg_read_length) #, self.long_reads)
+                       self.stat, self.stat_q, self.perc_nonzero, self.avoid_disqm, self.avg_read_length, self.synths) #, self.long_reads)
             
     def separate_reads2markers(self, reads2markers):
         """Separates the viral hits from the reads to markers dictionary
@@ -1777,7 +1801,7 @@ class Metaphlan:
             dict: marker to reads dictionary
         """
         self.total_metagenome, self.avg_read_length, reads2markers, reads2nbases = self.mapping_controller.get_reads2markers()
-        self.build_taxonomy_tree()     
+        self.build_taxonomy_tree()    
         if not self.long_reads and self.subsampling is not None and self.mapping_subsampling:
             reads2markers = self.mapping_subsample_reads(reads2markers)
         elif self.long_reads and self.subsampling is not None and self.mapping_subsampling:
@@ -1816,6 +1840,13 @@ class Metaphlan:
                 ignore_ksgbs = self.ignore_ksgbs,
                 ignore_usgbs = self.ignore_usgbs
             )
+    
+    def get_synthetic_sgbs(self, database_pkl):
+        synths=list()
+        for t in database_pkl['taxonomy']:
+            if t.startswith('k__p'):
+                synths.append(t.split('|')[-1].split('__')[1])
+        return synths
                 
     def init_metaphlan_analysis(self, args):
         """Initializes the MetaPhlAn analysis to the specified analysis type
@@ -1843,6 +1874,7 @@ class Metaphlan:
     def run_metaphlan(self):
         """Runs the MetaPhlAn pipeline"""    
         self.index=self.database_controller.check_and_install_database()
+        self.synths=self.get_synthetic_sgbs(self.database_controller.database_pkl)
         if self.verbose:
             info('The database is installed ({})'.format(self.index), stderr=True, exit=self.install)
         if (self.subsampling_paired or self.subsampling) and not self.mapping_subsampling:
@@ -1873,6 +1905,7 @@ class Metaphlan:
         self.index = self.database_controller.resolve_index()
         self.mapping_controller = Bowtie2Controller(args, self.index) if not self.long_reads else Minimap2Controller(args, self.index, self.database_controller)
         self.metaphlan_analysis = self.init_metaphlan_analysis(args)
+        self.synths=None
         self.input_type = args.input_type
         self.ignore_eukaryotes = args.ignore_eukaryotes
         self.ignore_bacteria = args.ignore_bacteria
@@ -2030,7 +2063,9 @@ def read_params():
         " * clade_profiles: normalized marker counts for clades with at least a non-null marker\n"
         " * marker_ab_table: normalized marker counts (only when > 0.0 and normalized by metagenome size if --nreads is specified)\n"
         " * marker_pres_table: list of markers present in the sample (threshold at 1.0 if not differently specified with --pres_th\n"
-        "[default 'rel_ab']")
+        "[default 'rel_ab']")    
+    arg('--synth', type=str, default=None,
+        help="Output file for synthetic sequences\n")
     arg('--nreads', metavar="NUMBER_OF_READS", type=int, default=None, help="The total number of reads in the original metagenome. \n"
         "It is mandatory when the --input_type is a SAM file.")
     arg('--pres_th', metavar="PRESENCE_THRESHOLD", type=int, default=1.0,
@@ -2198,6 +2233,10 @@ def check_params(args):
             warning("The specified subsampling is below the recommended minimum of 1,500,000 bases.", init_new_line = True)
     if args.profile_vsc and (args.long_reads or args.split_reads):
         warning("Long-read sequencing techniques may not be suited for viral profiling", init_new_line = True)
+    if args.synth and args.long_reads:
+        error("The --synth parameter is not accepted with --long_reads", exit=True)
+    if args.synth and not (args.t == 'rel_ab' or args.t == 'rel_ab_w_read_stats'):
+        error("The --synth parameter is only accepted with --t rel_ab or --t rel_ab_w_read_stats", exit=True)
     return args
 
 def main():
