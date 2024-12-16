@@ -1895,6 +1895,7 @@ class Metaphlan:
         self.total_metagenome = None
         self.avg_read_length = None
         self.profile_vsc = args.profile_vsc
+        self.tmp_dir = args.tmp_dir
         if args.profile_vsc:
             self.vsc_controller = VSC_bt2_controller(args, self.mapping_controller, self.database_controller) if not self.long_reads else VSC_mm2_controller(args, self.mapping_controller, self.database_controller)
             self.mapping_controller.set_vsc_controller(self.vsc_controller)
