@@ -39,11 +39,12 @@ import json
 from collections import defaultdict as defdict
 try:
     from .utils import *
-    from .utils.database_controller import DEFAULT_DB_FOLDER
 except ImportError:
     from utils import *
-    from utils.database_controller import DEFAULT_DB_FOLDER
 
+metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "metaphlan_databases")
+DEFAULT_DB_FOLDER= os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
 
 class TaxClade:
     """TaxClade class"""
@@ -1875,7 +1876,7 @@ class Metaphlan:
         """Runs the MetaPhlAn pipeline"""    
         self.index=self.database_controller.check_and_install_database()
         self.synths=self.get_synthetic_sgbs(self.database_controller.database_pkl)
-        if self.verbose:
+        if self.verbose or self.install:
             info('The database is installed ({})'.format(self.index), stderr=True, exit=self.install)
         if (self.subsampling_paired or self.subsampling) and not self.mapping_subsampling:
             if not (self.long_reads or self.split_reads):
@@ -1930,6 +1931,7 @@ class Metaphlan:
         self.total_metagenome = None
         self.avg_read_length = None
         self.profile_vsc = args.profile_vsc
+        self.tmp_dir = args.tmp_dir
         if args.profile_vsc:
             self.vsc_controller = VSC_bt2_controller(args, self.mapping_controller, self.database_controller) if not self.long_reads else VSC_mm2_controller(args, self.mapping_controller, self.database_controller)
             self.mapping_controller.set_vsc_controller(self.vsc_controller)
