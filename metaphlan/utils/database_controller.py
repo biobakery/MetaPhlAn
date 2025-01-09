@@ -16,9 +16,6 @@ try:
 except ImportError:
     from util_fun import info, error, warning, byte_to_megabyte
 
-
-DEFAULT_DB_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "metaphlan_databases")
-DEFAULT_DB_FOLDER = os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
 DB_URL = 'http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases'
 
 class MetaphlanDatabaseController(): 
@@ -220,14 +217,21 @@ class MetaphlanDatabaseController():
                 info('Bowtie2 indexes not found', init_new_line = True)
         return False
 
-    def install_database(self):
-        """Install the database"""       
+
+    def check_folder_exists(self):
+        print('check_dir')
         if not os.path.isdir(self.db_dir):
+            print('no dir')
             try:
                 os.makedirs(self.db_dir)
+                print('make dir')
             except EnvironmentError as e:
                 error('EnvironmentError "{}"\n Unable to create folder for database install: '.format(e, self.db_dir), exit = True)
-        
+
+    def install_database(self):
+        """Install the database"""       
+
+        self.check_folder_exists()
         self.download_unpack_tar()
         self.prepare_indexes()
 
@@ -271,6 +275,7 @@ class MetaphlanDatabaseController():
             if not self.offline:
                 # check internet connection
                 try:
+                    self.check_folder_exists()
                     if urllib.request.urlopen(os.path.join(DB_URL,'mpa_latest')).getcode() == 200:
                         pass
                 except EnvironmentError as e:

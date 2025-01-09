@@ -39,11 +39,12 @@ import json
 from collections import defaultdict as defdict
 try:
     from .utils import *
-    from .utils.database_controller import DEFAULT_DB_FOLDER
 except ImportError:
     from utils import *
-    from utils.database_controller import DEFAULT_DB_FOLDER
 
+metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_DB_FOLDER = os.path.join(metaphlan_script_install_folder, "metaphlan_databases")
+DEFAULT_DB_FOLDER= os.environ.get('METAPHLAN_DB_DIR', DEFAULT_DB_FOLDER)
 
 class TaxClade:
     """TaxClade class"""
@@ -1841,7 +1842,7 @@ class Metaphlan:
     def run_metaphlan(self):
         """Runs the MetaPhlAn pipeline"""    
         self.index=self.database_controller.check_and_install_database()
-        if self.verbose:
+        if self.verbose or self.install:
             info('The database is installed ({})'.format(self.index), stderr=True, exit=self.install)
         if (self.subsampling_paired or self.subsampling) and not self.mapping_subsampling:
             if not (self.long_reads or self.split_reads):
