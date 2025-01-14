@@ -1902,7 +1902,7 @@ class Metaphlan:
             self.mapping_controller.set_vsc_controller(self.vsc_controller)
 
 
-def read_params():
+def read_params(args):
     """ Reads and parses the command line arguments of the script
 
     Returns:
@@ -1926,7 +1926,7 @@ def read_params():
     g = p.add_argument_group('Required arguments')
     arg = g.add_argument
     input_type_choices = ['fastq', 'fasta', 'mapout', 'sam']
-    arg('--input_type', choices=input_type_choices, help="set whether the input is the FASTA file of metagenomic reads or \n"
+    arg('--input_type', choices=input_type_choices, required = '--install' not in args, help="set whether the input is the FASTA file of metagenomic reads or \n"
         "the SAM file of the mapping of the reads against the MetaPhlAn db.\n")
     g = p.add_argument_group('Mapping arguments')
     arg = g.add_argument
@@ -2202,7 +2202,7 @@ def check_params(args):
 
 def main():
     t0 = time.time()
-    args = read_params()
+    args = read_params(sys.argv)
     if args.verbose:
         info("Start MetaPhlAn execution", stderr=True)
     args = check_params(args)
