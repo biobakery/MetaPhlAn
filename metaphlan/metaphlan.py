@@ -1961,7 +1961,7 @@ def read_params(args):
     g = p.add_argument_group('Required arguments')
     arg = g.add_argument
     input_type_choices = ['fastq', 'fasta', 'mapout', 'sam']
-    arg('--input_type', choices=input_type_choices, required='--install' not in args, help="set whether the input is the FASTA file of metagenomic reads or \n"
+    arg('--input_type', choices=input_type_choices, required = '--install' not in args, help="set whether the input is the FASTA file of metagenomic reads or \n"
         "the SAM file of the mapping of the reads against the MetaPhlAn db.\n")
     g = p.add_argument_group('Mapping arguments')
     arg = g.add_argument
