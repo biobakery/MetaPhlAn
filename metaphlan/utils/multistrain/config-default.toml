@@ -17,9 +17,16 @@ min_base_quality = 30  # minimum PHRED base quality
 #error_rate_estimation_positions = 100000   # min positions to take the estimate otherwise...
 #error_rate_fallback = 'phred'  # use the fallback value
 
-trim_marker_ends = 50  # how many positions to trim from the end of the markers
-min_marker_breadth = 0.3  # minimum breadth of coverage (at coverage = 1x) for the marker to be kept
-unusual_coverage_marker = 0.3  # the percentage of unusually covered positions to discard the whole marker
+
+# species presence calling
+min_marker_breadth = 0.1  # minimum breadth of coverage (at coverage depth >= 1x) for the marker to be kept
+quasi_marker_frac = 0.33
+min_markers_abs = 1   # minimum absolute number of markers for the SGB to keep, combined as AND with the following
+min_markers_rel = 0.2  # minimum fraction of available markers in DB to keep the SGB, combined as AND with previous
+
+
+trim_marker_ends = 0  # how many positions to trim from the end of the markers
+outlier_coverage_marker = 0.3  # the fraction of positions with outlier coverage to discard the whole marker
 q_uniformity_alpha = 0.05  # the alpha q value for the uniformity test for the marker to be reported (note that it's still kept)
 
 polymorphism_q_alpha = 0.001  # the maximum q-value in the polymorphism test
