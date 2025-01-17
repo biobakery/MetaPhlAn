@@ -16,7 +16,7 @@ def get_strainphlan_markers(strain_resolved_markers, df_results, output_dir_link
 
     def calc_breadth(s):
         t = config['trim_marker_ends']
-        s_trimmed = s[t:-t]
+        s_trimmed = s[t:-t] if t > 0 else s
         return 100 * (1 - s_trimmed.count('-') / len(s_trimmed)) if len(s_trimmed) > 0 else 0
 
     per_sgb_info = {}

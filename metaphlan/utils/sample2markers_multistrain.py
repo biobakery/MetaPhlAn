@@ -42,10 +42,11 @@ def read_params():
                    help="What to calculate: pileup (only pileup file), reconstructed_markers (full reconstruction "
                         "for phylogeny)")
     p.add_argument('--reuse', type=str, default='all', choices=['none', 'pileup', 'all'],
-                   help="Which intermediate files to reuse. None re-runs everything. "
-                        "Bam will reuse the sorted bam file.")
+                   help="Which intermediate files to reuse if present. None will force to re-run everything.")
     p.add_argument('--save_bam_file', action='store_true', default=False,
                    help="Whether to keep the preprocessed BAM file")
+    p.add_argument('--debug', action='store_true', default=False,
+                   help="Store intermediate files for debugging")
 
     return p
 
@@ -80,7 +81,7 @@ def check_samtools():
 
 def try_run(*args):
     try:
-        return run(*args, marker_to_clade=try_run.marker_to_clade)
+        return run(*args, marker_to_clade=try_run.marker_to_clade, marker_to_ext=try_run.marker_to_ext)
     except Exception as e:
         error(f'Error running sample {args[0]}')
         error(str(e))
@@ -104,23 +105,23 @@ def main():
     mp_db_controller = StrainphlanDatabaseController(args.database)
     marker_to_clade = mp_db_controller.get_markers2clade()
     mp_version = mp_db_controller.get_database_name()
+    marker_to_ext = mp_db_controller.get_markers2ext()
 
 
-    ss_args = [(sample_path, args.output_dir, config, args.target, args.save_bam_file, args.reuse, mp_version)
+    ss_args = [(sample_path, args.output_dir, config, args.target, args.debug, args.save_bam_file, args.reuse,
+                mp_version)
                for sample_path in args.input]
 
     info(f'Running on {len(ss_args)} samples')
-    if args.threads == 1 or len(ss_args) == 1:
-        try_run.marker_to_clade = marker_to_clade
 
+    # bind constant data to the function so that they are shared on fork (copy-on-write)
+    try_run.marker_to_clade = marker_to_clade
+    try_run.marker_to_ext = marker_to_ext
+
+    if args.threads == 1 or len(ss_args) == 1:
         successes = [try_run(*ss_arg) for ss_arg in ss_args]
     else:
-        # bind marker_to_clade to the function, so it's accessible in all threads
-        # (this is surprisingly without much overhead)
-        def init(fu, mtc):
-            fu.marker_to_clade = mtc
-
-        with mpp.Pool(args.threads, initializer=init, initargs=(try_run, marker_to_clade)) as pool:
+        with mpp.Pool(args.threads) as pool:
             successes = list(tqdm(pool.starmap(try_run, ss_args), total=len(ss_args)))
 
     if all(successes):
