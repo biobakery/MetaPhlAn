@@ -24,7 +24,7 @@ requirements:
     - numpy
   run:
     - python >=3
-    - bowtie2 >=2.0.0
+    - bowtie2 >=2.3.0
     - dendropy
     - numpy
     - cmseq
