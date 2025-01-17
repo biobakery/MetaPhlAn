@@ -63,7 +63,7 @@ def run_pileup(sam_file, config):
     return base_frequencies, error_rates, marker_to_length
 
 
-def filter_loci(df_loci_sgb, marker_to_length, config):
+def filter_loci(df_loci_sgb, marker_to_length, read_lens, config):
     df_loci_sgb['filtered'] = False
     df_loci_sgb['biallelic_significant'] = False
 
@@ -76,41 +76,36 @@ def filter_loci(df_loci_sgb, marker_to_length, config):
     result_row = {}
     data = {}
 
-    # trim the ends of markers
-    df_loci_sgb_filtered = df_loci_sgb[df_loci_sgb['end_pos'] >= config['trim_marker_ends']]
 
-    # filter markers with low breath of coverage
-    marker_num_positions = df_loci_sgb_filtered.groupby('marker').size()
-    marker_lens = pd.Series(index=marker_num_positions.index,
-                            data=marker_num_positions.index.map(marker_to_length))
-    marker_to_breath_rel = marker_num_positions / (marker_lens - 2 * config['trim_marker_ends'])
-    low_breadth_markers = marker_to_breath_rel.index[marker_to_breath_rel < config['min_marker_breadth']]
-    result_row['n_markers_total'] = len(marker_num_positions)
-    result_row['n_markers_low_breadth'] = len(low_breadth_markers)
-    data['low_breadth_markers'] = low_breadth_markers
-
-    df_loci_sgb_filtered = df_loci_sgb_filtered[~df_loci_sgb_filtered['marker'].isin(low_breadth_markers)]
-
-    # filter sites with unusual coverage (outside sgb-wise 1.5 IQR)
-    base_coverage = df_loci_sgb_filtered['base_coverage']
-    q25 = base_coverage.quantile(.25)
-    q75 = base_coverage.quantile(.75)
+    # filter sites with outlier coverage (outside sgb-wise 1.5 IQR)
+    # to determine the IQR consider only positions at least avg-read-length away from the ends
+    avg_read_len = np.mean(read_lens)
+    base_coverage_fit = df_loci_sgb.query(f'end_pos >= {avg_read_len}')['base_coverage']
+    base_coverage_all = df_loci_sgb['base_coverage']
+    q25 = base_coverage_fit.quantile(.25)
+    q75 = base_coverage_fit.quantile(.75)
     iqr = q75 - q25
-    mask = (base_coverage > q75 + 1.5 * iqr) | (base_coverage < q25 - 1.5 * iqr)
+    mask_fit = (base_coverage_fit > q75 + 1.5 * iqr) | (base_coverage_fit < q25 - 1.5 * iqr)
+    mask_all = (base_coverage_all > q75 + 1.5 * iqr) | (base_coverage_all < q25 - 1.5 * iqr)
     result_row['coverage_25'] = q25
-    result_row['coverage_50'] = base_coverage.median()
+    result_row['coverage_50'] = base_coverage_fit.median()
     result_row['coverage_75'] = q75
-    result_row['unusual_coverage'] = mask.mean()
-    marker_to_unusual_coverage = mask.groupby(df_loci_sgb_filtered['marker']).mean()
-    markers_unusually_covered = marker_to_unusual_coverage.index[marker_to_unusual_coverage > config['unusual_coverage_marker']]
-    result_row['unusually_covered_markers'] = len(markers_unusually_covered)
-    data['unusually_covered_markers'] = markers_unusually_covered
+    result_row['outlier_coverage'] = mask_fit.mean()
+    marker_to_outlier_coverage = mask_fit.groupby(df_loci_sgb['marker']).mean()
+    markers_outlier_covered = marker_to_outlier_coverage.index[marker_to_outlier_coverage > config['outlier_coverage_marker']]
+    result_row['outlier_covered_markers'] = len(markers_outlier_covered)
+    data['outlier_covered_markers'] = markers_outlier_covered
 
+    df_loci_sgb_filtered = df_loci_sgb[(~mask_all) & (~df_loci_sgb['marker'].isin(markers_outlier_covered))]
+
+    # trim the ends of markers
+    df_loci_sgb_filtered = df_loci_sgb_filtered[df_loci_sgb_filtered['end_pos'] >= config['trim_marker_ends']]
+
+
+    result_row['n_markers_total'] = len(df_loci_sgb['marker'].unique())
     result_row['n_positions_total'] = len(df_loci_sgb)
-    df_loci_sgb_filtered = df_loci_sgb_filtered[(~mask) & (~df_loci_sgb_filtered['marker'].isin(markers_unusually_covered))]
     result_row['n_positions_filtered'] = len(df_loci_sgb_filtered)
     result_row['n_markers_filtered'] = len(df_loci_sgb_filtered['marker'].unique())
-
     df_loci_sgb.loc[df_loci_sgb_filtered.index, 'filtered'] = True
 
 
@@ -127,16 +122,17 @@ def filter_loci(df_loci_sgb, marker_to_length, config):
         _, q_values, _, _ = smsm.multipletests(df_loci_sgb_polyallelic['p_value'], method='fdr_bh')
         df_loci_sgb_polyallelic_significant = df_loci_sgb_polyallelic[q_values < config['polymorphism_q_alpha']]
         df_loci_sgb_biallelic_significant = df_loci_sgb_polyallelic_significant.query('allelism == 2')
+        result_row['n_polyallelic_significant'] = len(df_loci_sgb_polyallelic_significant)
         result_row['n_biallelic_significant'] = len(df_loci_sgb_biallelic_significant)
 
-        if len(df_loci_sgb_biallelic_significant) > 0:
+        if len(df_loci_sgb_polyallelic_significant) > 0:
             # Filter markers by the number of sites
-            gb_marker = df_loci_sgb_biallelic_significant.groupby('marker')
+            gb_marker = df_loci_sgb_polyallelic_significant.groupby('marker')
             # Test whether the SNPs are not uniformly distributed across the marker
             ms = []
             ps = []
             for m, idx_m in gb_marker.indices.items():
-                df_loci_marker = df_loci_sgb_biallelic_significant.iloc[idx_m]
+                df_loci_marker = df_loci_sgb_polyallelic_significant.iloc[idx_m]
                 if len(df_loci_marker) < 2:
                     p_ks = 1.0
                 else:
@@ -151,6 +147,11 @@ def filter_loci(df_loci_sgb, marker_to_length, config):
             non_uniformly_covered_markers = qs.index[qs < config['q_uniformity_alpha']]
             result_row['n_markers_non_uniform_coverage'] = len(non_uniformly_covered_markers)
             data['non_uniformly_covered_markers'] = non_uniformly_covered_markers
+
+            df_loci_sgb.loc[df_loci_sgb_polyallelic_significant.index, 'polyallelic_significant'] = True
+            df_loci_sgb_polyallelic.loc[df_loci_sgb_polyallelic_significant.index, 'polyallelic_significant'] = True
+
+        if len(df_loci_sgb_biallelic_significant) > 0:
             df_loci_sgb.loc[df_loci_sgb_biallelic_significant.index, 'biallelic_significant'] = True
             df_loci_sgb_polyallelic.loc[df_loci_sgb_biallelic_significant.index, 'biallelic_significant'] = True
 

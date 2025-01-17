@@ -107,6 +107,7 @@ def prepare_sam(input_path, output_bam_path, output_dir, config):
     p2, stdin2, stdout2 = pipe_together(commands_2, stdout=fo)
 
     # Filtering of lines
+    read_lens = []
     for line in stdout1:
         line_fields = line.rstrip(b'\n').split(b'\t')
 
@@ -138,6 +139,8 @@ def prepare_sam(input_path, output_bam_path, output_dir, config):
             if pident < config['min_read_pident']:
                 continue
 
+            read_lens.append(read_len)
+
             i = read_name.rfind(b'__')
             if i != -1:
                 read_name = read_name[:i]
@@ -153,3 +156,5 @@ def prepare_sam(input_path, output_bam_path, output_dir, config):
     p2.wait()
     fi.close()
     fo.close()
+
+    return read_lens

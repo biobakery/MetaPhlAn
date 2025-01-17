@@ -85,7 +85,8 @@ class MetaphlanDatabaseController:
 
     def get_markers2ext(self):
         self.load_database()
-        return {marker_name: ['t__' + sgb for sgb in marker_info['ext']] for marker_name, marker_info in self.database_pkl['markers'].items()}
+        return {marker_name: ['t__' + sgb for sgb in marker_info['ext']]
+                for marker_name, marker_info in self.database_pkl['markers'].items()}
 
 
     def get_filtered_markers(self, clades):
