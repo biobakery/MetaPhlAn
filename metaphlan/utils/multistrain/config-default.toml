@@ -2,11 +2,12 @@
 # see https://toml.io/en/v1.0.0 for syntax
 
 fix_pairend = true  # whether to fix pair end information from metaphlan output, requires SAM in input
-dedup_reads = false  # whether to run samtools rmdup to remove duplicate reads
+dedup_stats = true  # whether to run samtools rmdup to mark and count duplicate reads
 
 # read mapping filtering
 min_mapping_quality = 1  # minimum mapQ
 filter_indels = true  # remove indel alignments
+filter_duplicates = false  # works only if dedup stats is set to true
 min_read_pident = 90  # minimum percentage of identity to keep a read
 
 # base filtering
@@ -31,14 +32,21 @@ q_uniformity_alpha = 0.05  # the alpha q value for the uniformity test for the m
 
 polymorphism_q_alpha = 0.001  # the maximum q-value in the polymorphism test
 
+
+multistrain_min_markers_abs = 1
+multistrain_min_markers_rel = 0.2
+
 #min_significant_biallelic_loci = 20  # minimum biallelic significant loci to try to fit the distribution, below that the ratio will default to r_fallback (see below)
 #frequency_distribution = "t"  # Continuous distribution to fit, can be one of (t, normal, cauchy)
 #sob_mean_base_coverage = 500  # maximum mean base coverage to use sum-of-binomials (above that use only normal distribution)
 #max_cvm = 50  # maximum Cramer von Mises criterion value for the distribution fit to be acceptable
 
+# likag graph merging
 max_w_across = 0
 min_w_along = 1
 
+# model fitting
+max_iter = 50
 snp_rate_fallback = 0.01  # the snp rate to use when fitting fails
 r_fallback = 0.5  # the major/minor ratio to use when fitting fails
 

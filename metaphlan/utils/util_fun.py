@@ -10,64 +10,60 @@ import bz2
 import gzip
 import os
 import sys
-import time
+from datetime import datetime
 
 
-def info(message, init_new_line=True, stderr=False, exit=False, exit_value=0):
-    """Prints an info message
+class GlobalFlags:
+    debug = False
 
-    Args:
-        message (str): The message to print
-        init_new_line (bool, optional): Whether to print a new line after the message. Defaults to True.
-        exit (bool, optional): Whether to finish the execution after the message. Defaults to False.
-        exit_value (int, optional): The exit value. Defaults to 0.
-    """
-    outw = sys.stdout if not stderr else sys.stderr
-    outw.write('{}: '.format(time.ctime(int(time.time()))))
-    outw.write('{}'.format(message))
+
+global_flags = GlobalFlags()
+
+
+def message(*args, outw):
+    d = datetime.now().strftime("%d/%m/%y %H:%M:%S")
+    outw.write(f"[{d}] ")
+    outw.write('{}'.format(' '.join(map(str, args))))
+    outw.write('\n')
     outw.flush()
-    if init_new_line:
-        outw.write('\n')
-    if exit:
-        sys.exit(exit_value)
 
 
-def warning(message, init_new_line=True, exit=False, exit_value=0):
-    """Prints an Warning message
+def info_debug(*args):
+    if not global_flags.debug:
+        return
+    message('Debug:', *args, outw=sys.stdout)
 
-    Args:
-        message (str): The message to print
-        init_new_line (bool, optional): Whether to print a new line after the message. Defaults to True.
-        exit (bool, optional): Whether to finish the execution after the message. Defaults to False.
-        exit_value (int, optional): The exit value. Defaults to 0.
+
+def info(*args):
     """
-    sys.stderr.write('{}: '.format(time.ctime(int(time.time()))))
-    sys.stderr.write('[Warning] {}'.format(message))
-    sys.stderr.flush()
-    if init_new_line:
-        sys.stderr.write('\n')
-    if exit:
-        sys.exit(exit_value)
 
-
-def error(message, init_new_line=True, exit=False, exit_value=1):
-    """Prints an error message
-
-    Args:
-        message (str): The message to print
-        init_new_line (bool, optional): Whether to print a new line after the message. Defaults to True.
-        exit (bool, optional): Whether to finish the execution after the message. Defaults to False.
-        exit_value (int, optional): The exit value. Defaults to 1.
+    :param args:
+    :return:
     """
-    sys.stderr.write('{}: '.format(time.ctime(int(time.time()))))
-    sys.stderr.write('[Error] {}'.format(message))
-    sys.stderr.flush()
-    if init_new_line:
-        sys.stdout.write('\n')
+    message('Info:', *args, outw=sys.stdout)
 
+
+
+def warning(*args):
+    """
+
+    :param args:
+    :return:
+    """
+    message('Warning:', *args, outw=sys.stderr)
+
+
+def error(*args, exit=False, exit_value=1):
+    """
+
+    :param args:
+    :param exit:
+    :param exit_value:
+    :return:
+    """
+    message('Error:', *args, outw=sys.stderr)
     if exit:
-        sys.stderr.write('{}: Stop execution.\n'.format(
-            time.ctime(int(time.time()))))
+        message('Exiting.', outw=sys.stderr)
         sys.exit(exit_value)
 
 

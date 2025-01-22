@@ -17,7 +17,10 @@ def calculate_linkage(df_loci_sgb, sam_file, config):
     for marker in sgb_markers:
         for read in sam_file.fetch(marker):
             # filter reads by flags and mapQ
-            if read.is_unmapped | read.is_duplicate | read.is_qcfail | read.is_secondary:
+            if read.is_unmapped | read.is_qcfail | read.is_secondary:
+                continue
+
+            if config['filter_duplicates'] and read.is_duplicate:
                 continue
 
             if read.mapping_quality < config['min_mapping_quality']:
