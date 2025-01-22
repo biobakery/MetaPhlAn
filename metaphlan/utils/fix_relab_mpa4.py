@@ -59,7 +59,7 @@ def check_params(args):
         error('--input must be specified', exit=True)
     elif not os.path.exists(args.input):
         error('The file {} does not exist'.format(
-            args.input), exit=True)           
+            args.input), exit=True)
     if not args.output:
         error('--output must be specified', exit=True)
 

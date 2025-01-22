@@ -32,6 +32,14 @@ def pipe_together(commands, stdin=sp.PIPE, stdout=sp.PIPE):
 
 
 def prepare_sam(input_path, output_bam_path, output_dir, config):
+    """
+
+    :param pathlib.Path input_path:
+    :param pathlib.Path output_bam_path:
+    :param pathlib.Path output_dir:
+    :param dict config:
+    :return:
+    """
     tmp_dir = output_dir
 
     # Define the input file
@@ -97,10 +105,10 @@ def prepare_sam(input_path, output_bam_path, output_dir, config):
     # sort the BAM
     commands_2.append(f'samtools sort -T {tmp_dir} -')
 
-    # deduplicate reads
-    if config['dedup_reads']:
+    # mark duplicate reads and produce stats
+    if config['dedup_stats']:
         markdup_stats_path = output_dir / 'markdup_stats.txt'
-        commands_2.append(f'samtools markdup -r -f {markdup_stats_path} -T {tmp_dir} - -')
+        commands_2.append(f'samtools markdup -f {markdup_stats_path} -T {tmp_dir} - -')
 
     p1, stdin1, stdout1 = pipe_together(commands_1, fi)
     fo = open(output_bam_path, 'wb')
