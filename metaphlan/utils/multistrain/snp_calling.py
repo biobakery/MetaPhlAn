@@ -1,21 +1,28 @@
 from collections import Counter
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import scipy.stats as sps
 import statsmodels.stats.multitest as smsm
+from typing import Sequence
+
+ACTGactg = 'ACTGactg'
+ACTG = 'ACTG'
+
+BAM_FUNMAP = 4
+BAM_FSECONDARY = 256
+BAM_FQCFAIL = 512
+BAM_FDUP = 1024
 
 
 def run_pileup(sam_file, config):
     """
     Returns a dataframe with all loci (filtered for SGB markers and min base coverage), with calculated p-values
     :param sam_file: pysam opened file
-    :param config:
+    :param dict config:
     :return:
     """
-
-    ACTGactg = 'ACTGactg'
-    ACTG = 'ACTG'
 
     all_markers = sam_file.references
     marker_lengths = sam_file.lengths
@@ -25,8 +32,13 @@ def run_pileup(sam_file, config):
     base_frequencies = {}
     error_rates = {}
 
+    flag_filter = BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL
+    if config['filter_duplicates']:
+        flag_filter |= BAM_FDUP
+
     for base_pileup in sam_file.pileup(contig=None, stepper='samtools', min_base_quality=config['min_base_quality'],
-                                       min_mapping_quality=config['min_mapping_quality'], ignore_orphans=False):
+                                       min_mapping_quality=config['min_mapping_quality'], ignore_orphans=False,
+                                       flag_filter=flag_filter):
         marker = base_pileup.reference_name
 
         pos = base_pileup.pos  # 0 indexed
@@ -63,8 +75,17 @@ def run_pileup(sam_file, config):
     return base_frequencies, error_rates, marker_to_length
 
 
-def filter_loci(df_loci_sgb, marker_to_length, read_lens, config):
+def filter_loci_snp_call(df_loci_sgb, marker_to_length, read_lens, config):
+    """
+
+    :param pd.DataFrame df_loci_sgb:
+    :param dict[str, int] marker_to_length:
+    :param Sequence[int] read_lens:
+    :param dict config:
+    :return:
+    """
     df_loci_sgb['filtered'] = False
+    df_loci_sgb['polyallelic_significant'] = False
     df_loci_sgb['biallelic_significant'] = False
 
     df_loci_sgb['end_pos'] = np.minimum(df_loci_sgb['pos'], df_loci_sgb['marker'].map(marker_to_length) - df_loci_sgb['pos'] + 1)
@@ -124,6 +145,8 @@ def filter_loci(df_loci_sgb, marker_to_length, read_lens, config):
         df_loci_sgb_biallelic_significant = df_loci_sgb_polyallelic_significant.query('allelism == 2')
         result_row['n_polyallelic_significant'] = len(df_loci_sgb_polyallelic_significant)
         result_row['n_biallelic_significant'] = len(df_loci_sgb_biallelic_significant)
+        result_row['n_markers_polyallelic_significant'] = len(df_loci_sgb_polyallelic_significant['marker'].unique())
+
 
         if len(df_loci_sgb_polyallelic_significant) > 0:
             # Filter markers by the number of sites
@@ -151,8 +174,8 @@ def filter_loci(df_loci_sgb, marker_to_length, read_lens, config):
             df_loci_sgb.loc[df_loci_sgb_polyallelic_significant.index, 'polyallelic_significant'] = True
             df_loci_sgb_polyallelic.loc[df_loci_sgb_polyallelic_significant.index, 'polyallelic_significant'] = True
 
-        if len(df_loci_sgb_biallelic_significant) > 0:
-            df_loci_sgb.loc[df_loci_sgb_biallelic_significant.index, 'biallelic_significant'] = True
-            df_loci_sgb_polyallelic.loc[df_loci_sgb_biallelic_significant.index, 'biallelic_significant'] = True
+            if len(df_loci_sgb_biallelic_significant) > 0:
+                df_loci_sgb.loc[df_loci_sgb_biallelic_significant.index, 'biallelic_significant'] = True
+                df_loci_sgb_polyallelic.loc[df_loci_sgb_biallelic_significant.index, 'biallelic_significant'] = True
 
     return result_row, data, df_loci_sgb, df_loci_sgb_polyallelic

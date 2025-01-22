@@ -50,12 +50,12 @@ def check_params(args):
         error('--in_sgbs must be specified', exit=True)
     elif not os.path.exists(args.in_sgbs):
         error('The file {} does not exist'.format(
-            args.in_sgbs), exit=True)           
+            args.in_sgbs), exit=True)
     if not args.out_dir:
         error('--out_dir must be specified', exit=True)
     elif not os.path.exists(args.out_dir):
         error('The file {} does not exist'.format(
-            args.out_dir), exit=True)   
+            args.out_dir), exit=True)
     if not args.out_name:
         error('--out_name must be specified', exit=True)
 
@@ -69,7 +69,7 @@ def get_to_keep_sgbs(input_file, sgbs_in_db):
                 if sgb in sgbs_in_db:
                     to_keep_sgbs.add(sgb)
                 else:
-                    warning('The input SGB {} is not in the database'.format(sgb), exit=False)
+                    warning('The input SGB {} is not in the database'.format(sgb))
             else:
                 error('The file containing the SGBs to be kept is not properly formatted!!', exit=True)
     return to_keep_sgbs

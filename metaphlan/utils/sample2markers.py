@@ -23,6 +23,7 @@ from shutil import rmtree
 from typing import TextIO
 
 import numpy as np
+import numpy.typing as npt
 import pysam
 import scipy.stats as sps
 
@@ -259,7 +260,7 @@ class SampleToMarkers:
 
         Args:
             consensuses (dict[str, str]): dictionary marker name => sequence
-            coverages: (dict[str, np.ndarray[int]]): dictionary marker name => per-base coverages
+            coverages (dict[str, npt.NDArray[int]]): dictionary marker name => per-base coverages
 
         Returns:
             list[ConsensusMarker]:

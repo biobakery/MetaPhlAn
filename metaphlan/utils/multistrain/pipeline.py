@@ -6,8 +6,10 @@ import os
 import pathlib
 import pickle
 from collections import Counter
+from typing import Sequence
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import pysam
 
@@ -18,10 +20,16 @@ from .get_strainphlan_markers import get_strainphlan_markers
 from .linkage import calculate_linkage, linkage_merging
 from .model_fitting import fit_model
 from .prepare_sam import prepare_sam
-from .snp_calling import run_pileup, filter_loci
+from .snp_calling import run_pileup, filter_loci_snp_call
+from ..util_fun import info_debug, global_flags
 
 
 def try_load_bam(bam_path):
+    """
+
+    :param pathlib.Path bam_path:
+    :return:
+    """
     try:
         return pysam.AlignmentFile(bam_path)
     except ValueError as e:
@@ -33,6 +41,15 @@ def try_load_bam(bam_path):
 
 
 def step_pileup(sample_path, bam_path, bai_path, output_dir, config):
+    """
+
+    :param pathlib.Path sample_path:
+    :param pathlib.Path bam_path:
+    :param pathlib.Path bai_path:
+    :param pathlib.Path output_dir:
+    :param dict config:
+    :return:
+    """
     info('Preparing the BAM file')
     read_lens = prepare_sam(sample_path, bam_path, output_dir, config)
 
@@ -51,6 +68,15 @@ def step_pileup(sample_path, bam_path, bai_path, output_dir, config):
 
 
 def save_pileup(pileup_path, base_frequencies, error_rates, read_lens_path, read_lens):
+    """
+
+    :param pathlib.Path pileup_path:
+    :param dict[str, dict[str, npt.NDArray]] base_frequencies:
+    :param dict[str, npt.NDArray] error_rates:
+    :param pathlib.Path read_lens_path:
+    :param Sequence[int] read_lens:
+    :return:
+    """
     pileup_path_tmp = pileup_path.with_name(pileup_path.name + '.tmp')
     with gzip.open(pileup_path_tmp, 'wb') as f:
         for m in base_frequencies.keys():
@@ -68,6 +94,12 @@ def save_pileup(pileup_path, base_frequencies, error_rates, read_lens_path, read
 
 
 def load_pileup(pileup_path, read_lens_path):
+    """
+
+    :param pathlib.Path pileup_path:
+    :param pathlib.Path read_lens_path:
+    :return:
+    """
     with gzip.open(pileup_path, 'rb') as f:
         base_frequencies = {}
         error_rates = {}
@@ -87,19 +119,20 @@ def load_pileup(pileup_path, read_lens_path):
     return base_frequencies, error_rates, marker_to_length, read_lens
 
 
-def step_reconstructed_markers(output_dir_linkages, config, debug, sam_file, base_frequencies, error_rates,
-                               read_lens, marker_to_length, marker_to_clade_db, marker_to_ext):
-    output_dir_linkages.mkdir(parents=True, exist_ok=True)
+def markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_to_ext, clade_to_n_markers_db, config):
+    """
 
-    markers_without_clade = [m for m in base_frequencies.keys() if m not in marker_to_clade_db.keys()]
+    :param dict[str, dict[str, npt.NDArray]] base_frequencies:
+    :param dict[str, str] marker_to_clade_db:
+    :param dict[str, Sequence[str]] marker_to_ext:
+    :param dict[str, int] clade_to_n_markers_db:
+    :param dict config:
+    :return:
+    """
+    markers_without_clade = [m for m in base_frequencies.keys() if m not in marker_to_clade_db]
     if len(markers_without_clade) > 0:
         raise Exception(f'There are {len(markers_without_clade)} markers without a clade:'
                         f' {utils.shorten_text(",".join(markers_without_clade))}')
-
-
-    s_marker_to_clade_db = pd.Series(marker_to_clade_db)
-    clade_to_markers_db = s_marker_to_clade_db.groupby(s_marker_to_clade_db).groups
-    clade_to_n_markers_db = {k: len(v) for k, v in clade_to_markers_db.items()}
 
     # Filter quasi markers with external hits (using >= 1 hit threshold)
     all_markers = sorted(base_frequencies.keys())
@@ -122,10 +155,41 @@ def step_reconstructed_markers(output_dir_linkages, config, debug, sam_file, bas
                       if c >= config['min_markers_abs']
                       and c / clade_to_n_markers_db[clade] >= config['min_markers_rel']]
 
+    return markers_present, clades_present
+
+
+def step_reconstructed_markers(output_dir_linkages, config, sam_file, base_frequencies, error_rates,
+                               read_lens, marker_to_length, marker_to_clade_db, marker_to_ext):
+    """
+
+    :param pathlib.Path output_dir_linkages:
+    :param dict config:
+    :param sam_file:
+    :param dict[str, dict[str, npt.NDArray]] base_frequencies:
+    :param dict[str, npt.NDArray] error_rates:
+    :param Sequence read_lens:
+    :param dict[str, int] marker_to_length:
+    :param dict[str, str] marker_to_clade_db:
+    :param dict[str, Sequence[str]] marker_to_ext:
+    :return:
+    """
+
+
+    output_dir_linkages.mkdir(parents=True, exist_ok=True)
+
+    s_marker_to_clade_db = pd.Series(marker_to_clade_db)
+    clade_to_markers_db = s_marker_to_clade_db.groupby(s_marker_to_clade_db).groups
+    clade_to_n_markers_db = {k: len(v) for k, v in clade_to_markers_db.items()}
+
+    markers_present, clades_present = markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_to_ext,
+                                                                    clade_to_n_markers_db, config)
+
 
     result_rows = {}
-    strain_resolved_markers = []
+    consensuses_maj = {}
+    consensuses_min = {}
     for sgb_id in clades_present:
+        info_debug(sgb_id, 'Preparing loci')
         loci_rows = []
         for m in clade_to_markers_db[sgb_id]:
             if m not in markers_present:
@@ -149,14 +213,39 @@ def step_reconstructed_markers(output_dir_linkages, config, debug, sam_file, bas
         df_loci_sgb = pd.DataFrame(loci_rows)
         marker_to_length_sgb = {m: marker_to_length[m] for m in
                                 df_loci_sgb['marker'].unique()}  # downsize the possibly huge dict
-        result_row, data, df_loci_sgb, df_loci_sgb_polyallelic = filter_loci(df_loci_sgb, marker_to_length_sgb,
-                                                                             read_lens, config)
-        df_loci_biallelic_significant = df_loci_sgb_polyallelic.query('biallelic_significant')
-        sgb_linkage = calculate_linkage(df_loci_biallelic_significant, sam_file, config)  # (m1, p1, m2, p2) => (b1 + b2) => count
-        merging_results_before, merging_results = linkage_merging(df_loci_biallelic_significant, sgb_linkage, config)
-        sgb_nps = merging_results[0]
-        fit_model(df_loci_sgb, result_row)
+        result_row, data, df_loci_sgb, df_loci_sgb_polyallelic = filter_loci_snp_call(df_loci_sgb, marker_to_length_sgb,
+                                                                                      read_lens, config)
+
+        if global_flags.debug:
+            df_loci_sgb_filtered = df_loci_sgb.query('filtered')
+            result_row['est_err_rate'] = 1 - df_loci_sgb['max_frequency'].sum() / df_loci_sgb['base_coverage'].sum()
+            result_row['est_err_rate_filtered'] = 1 - df_loci_sgb_filtered['max_frequency'].sum() / \
+                                                  df_loci_sgb_filtered['base_coverage'].sum()
+        if 'n_markers_polyallelic_significant' in result_row \
+                and result_row['n_markers_polyallelic_significant'] >= config['multistrain_min_markers_abs'] \
+                and result_row['n_markers_polyallelic_significant'] / clade_to_n_markers_db[sgb_id] \
+                >= config['multistrain_min_markers_rel']:
+            result_row['multi_strain'] = True
+            info_debug(sgb_id, 'is multistrain')
+            df_loci_biallelic_significant = df_loci_sgb_polyallelic.query('biallelic_significant')
+            info_debug(sgb_id, 'Creating and merging linkage')
+            sgb_linkage = calculate_linkage(df_loci_biallelic_significant, sam_file,
+                                            config)  # (m1, p1, m2, p2) => (b1 + b2) => count
+            merging_results_before, merging_results = linkage_merging(df_loci_biallelic_significant, sgb_linkage,
+                                                                      config)
+            sgb_nps = merging_results[0]
+            info_debug(sgb_id, 'Fitting model')
+            fit_model(sgb_id, df_loci_sgb, result_row, config)
+        else:
+            result_row['multi_strain'] = False
+            info_debug(sgb_id, 'is not multistrain')
+            sgb_nps = []
+            merging_results_before = ([], None)
+
+        
+        info_debug(sgb_id, 'Calculating probas')
         df_loci_sgb = calculate_strain_base_probabilities(df_loci_sgb, sgb_nps, result_row, config)
+        info_debug(sgb_id, 'Generating genotypes')
         consensuses_major, consensuses_minor, qualities_major, qualities_minor = resolve_strains(df_loci_sgb,
                                                                                                  marker_to_length_sgb)
         strain_resolved_markers_sgb = [{
@@ -169,32 +258,42 @@ def step_reconstructed_markers(output_dir_linkages, config, debug, sam_file, bas
         } for m in consensuses_major.keys()]
 
 
-        with open(output_dir_linkages / f'mrb_{sgb_id}.pic', 'wb') as f:
-            pickle.dump(merging_results_before, f)
-
-        if debug:
+        if global_flags.debug:
+            info_debug(sgb_id, 'Saving files')
             df_loci_sgb.to_csv(output_dir_linkages / f'df_loci_{sgb_id}.tsv', sep='\t', index=False)
             with open(output_dir_linkages / f'data_{sgb_id}.pic', 'wb') as f:
                 pickle.dump(data, f)
 
+        consensuses_maj_sgb, consensuses_min_sgb = get_strainphlan_markers(strain_resolved_markers_sgb, result_row,
+                                                                           merging_results_before, config)
+        consensuses_maj.update(consensuses_maj_sgb)
+        consensuses_min.update(consensuses_min_sgb)
+
         result_rows[sgb_id] = result_row
-        strain_resolved_markers.extend(strain_resolved_markers_sgb)
 
 
-    # Aggregate output
-    df_results_1 = pd.DataFrame.from_dict(result_rows, orient='index')
-    per_sgb_info, consensuses_maj, consensuses_min = get_strainphlan_markers(strain_resolved_markers, df_results_1,
-                                                                             output_dir_linkages, config)
-
-    df_results_2 = pd.DataFrame.from_dict(per_sgb_info, orient='index')
-
-    df_results = df_results_1.join(df_results_2)
+    df_results = pd.DataFrame.from_dict(result_rows, orient='index')
 
     return df_results, consensuses_maj, consensuses_min
 
 
 def save_reconstructed_markers(output_results, output_major, output_minor, mp_version, df_results, consensuses_maj,
                                consensuses_min):
+    """
+
+    :param pathlib.Path output_results:
+    :param pathlib.Path output_major:
+    :param pathlib.Path output_minor:
+    :param str mp_version:
+    :param pd.DataFrame df_results:
+    :param dict consensuses_maj:
+    :param dict consensuses_min:
+    :return:
+    """
+
+    consensuses_maj = list(consensuses_maj.values())
+    consensuses_min = list(consensuses_min.values())
+
     with bz2.open(output_minor, 'wt') as f:
         json.dump({'database_name': mp_version, 'consensus_markers': consensuses_min}, f, indent=2)
 
@@ -205,8 +304,23 @@ def save_reconstructed_markers(output_results, output_major, output_minor, mp_ve
 
 
 
-def run(sample_path, output_dir, config, target, debug, save_bam_file, reuse, mp_version, marker_to_clade,
+def run(sample_path, output_dir, config, target, save_bam_file, reuse, mp_version, marker_to_clade,
         marker_to_ext):
+    """
+
+    :param pathlib.Path sample_path:
+    :param pathlib.Path output_dir:
+    :param dict config:
+    :param str target:
+    :param bool save_bam_file:
+    :param str reuse:
+    :param str mp_version:
+    :param dict[str, str] marker_to_clade:
+    :param dict[str, Sequence[str]] marker_to_ext:
+    :return:
+    """
+
+
     if sample_path.suffix == '.bz2':
         sample_name = sample_path.with_suffix('').stem
     else:
@@ -226,7 +340,7 @@ def run(sample_path, output_dir, config, target, debug, save_bam_file, reuse, mp
     info(f'Starting sample {sample_name}')
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if debug or save_bam_file:
+    if global_flags.debug or save_bam_file:
         files_to_remove = []
     else:
         files_to_remove = [bam_path, bai_path]
@@ -262,7 +376,8 @@ def run(sample_path, output_dir, config, target, debug, save_bam_file, reuse, mp
         else:
             info(f'Calculating pileup for sample {sample_name}')
             sam_file, base_frequencies, error_rates, marker_to_length, read_lens = step_pileup(sample_path, bam_path,
-                                                                                               bai_path, output_dir, config)
+                                                                                               bai_path, output_dir,
+                                                                                               config)
             if sam_file is None:
                 return False
 
@@ -272,13 +387,13 @@ def run(sample_path, output_dir, config, target, debug, save_bam_file, reuse, mp
 
         info(f'Running marker reconstruction for sample {sample_name}')
         df_results, consensuses_maj, consensuses_min = \
-            step_reconstructed_markers(output_dir_linkages, config, debug, sam_file, base_frequencies, error_rates,
+            step_reconstructed_markers(output_dir_linkages, config, sam_file, base_frequencies, error_rates,
                                        read_lens, marker_to_length, marker_to_clade, marker_to_ext)
 
         save_reconstructed_markers(output_results, output_major, output_minor, mp_version, df_results, consensuses_maj,
                                    consensuses_min)
 
-        if not debug:
+        if not global_flags.debug:
             for sgb in df_results.index:
                 files_to_remove.append(output_dir_linkages / f'mrb_{sgb}.pic')
             dirs_to_remove.append(output_dir_linkages)

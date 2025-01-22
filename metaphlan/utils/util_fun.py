@@ -11,19 +11,42 @@ import sys
 import time
 import bz2
 import gzip
+from datetime import datetime
 
-def info(message, init_new_line=True, stderr=True, exit=False, exit_value=0):
+
+class GlobalFlags:
+    debug = False
+
+
+global_flags = GlobalFlags()
+
+
+def message(*args, outw):
+    d = datetime.now().strftime("%d/%m/%y %H:%M:%S")
+    outw.write(f"[{d}] ")
+    outw.write('{}'.format(' '.join(map(str, args))))
+    outw.write('\n')
+    outw.flush()
+
+
+def info_debug(*args):
+    if not global_flags.debug:
+        return
+    message('Debug:', *args, outw=sys.stdout)
+
+
+def info(msg, init_new_line=True, stderr=True, exit=False, exit_value=0):
     """Prints an info message
 
     Args:
-        message (str): The message to print
+        msg (str): The message to print
         init_new_line (bool, optional): Whether to print a new line after the message. Defaults to True.
         exit (bool, optional): Whether to finish the execution after the message. Defaults to False.
         exit_value (int, optional): The exit value. Defaults to 0.
     """
     outw = sys.stdout if not stderr else sys.stderr
     outw.write('{}: '.format(time.ctime(int(time.time()))))
-    outw.write('{}'.format(message))
+    outw.write('{}'.format(msg))
     outw.flush()
     if init_new_line:
         outw.write('\n')
@@ -31,17 +54,17 @@ def info(message, init_new_line=True, stderr=True, exit=False, exit_value=0):
         sys.exit(exit_value)
 
 
-def warning(message, init_new_line=True, exit=False, exit_value=0):
+def warning(msg, init_new_line=True, exit=False, exit_value=0):
     """Prints an Warning message
 
     Args:
-        message (str): The message to print
+        msg (str): The message to print
         init_new_line (bool, optional): Whether to print a new line after the message. Defaults to True.
         exit (bool, optional): Whether to finish the execution after the message. Defaults to False.
         exit_value (int, optional): The exit value. Defaults to 0.
     """
     sys.stderr.write('{}: '.format(time.ctime(int(time.time()))))
-    sys.stderr.write('[Warning] {}'.format(message))
+    sys.stderr.write('[Warning] {}'.format(msg))
     sys.stderr.flush()
     if init_new_line:
         sys.stderr.write('\n')
@@ -49,17 +72,17 @@ def warning(message, init_new_line=True, exit=False, exit_value=0):
         sys.exit(exit_value)
 
 
-def error(message, init_new_line=True, exit=False, exit_value=1):
+def error(msg, init_new_line=True, exit=False, exit_value=1):
     """Prints an error message
 
     Args:
-        message (str): The message to print
+        msg (str): The message to print
         init_new_line (bool, optional): Whether to print a new line after the message. Defaults to True.
         exit (bool, optional): Whether to finish the execution after the message. Defaults to False.
         exit_value (int, optional): The exit value. Defaults to 1.
     """
     sys.stderr.write('{}: '.format(time.ctime(int(time.time()))))
-    sys.stderr.write('[Error] {}'.format(message))
+    sys.stderr.write('[Error] {}'.format(msg))
     sys.stderr.flush()
     if init_new_line:
         sys.stderr.write('\n')
