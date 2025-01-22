@@ -12,6 +12,8 @@ import traceback
 
 from tqdm.auto import tqdm
 
+from metaphlan.utils.util_fun import global_flags
+
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:
@@ -21,6 +23,19 @@ from . import info
 from .multistrain.pipeline import run
 from .multistrain.utils import ArgumentType, error
 from .database_controller import StrainphlanDatabaseController
+
+
+class ArgTypes:
+    input: pathlib.Path
+    output_dir: pathlib.Path
+    database: pathlib.Path
+    threads: int
+    config: pathlib.Path
+    target: str
+    reuse: str
+    save_bam_file: bool
+    debug: bool
+
 
 
 def read_params():
@@ -35,7 +50,6 @@ def read_params():
     p.add_argument('-d', '--database', type=ArgumentType.existing_file, default='latest',
                    help="Path to the MetaPhlAn database pkl file")
     p.add_argument('-t', '--threads', type=ArgumentType.positive_int, default=1, help="Number of threads")
-    # TODO: quasi markers behavior
     # TODO: config or arguments?
     p.add_argument('--config', type=ArgumentType.existing_file, default=None, help="Path to a config file")
     p.add_argument('--target', type=str, choices=['pileup', 'reconstructed_markers'], default="reconstructed_markers",
@@ -51,8 +65,8 @@ def read_params():
     return p
 
 
-def check_params(argp):
-    args = argp.parse_args()
+def check_params(argp: ap.ArgumentParser):
+    args = argp.parse_args(namespace=ArgTypes())
 
     if args.config is None:
         args.config = pathlib.Path(__file__).parent / 'multistrain' / 'config-default.toml'
@@ -101,6 +115,9 @@ def main():
     with open(args.config, 'rb') as f:
         config = tomllib.load(f)
 
+    if args.debug:
+        global_flags.debug = True
+
 
     mp_db_controller = StrainphlanDatabaseController(args.database)
     marker_to_clade = mp_db_controller.get_markers2clade()
@@ -108,8 +125,7 @@ def main():
     marker_to_ext = mp_db_controller.get_markers2ext()
 
 
-    ss_args = [(sample_path, args.output_dir, config, args.target, args.debug, args.save_bam_file, args.reuse,
-                mp_version)
+    ss_args = [(sample_path, args.output_dir, config, args.target, args.save_bam_file, args.reuse, mp_version)
                for sample_path in args.input]
 
     info(f'Running on {len(ss_args)} samples')

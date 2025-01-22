@@ -5,6 +5,7 @@ import scipy.stats as sps
 
 from .utils import defaultdict_with_args
 from metaphlan.utils import warning
+from ..util_fun import info_debug
 
 
 def expit_d(x):
@@ -249,7 +250,15 @@ def fisher_information(x, df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache):
     return np.array([[i_s, i_sr], [i_sr, i_r]])
 
 
-def fit_model(df_loci_sgb, result_row):
+def fit_model(sgb_id, df_loci_sgb, result_row, config):
+    """
+
+    :param str sgb_id:
+    :param pd.DataFrame df_loci_sgb:
+    :param dict result_row:
+    :param dict config:
+    :return:
+    """
     df_loci_sgb_filtered = df_loci_sgb.query('filtered')
 
     if len(df_loci_sgb_filtered) == 0:
@@ -267,32 +276,47 @@ def fit_model(df_loci_sgb, result_row):
     dab_cache = defaultdict_with_args(calc_dab)
     d2ab_cache = defaultdict_with_args(calc_d2ab)
 
-    x0 = (spsp.logit(0.01), spsp.logit(0.75))
+    # determine starting guess
+    df_loci_polyallelic = df_loci_sgb_filtered.query('polyallelic_significant')
+    if len(df_loci_polyallelic) > 0:
+        r0 = (df_loci_polyallelic['max_frequency'] / df_loci_polyallelic['base_coverage']).mean()
+        snp_rate0 = max(0.01, len(df_loci_polyallelic) / len(df_loci_sgb_filtered))
+        info_debug(f'[{sgb_id}] Picking initial guess', r0, snp_rate0)
+    else:
+        r0 = 0.75
+        snp_rate0 = 0.01
+        info_debug(f'[{sgb_id}] Defaulting to initial guess', r0, snp_rate0)
+
+    x0 = (spsp.logit(snp_rate0), spsp.logit(r0))
     args = (df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache)
 
-    res = spo.minimize(neg_log_lik, x0, jac=neg_log_lik_jac, hess=neg_log_lik_hess, args=args, method='Newton-CG')
+    res = spo.minimize(neg_log_lik, x0, jac=neg_log_lik_jac, hess=neg_log_lik_hess, args=args, method='Newton-CG',
+                       options=dict(maxiter=config['max_iter']))
     res.method = 'Newton-CG'
 
     if not res.success or np.isnan(res.x).any():
-        warning(f'SNP rate and strain ratio fitting failed ({res.message}), will restart with a 1st order '
-                f'optimization method')
-        res = spo.minimize(neg_log_lik, x0, jac=neg_log_lik_jac, args=args, method='BFGS')
+        warning(f'[{sgb_id}] SNP rate and strain ratio fitting failed ({res.message}) after {res.nit} iterations,'
+                f' will restart with a 1st order  optimization method')
+        res = spo.minimize(neg_log_lik, x0, jac=neg_log_lik_jac, args=args, method='BFGS',
+                           options=dict(maxiter=config['max_iter']))
         res.method = 'BFGS'
 
     if not res.success or np.isnan(res.x).any():
-        warning(f'SNP rate and strain ratio fitting failed ({res.message}), will restart with a 0th order '
-                f'optimization method')
-        res = spo.minimize(neg_log_lik_logspace, x0, args=args, method='Nelder-Mead')
+        warning(f'[{sgb_id}] SNP rate and strain ratio fitting failed ({res.message}) after {res.nit} iterations,'
+                f' will restart with a 0st order  optimization method')
+        res = spo.minimize(neg_log_lik_logspace, x0, args=args, method='Nelder-Mead',
+                           options=dict(maxiter=config['max_iter']))
         res.method = 'Nelder-Mead'
 
     if res.success and not np.isnan(res.x).any():
+        info_debug(f'[{sgb_id}] Optimization took', res.nit, 'iterations')
         fisher_mat = fisher_information(res.x, *args)
         try:
             fisher_mat_inv = np.linalg.inv(fisher_mat)
             snp_rate_var, r_var = np.array([fisher_mat_inv[0, 0], fisher_mat_inv[1, 1]])
         except np.linalg.LinAlgError as e:
             if str(e) == 'Singular matrix':
-                warning('Fisher information matrix is singular')
+                warning(f'[{sgb_id}] Fisher information matrix is singular')
                 snp_rate_var, r_var = np.inf, np.inf
             else:
                 raise e
@@ -301,7 +325,8 @@ def fit_model(df_loci_sgb, result_row):
         if r < 0.5:
             r = 1 - r
     else:
-        warning(f'SNP rate and strain ratio fitting failed ({res.message}), will use fallback values')
+        warning(f'[{sgb_id}] SNP rate and strain ratio fitting failed ({res.message}) after {res.nit} iterations,'
+                f' will use fallback values')
         snp_rate, r = None, None
         snp_rate_var, r_var = None, None
 

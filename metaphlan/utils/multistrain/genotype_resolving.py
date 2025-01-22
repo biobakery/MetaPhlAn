@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import scipy.stats as sps
 
+from typing import Iterable
 from .linkage import NodePair
 from .utils import FrozenCounter
 
@@ -55,6 +56,21 @@ def get_probas_1(get_probas_1_cache, freq, cov, r, eps):
 
 
 def get_probas_2(get_probas_2_cache, log_margin_mono, log_facts_mono, log_facts_bi, log_margin_bi, freq, cov, eps, snp_rate, r):
+    """
+
+    :param get_probas_2_cache:
+    :param float log_margin_mono:
+    :param dict[str, float] log_facts_mono:
+    :param dict[str, dict[str, float] log_facts_bi:
+    :param float log_margin_bi:
+    :param FrozenCounter freq:
+    :param int cov:
+    :param float eps:
+    :param float snp_rate:
+    :param float r:
+    :return:
+    """
+
     ACTG = 'ACTG'
 
     def get_probas_2_inner():
@@ -63,9 +79,17 @@ def get_probas_2(get_probas_2_cache, log_margin_mono, log_facts_mono, log_facts_
         log_p_biallelic_prior = np.log(snp_rate)
         log_p_not_biallelic_prior = np.log(1 - snp_rate)
 
-        max_base, max_freq = freq.most_common()[0]
-        log_p_not_biallelic_ev = sps.binom.logpmf(max_freq, cov, 1 - eps)
-        log_p_biallelic_ev = sps.binom.logpmf(max_freq, cov, r * (1 - eps) + (1 - r) * eps / 3)
+        # max_base, max_freq = freq.most_common()[0]
+        # log_p_not_biallelic_ev1 = sps.binom.logpmf(max_freq,     cov, 1 - eps)
+        # log_p_not_biallelic_ev2 = sps.binom.logpmf(cov-max_freq, cov, 1 - eps)
+        # log_p_biallelic_ev1 = sps.binom.logpmf(max_freq,     cov, r * (1 - eps) + (1 - r) * eps / 3)
+        # log_p_biallelic_ev2 = sps.binom.logpmf(cov-max_freq, cov, r * (1 - eps) + (1 - r) * eps / 3)
+        # log_p_not_biallelic_ev = np.logaddexp(log_p_not_biallelic_ev1, log_p_not_biallelic_ev2)
+        # log_p_biallelic_ev = np.logaddexp(log_p_biallelic_ev1, log_p_biallelic_ev2)
+
+        r_adj = r * (1 - eps) + (1 - r) * eps / 3
+        log_p_not_biallelic_ev = np.logaddexp.reduce([sps.binom.logpmf(cov_i, cov, 1 - eps) for cov_i in freq.values()])
+        log_p_biallelic_ev = np.logaddexp.reduce([sps.binom.logpmf(cov_i, cov, r_adj) for cov_i in freq.values()])
 
         log_p_not_biallelic_fact = log_p_not_biallelic_ev + log_p_not_biallelic_prior
         log_p_biallelic_fact = log_p_biallelic_ev + log_p_biallelic_prior
@@ -78,16 +102,30 @@ def get_probas_2(get_probas_2_cache, log_margin_mono, log_facts_mono, log_facts_
         log_p_biallelic_post = log_p_biallelic_fact - log_margin
 
         # Then the probability of a base coming from major/minor strain is a weighted combination of the mono/bi-allelic
-        #   posterior probabilitites
+        #   posterior probabilities
 
-        log_p_mono = {b: log_facts_mono[b] - log_margin_mono for b in ACTG}
-        log_p_major_bi = {b: np.logaddexp.reduce(list(log_facts_bi[b].values())) - log_margin_bi for b in ACTG}
-        log_p_minor_bi = {b: np.logaddexp.reduce([v[b] for v in log_facts_bi.values()]) - log_margin_bi for b in ACTG}
+        # log_post_mono = {b: log_facts_mono[b] - log_margin_mono for b in ACTG}
+        # log_p_major_bi = {b: np.logaddexp.reduce(list(log_facts_bi[b].values())) - log_margin_bi for b in ACTG}
+        # log_p_minor_bi = {b: np.logaddexp.reduce([v[b] for v in log_facts_bi.values()]) - log_margin_bi for b in ACTG}
 
-        log_p_major = {b: np.logaddexp(log_p_not_biallelic_post + log_p_mono[b], log_p_biallelic_post + log_p_major_bi[b]) for b in ACTG}
-        log_p_minor = {b: np.logaddexp(log_p_not_biallelic_post + log_p_mono[b], log_p_biallelic_post + log_p_minor_bi[b]) for b in ACTG}
+        log_p_major_minor = {}
+        for bmaj in ACTG:
+            log_p_major_minor[bmaj] = {}
+            for bmin in ACTG:
+                if bmaj == bmin:
+                    logp = log_p_not_biallelic_post + log_facts_mono[bmaj] - log_margin_mono
+                else:
+                    logp = log_p_biallelic_post + log_facts_bi[bmaj][bmin] - log_margin_bi
+                log_p_major_minor[bmaj][bmin] = logp
 
-        return log_p_major, log_p_minor
+        # log_p_major = {b: np.logaddexp(log_p_not_biallelic_post + log_post_mono[b], log_p_biallelic_post + log_p_major_bi[b]) for b in ACTG}
+        # log_p_minor = {b: np.logaddexp(log_p_not_biallelic_post + log_post_mono[b], log_p_biallelic_post + log_p_minor_bi[b]) for b in ACTG}
+
+        log_p_major = {b: np.logaddexp.reduce(list(log_p_major_minor[b].values())) for b in ACTG}
+        log_p_minor = {b: np.logaddexp.reduce([v[b] for v in log_p_major_minor.values()]) for b in ACTG}
+
+        # return log_p_major, log_p_minor
+        return log_p_major_minor, log_p_major, log_p_minor
 
     key = (freq, cov, r, eps, snp_rate)
     if key not in get_probas_2_cache:
@@ -98,10 +136,10 @@ def get_probas_2(get_probas_2_cache, log_margin_mono, log_facts_mono, log_facts_
 def calculate_strain_base_probabilities(df_loci_sgb, node_pairs, result_row, config):
     """
 
-    :param df_loci_sgb:
-    :param list[NodePair] node_pairs:
-    :param result_row:
-    :param config:
+    :param pd.DataFrame df_loci_sgb:
+    :param Iterable[NodePair] node_pairs:
+    :param dict result_row:
+    :param dict config:
     :return:
     """
 
@@ -134,7 +172,8 @@ def calculate_strain_base_probabilities(df_loci_sgb, node_pairs, result_row, con
     args = ['log_margin_mono', 'log_facts_mono', 'log_facts_bi', 'log_margin_bi', 'base_frequencies', 'base_coverage', 'error_rate']
     res = df_loci_sgb.apply(lambda row: get_probas_2(get_probas_2_precomputed, *(row[arg] for arg in args), snp_rate, r), axis=1)
     res_a = np.array(res.values.tolist())
-    log_p_maj, log_p_min = res_a[:, 0], res_a[:, 1]
+    log_p_maj_min, log_p_maj, log_p_min = res_a[:, 0], res_a[:, 1], res_a[:, 2]
+    df_loci_sgb['log_p_maj_min'] = log_p_maj_min
     df_loci_sgb['log_p_maj'] = log_p_maj
     df_loci_sgb['log_p_min'] = log_p_min
 
@@ -179,6 +218,12 @@ def calculate_strain_base_probabilities(df_loci_sgb, node_pairs, result_row, con
 
 
 def resolve_strains(df_loci_sgb, marker_to_length):
+    """
+
+    :param pd.DataFrame df_loci_sgb:
+    :param dict[str, int] marker_to_length:
+    :return:
+    """
     df_loci_sgb = df_loci_sgb.query('filtered')
 
     consensuses_major = {}
@@ -200,12 +245,17 @@ def resolve_strains(df_loci_sgb, marker_to_length):
         if not pd.isna(row['log_p_maj_linked']):
             log_p_maj = row['log_p_maj_linked']
             log_p_min = row['log_p_min_linked']
+            maj_b, maj_log_p = max(log_p_maj.items(), key=lambda x: x[1])
+            # if 50:50, make sure to pick the other bas
+            min_b, min_log_p = max(reversed(log_p_min.items()), key=lambda x: x[1])
         else:
-            log_p_maj = row['log_p_maj']
-            log_p_min = row['log_p_min']
+            # Take the most probable combination of b_maj, b_min, then the quality will be marginalized probability
+            log_p_maj_min = row['log_p_maj_min']
+            maj_b, min_b, _ = max(((bmaj, bmin, logp) for bmaj, v in log_p_maj_min.items() for bmin, logp in v.items()),
+                                  key=lambda x: x[2])
+            maj_log_p = row['log_p_maj'][maj_b]
+            min_log_p = row['log_p_min'][min_b]
 
-        maj_b, maj_log_p = max(log_p_maj.items(), key=lambda x: x[1])
-        min_b, min_log_p = max(reversed(log_p_min.items()), key=lambda x: x[1])
 
         consensuses_major[marker][pos] = ord(maj_b)
         qualities_major[marker][pos] = maj_log_p
