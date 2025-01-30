@@ -14,6 +14,10 @@ min_read_pident = 90  # minimum percentage of identity to keep a read
 min_base_coverage = 1  # minimum base coverage
 min_base_quality = 30  # minimum PHRED base quality
 
+seq_error_stats_min_cov = 5
+discard_read_ends = true  # whether to check for excess error rate at the ends of the reads
+discard_read_ends_support = 1000
+
 #error_rate = 'phred'  # expected sequencing error rate of bases with qualities >= min_base_quality. [phred, estimate, float]
 #error_rate_estimation_positions = 100000   # min positions to take the estimate otherwise...
 #error_rate_fallback = 'phred'  # use the fallback value
@@ -26,31 +30,33 @@ min_markers_abs = 1   # minimum absolute number of markers for the SGB to keep, 
 min_markers_rel = 0.2  # minimum fraction of available markers in DB to keep the SGB, combined as AND with previous
 
 
+# Loci filtering
 trim_marker_ends = 0  # how many positions to trim from the end of the markers
 outlier_coverage_marker = 0.3  # the fraction of positions with outlier coverage to discard the whole marker
 q_uniformity_alpha = 0.05  # the alpha q value for the uniformity test for the marker to be reported (note that it's still kept)
 
+
+# SNP calling
 polymorphism_q_alpha = 0.001  # the maximum q-value in the polymorphism test
 
 
+# multistrain calling
 multistrain_min_markers_abs = 1
 multistrain_min_markers_rel = 0.2
-
-#min_significant_biallelic_loci = 20  # minimum biallelic significant loci to try to fit the distribution, below that the ratio will default to r_fallback (see below)
-#frequency_distribution = "t"  # Continuous distribution to fit, can be one of (t, normal, cauchy)
-#sob_mean_base_coverage = 500  # maximum mean base coverage to use sum-of-binomials (above that use only normal distribution)
-#max_cvm = 50  # maximum Cramer von Mises criterion value for the distribution fit to be acceptable
 
 # likag graph merging
 max_w_across = 0
 min_w_along = 1
 
 # model fitting
-max_iter = 50
+max_iter = 50  # maximum iterations to give to the optimizer
+init_r_max = 0.99  # maximum r to use as an initial guess
+init_snp_rate_min = 0.0001  # minimum snp_rate to use as an initial guess for the optimization
 snp_rate_fallback = 0.01  # the snp rate to use when fitting fails
 r_fallback = 0.5  # the major/minor ratio to use when fitting fails
 
 
+# Reconstructed markers output
 min_output_quality = 10  # Minimum PHRED base quality to consider the base as called, otherwise place a gap. [e.g. 10 ~ 90%, 20 ~ 99%, 30 ~ 99.9% confidence]
 
 min_output_breadth = 80  # Minimum breadth of coverage to output the marker [%]
