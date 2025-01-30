@@ -7,6 +7,8 @@ import scipy.stats as sps
 import statsmodels.stats.multitest as smsm
 from typing import Sequence
 
+from metaphlan.utils import warning
+
 ACTGactg = 'ACTGactg'
 ACTG = 'ACTG'
 
@@ -14,6 +16,90 @@ BAM_FUNMAP = 4
 BAM_FSECONDARY = 256
 BAM_FQCFAIL = 512
 BAM_FDUP = 1024
+
+
+def run_pileup_inner(sam_file, config, drop_read_positions=None):
+    all_markers = sam_file.references
+    marker_lengths = sam_file.lengths
+    marker_to_length = dict(zip(all_markers, marker_lengths))
+
+
+    base_frequencies = {}
+    avg_error_rates = {}
+    all_positions = Counter()
+    minor_positions = Counter()
+    per_position_eror_rates_sum = Counter()
+
+    flag_filter = BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL
+    if config['filter_duplicates']:
+        flag_filter |= BAM_FDUP
+
+    for base_pileup in sam_file.pileup(contig=None, stepper='samtools', min_base_quality=config['min_base_quality'],
+                                       min_mapping_quality=config['min_mapping_quality'], ignore_orphans=False,
+                                       flag_filter=flag_filter):
+        marker = base_pileup.reference_name
+        pos = base_pileup.reference_pos  # 0 indexed
+
+        query_sequences = base_pileup.get_query_sequences()
+        query_qualities = base_pileup.get_query_qualities()
+        query_positions = base_pileup.get_query_positions()
+        query_lens = [pu.alignment.qlen for pu in base_pileup.pileups]
+
+        # positions from the start of the read (if base is lower-case, the read had been reverse-complemented and the
+        #   position has to be counted from the end)
+        bqp = [(b.upper(), q, p if b.isupper() else ln - p - 1)
+               for b, q, p, ln in zip(query_sequences, query_qualities, query_positions, query_lens) if b in ACTGactg]
+
+        if drop_read_positions is not None:
+            bqp = [(b, q, p) for b, q, p in bqp if p not in drop_read_positions]
+
+        if not bqp:  # not covered position
+            continue
+
+        bases, qualities, positions = zip(*bqp)
+        base_coverage = len(bases)
+
+        if base_coverage < config['min_base_coverage']:
+            continue
+
+        # base is uppercase for fwd, lowercase for reverse mapping
+        base_frequency = Counter(bases)
+
+        qualities = np.array(qualities)
+        err_rates = 10 ** (-qualities / 10)
+        avg_error_rate = np.mean(err_rates)
+
+        if marker not in base_frequencies:
+            le = marker_to_length[marker]
+            base_frequencies[marker] = {b: np.zeros(le, np.uint16) for b in ACTG}
+            avg_error_rates[marker] = np.zeros(le, np.float64)
+
+        for b in base_frequency.keys():
+            base_frequencies[marker][b][pos] = base_frequency[b]
+        avg_error_rates[marker][pos] = avg_error_rate
+
+        if drop_read_positions is None and base_coverage >= config['seq_error_stats_min_cov']:
+            major_base = base_frequency.most_common(1)[0][0]
+            for b, p, e in zip(bases, positions, err_rates):
+                all_positions[p] += 1
+                per_position_eror_rates_sum[p] += e
+                if b != major_base:
+                    minor_positions[p] += 1
+
+
+    if drop_read_positions is None:
+        minor_positions = pd.Series(minor_positions, name='minor_bases')
+        all_positions = pd.Series(all_positions, name='all_bases')
+        per_position_eror_rates_sum = pd.Series(per_position_eror_rates_sum, name='sum_error_rates')
+        df_seq_errors = pd.concat([minor_positions, all_positions, per_position_eror_rates_sum], axis=1) \
+            .rename_axis('read_position').sort_index()
+        df_seq_errors['minor_bases_ratio'] = df_seq_errors['minor_bases'] / df_seq_errors['all_bases']
+        df_seq_errors['excess_err_rate'] = df_seq_errors['minor_bases'] / df_seq_errors['sum_error_rates']
+    else:
+        df_seq_errors = None
+
+
+    return base_frequencies, avg_error_rates, marker_to_length, df_seq_errors
 
 
 def run_pileup(sam_file, config):
@@ -24,55 +110,24 @@ def run_pileup(sam_file, config):
     :return:
     """
 
-    all_markers = sam_file.references
-    marker_lengths = sam_file.lengths
-    marker_to_length = dict(zip(all_markers, marker_lengths))
+    base_frequencies, avg_error_rates, marker_to_length, df_seq_errors = run_pileup_inner(sam_file, config)
 
+    if config['discard_read_ends'] and df_seq_errors['minor_bases'].sum() >= config['discard_read_ends_support']:
+        c = df_seq_errors['excess_err_rate'].dropna()
+        q25 = c.quantile(0.25)
+        q75 = c.quantile(0.75)
+        iqr = q75 - q25
+        mx = q75 + 1.5 * iqr
+        m = c > mx
+        drop_read_positions = c.index[m]
 
-    base_frequencies = {}
-    error_rates = {}
+        if len(drop_read_positions) > 0:
+            warning(f'Will not use the following positions of the reads, '
+                    f'there might be adapter contamination: {list(drop_read_positions)}')
+            base_frequencies, avg_error_rates, marker_to_length, _ = run_pileup_inner(sam_file, config,
+                                                                                      drop_read_positions)
 
-    flag_filter = BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL
-    if config['filter_duplicates']:
-        flag_filter |= BAM_FDUP
-
-    for base_pileup in sam_file.pileup(contig=None, stepper='samtools', min_base_quality=config['min_base_quality'],
-                                       min_mapping_quality=config['min_mapping_quality'], ignore_orphans=False,
-                                       flag_filter=flag_filter):
-        marker = base_pileup.reference_name
-
-        pos = base_pileup.pos  # 0 indexed
-
-        query_sequences = base_pileup.get_query_sequences()
-        query_qualities = base_pileup.get_query_qualities()
-
-        bq = [(b.upper(), q) for b, q in zip(query_sequences, query_qualities) if b in ACTGactg]
-
-        if not bq:  # not covered position (?)
-            continue
-
-        bases, qualities = zip(*bq)
-        base_coverage = len(bases)
-
-        if base_coverage < config['min_base_coverage']:
-            continue
-
-        base_frequency = Counter(bases)
-
-        qualities = np.array(qualities)
-        error_rate = np.mean(10 ** (-qualities / 10))
-
-        if marker not in base_frequencies:
-            le = marker_to_length[marker]
-            base_frequencies[marker] = {b: np.zeros(le, np.uint16) for b in ACTG}
-            error_rates[marker] = np.zeros(le, np.float64)
-
-        for b in base_frequency.keys():
-            base_frequencies[marker][b][pos] = base_frequency[b]
-        error_rates[marker][pos] = error_rate
-
-
-    return base_frequencies, error_rates, marker_to_length
+    return base_frequencies, avg_error_rates, marker_to_length, df_seq_errors
 
 
 def filter_loci_snp_call(df_loci_sgb, marker_to_length, read_lens, config):
@@ -88,8 +143,8 @@ def filter_loci_snp_call(df_loci_sgb, marker_to_length, read_lens, config):
     df_loci_sgb['polyallelic_significant'] = False
     df_loci_sgb['biallelic_significant'] = False
 
-    df_loci_sgb['end_pos'] = np.minimum(df_loci_sgb['pos'], df_loci_sgb['marker'].map(marker_to_length) - df_loci_sgb['pos'] + 1)
-    # df_loci_sgb['base_frequencies'] = df_loci_sgb.apply(lambda r: {b: r['base_frequency_' + b] for b in ACTG}, axis=1)
+    df_loci_sgb['end_pos'] = np.minimum(df_loci_sgb['pos'],
+                                        df_loci_sgb['marker'].map(marker_to_length) - df_loci_sgb['pos'] + 1)
     df_loci_sgb['base_coverage'] = df_loci_sgb['base_frequencies'].map(lambda bf: bf.total())
     df_loci_sgb['max_frequency'] = df_loci_sgb['base_frequencies'].map(lambda bf: max(bf.values()))
     df_loci_sgb['allelism'] = df_loci_sgb['base_frequencies'].map(lambda bf: sum(x > 0 for x in bf.values()))
@@ -179,3 +234,4 @@ def filter_loci_snp_call(df_loci_sgb, marker_to_length, read_lens, config):
                 df_loci_sgb_polyallelic.loc[df_loci_sgb_biallelic_significant.index, 'biallelic_significant'] = True
 
     return result_row, data, df_loci_sgb, df_loci_sgb_polyallelic
+
