@@ -55,7 +55,7 @@ def read_params():
     p.add_argument('--target', type=str, choices=['pileup', 'reconstructed_markers'], default="reconstructed_markers",
                    help="What to calculate: pileup (only pileup file), reconstructed_markers (full reconstruction "
                         "for phylogeny)")
-    p.add_argument('--reuse', type=str, default='all', choices=['none', 'pileup', 'all'],
+    p.add_argument('--reuse', type=str, default='all', choices=['none', 'bam', 'pileup', 'all'],
                    help="Which intermediate files to reuse if present. None will force to re-run everything.")
     p.add_argument('--save_bam_file', action='store_true', default=False,
                    help="Whether to keep the preprocessed BAM file")
