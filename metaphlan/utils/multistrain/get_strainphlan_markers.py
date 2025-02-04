@@ -7,6 +7,7 @@ ACTG = 'ACTG'
 
 def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_results, config):
     """
+    Assesses the quality of reconstructed markers and produces the final genotypes to output
 
     :param strain_resolved_markers_sgb:
     :param dict result_row:
@@ -62,7 +63,7 @@ def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_res
         'snp_rate_reconstructed': snp_rate_reconstructed,
     })
 
-    if result_row['multi_strain']:
+    if result_row['multi_strain'] and result_row['r_fit_var'] is not None and result_row['snp_rate_var'] is not None:
         snp_rate_predicted = result_row['snp_rate']
         r_var = result_row['r_fit_var']
         snp_rate_var = result_row['snp_rate_var']
