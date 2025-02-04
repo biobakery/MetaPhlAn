@@ -8,7 +8,7 @@ import shlex
 import numpy as np
 import scipy.special as spsp
 
-from metaphlan.utils import error
+from ...utils import error
 
 
 def get_mem_usage():

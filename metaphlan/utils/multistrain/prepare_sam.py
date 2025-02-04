@@ -4,7 +4,7 @@ from collections import Counter
 import shlex
 import subprocess as sp
 
-from metaphlan.utils import info, warning
+from ...utils import info, warning
 
 
 def pipe_together(commands, stdin=sp.PIPE, stdout=sp.PIPE):

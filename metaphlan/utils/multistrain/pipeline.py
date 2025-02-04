@@ -13,15 +13,14 @@ import numpy.typing as npt
 import pandas as pd
 import pysam
 
-from metaphlan.utils import info, error, warning
+from ...utils import info, error, warning, info_debug, global_flags
 from . import utils
-from .genotype_resolving import calculate_strain_base_probabilities, resolve_strains
+from .genotype_resolving import compute_genotypes
 from .get_strainphlan_markers import get_strainphlan_markers
 from .linkage import calculate_linkage, linkage_merging
 from .model_fitting import fit_model
 from .prepare_sam import prepare_sam
 from .snp_calling import run_pileup, filter_loci_snp_call
-from ..util_fun import info_debug, global_flags
 
 
 def try_load_bam(bam_path):
@@ -231,8 +230,9 @@ def step_reconstructed_markers(output_dir, config, sam_file, base_frequencies, e
         result_row, data, df_loci_sgb, df_loci_sgb_polyallelic = filter_loci_snp_call(df_loci_sgb, marker_to_length_sgb,
                                                                                       read_lens, config)
 
+        df_loci_sgb_filtered = df_loci_sgb.query('filtered').copy()
+
         if global_flags.debug:
-            df_loci_sgb_filtered = df_loci_sgb.query('filtered')
             result_row['est_err_rate'] = 1 - df_loci_sgb['max_frequency'].sum() / df_loci_sgb['base_coverage'].sum()
             result_row['est_err_rate_filtered'] = 1 - df_loci_sgb_filtered['max_frequency'].sum() / \
                                                   df_loci_sgb_filtered['base_coverage'].sum()
@@ -250,7 +250,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, base_frequencies, e
                                                                       config)
             sgb_nps = merging_results[0]
             info_debug(sgb_id, 'Fitting model')
-            fit_model(sgb_id, df_loci_sgb, result_row, config)
+            fit_model(sgb_id, df_loci_sgb_filtered, result_row, config)
         else:
             result_row['multi_strain'] = False
             info_debug(sgb_id, 'is not multistrain')
@@ -258,11 +258,10 @@ def step_reconstructed_markers(output_dir, config, sam_file, base_frequencies, e
             merging_results_before = ([], None)
 
 
-        info_debug(sgb_id, 'Calculating probas')
-        df_loci_sgb = calculate_strain_base_probabilities(df_loci_sgb, sgb_nps, result_row, config)
-        info_debug(sgb_id, 'Generating genotypes')
-        consensuses_major, consensuses_minor, qualities_major, qualities_minor = resolve_strains(df_loci_sgb,
-                                                                                                 marker_to_length_sgb)
+        info_debug(sgb_id, 'Generating genotype by maximizing per-position probabilities')
+        consensuses_major, consensuses_minor, qualities_major, qualities_minor =\
+            compute_genotypes(df_loci_sgb_filtered, sgb_nps, result_row, marker_to_length_sgb)
+
         strain_resolved_markers_sgb = [{
             'sgb_id': sgb_id,
             'marker': m,

@@ -3,7 +3,7 @@ from collections import defaultdict
 
 import networkx as nx
 
-from metaphlan.utils import error
+from ...utils import error
 
 
 def calculate_linkage(df_loci_sgb, sam_file, config):

@@ -12,7 +12,7 @@ import traceback
 
 from tqdm.auto import tqdm
 
-from metaphlan.utils.util_fun import global_flags
+from ..utils import global_flags
 
 try:
     import tomllib  # Python 3.11+
