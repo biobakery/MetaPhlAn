@@ -7,7 +7,7 @@ import scipy.stats as sps
 import statsmodels.stats.multitest as smsm
 from typing import Sequence
 
-from metaphlan.utils import warning
+from ...utils import info_debug, warning
 
 ACTGactg = 'ACTGactg'
 ACTG = 'ACTG'
@@ -112,6 +112,7 @@ def run_pileup(sam_file, config):
 
     base_frequencies, avg_error_rates, marker_to_length, df_seq_errors = run_pileup_inner(sam_file, config)
 
+
     if config['discard_read_ends'] and df_seq_errors['minor_bases'].sum() >= config['discard_read_ends_support']:
         c = df_seq_errors['excess_err_rate'].dropna()
         q25 = c.quantile(0.25)
@@ -121,11 +122,14 @@ def run_pileup(sam_file, config):
         m = c > mx
         drop_read_positions = c.index[m]
 
+        info_debug(q25, q75, mx, len(drop_read_positions))
         if len(drop_read_positions) > 0:
             warning(f'Will not use the following positions of the reads, '
                     f'there might be adapter contamination: {list(drop_read_positions)}')
             base_frequencies, avg_error_rates, marker_to_length, _ = run_pileup_inner(sam_file, config,
                                                                                       drop_read_positions)
+    else:
+        info_debug('Not dropping any read positions', config['discard_read_ends'], df_seq_errors['minor_bases'].sum())
 
     return base_frequencies, avg_error_rates, marker_to_length, df_seq_errors
 
