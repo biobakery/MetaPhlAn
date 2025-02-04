@@ -6,8 +6,7 @@ import scipy.stats as sps
 from typing import Sequence
 
 from .utils import defaultdict_with_args
-from metaphlan.utils import warning
-from ..util_fun import info_debug
+from ...utils import info_debug, warning
 
 
 def expit_d(x):
@@ -297,35 +296,33 @@ def run_optimization(x0, args, method, config):
         fisher_mat_inv = np.linalg.inv(fisher_mat)
     except np.linalg.LinAlgError as e:
         if str(e) == 'Singular matrix':
-            warning(f'Fisher information matrix is singular')
+            warning(f'Fisher information matrix is singular ({fisher_mat})')
             return None
         else:
             raise e
 
     res.snp_rate_var, res.r_var = np.array([fisher_mat_inv[0, 0], fisher_mat_inv[1, 1]])
-    if res.snp_rate_var < 0 or res.r_var < 0:
-        warning(f'Fisher information matrix gave negative variance')
+    if res.snp_rate_var < -config['negative_variance_tol'] or res.r_var < -config['negative_variance_tol']:
+        warning(f'Fisher information matrix gave negative variance ({res.snp_rate_var}, {res.r_var})')
         return None
 
     res.snp_rate, res.r = spsp.expit(res.x)
     if res.r < 0.5:
-        info_debug('Optimization of r converged below 0.5, flipping it')
+        info_debug(f'Optimization of r converged below 0.5 ({res.r}), flipping it')
         res.r = 1 - res.r
 
     return res
 
 
-def fit_model(sgb_id, df_loci_sgb, result_row, config):
+def fit_model(sgb_id, df_loci_sgb_filtered, result_row, config):
     """
 
     :param str sgb_id:
-    :param pd.DataFrame df_loci_sgb:
+    :param pd.DataFrame df_loci_sgb_filtered:
     :param dict result_row:
     :param dict config:
     :return:
     """
-    df_loci_sgb_filtered = df_loci_sgb.query('filtered')
-
     if len(df_loci_sgb_filtered) == 0:
         result_row['snp_rate'] = None
         result_row['r_fit'] = None
@@ -352,6 +349,7 @@ def fit_model(sgb_id, df_loci_sgb, result_row, config):
     args = (df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache)
 
 
+    # Try three optimization methods in succession
     res = run_optimization(x0, args, 'Newton-CG', config)
     if res is None:
         warning(f'[{sgb_id}] SNP rate and strain ratio fitting failed, '
@@ -361,18 +359,17 @@ def fit_model(sgb_id, df_loci_sgb, result_row, config):
         warning(f'[{sgb_id}] SNP rate and strain ratio fitting failed, '
                 f'will restart with a 0th order optimization method')
         res = run_optimization(x0, args, 'Nelder-Mead', config)
+
     if res is not None:
-        snp_rate = res.snp_rate
-        r = res.r
-        snp_rate_var = res.snp_rate_var
-        r_var = res.r_var
+        result_row['snp_rate'] = res.snp_rate
+        result_row['r_fit'] = res.r
+        result_row['snp_rate_var'] = res.snp_rate_var
+        result_row['r_fit_var'] = res.r_var
+        result_row['fit_method'] = res.method
     else:
         warning(f'[{sgb_id}] SNP rate and strain ratio fitting failed, will use fallback values')
-        snp_rate, r = None, None
-        snp_rate_var, r_var = None, None
-
-    result_row['snp_rate'] = snp_rate
-    result_row['r_fit'] = r
-    result_row['snp_rate_var'] = snp_rate_var
-    result_row['r_fit_var'] = r_var
-    result_row['fit_method'] = res.method
+        result_row['snp_rate'] = config['snp_rate_fallback']
+        result_row['r_fit'] = config['r_fallback']
+        result_row['snp_rate_var'] = None
+        result_row['r_fit_var'] = None
+        result_row['fit_method'] = 'fallback_values'
