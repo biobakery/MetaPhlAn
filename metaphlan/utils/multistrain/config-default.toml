@@ -51,6 +51,7 @@ min_w_along = 1
 # model fitting
 max_iter = 50  # maximum iterations to give to the optimizer
 init_r_max = 0.99  # maximum r to use as an initial guess
+negative_variance_tol = 1e-6  # if the calculated variance is negative but close to zero within this tolerance, accept it
 init_snp_rate_min = 0.0001  # minimum snp_rate to use as an initial guess for the optimization
 snp_rate_fallback = 0.01  # the snp rate to use when fitting fails
 r_fallback = 0.5  # the major/minor ratio to use when fitting fails
