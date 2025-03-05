@@ -2141,7 +2141,10 @@ def check_params(args):
     if args.CAMI_format_output and args.t != 'rel_ab':
         error('The --CAMI_format_output parameter can only be used with the default analysis type (rel_ab)', exit=True)    
     if args.biom_format_output and args.t != 'rel_ab':
-        error('The --biom_format_output parameter can only be used with the default analysis type (rel_ab)', exit=True)         
+        error('The --biom_format_output parameter can only be used with the default analysis type (rel_ab)', exit=True)
+    if args.force and args.input_type not in ['fastq', 'fasta']:
+        warning("The --force parameter can only be used with FASTA or FASTQ input formats, --force option will be ignored", init_new_line = True)
+        args.force = False       
     if args.force and os.path.exists(args.mapout):
         os.remove(args.mapout)
         warning("Previous mapping output file has been removed from: {}".format(args.mapout)) 
