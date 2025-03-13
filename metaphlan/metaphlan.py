@@ -7,7 +7,7 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), ' 
               'Claudia Mengoni (claudia.mengoni@unitn.it)')
 __version__ = '4.1.1'
-__date__ = '11 Mar 2024'
+__date__ = '13 Mar 2025'
 
 import sys
 try:
@@ -70,6 +70,7 @@ except ImportError:
     sys.stderr.write("Warning! Biom python library not detected!"
                      "\n Exporting to biom format will not work!\n")
 import json
+import configparser as cp
 
 # get the directory that contains this script
 metaphlan_script_install_folder = os.path.dirname(os.path.abspath(__file__))
@@ -283,6 +284,8 @@ def read_params(args):
          "'wavg_l' : winsorized average of length-normalized marker counts (at --stat_q)\n"
          "'med'    : median of length-normalized marker counts\n"
          "[default tavg_g]"   )
+    arg( '--config_stat_q',  type=str, default=None, help =
+         "Configuration file with quantile values for the robust average of specific species\n")
 
     arg = p.add_argument
 
@@ -309,6 +312,7 @@ def read_params(args):
          "The clade for clade_specific_strain_tracker analysis\n"  )
     arg( '--min_ab', metavar="", default=0.1, type=float, help =
          "The minimum percentage abundance for the clade in the clade_specific_strain_tracker analysis\n"  )
+
 
     g = p.add_argument_group('Viral Sequence Clusters Analisys')
     arg = g.add_argument
@@ -382,6 +386,36 @@ def read_params(args):
     arg("-h", "--help", action="help", help="show this help message and exit")
 
     return vars(p.parse_args())
+
+
+def read_config(config_file, clades):
+    configs = {}
+    config = cp.ConfigParser()
+    config.optionxform = str
+    config.read(config_file)
+    input_species = set()
+
+    # get species level quantile values
+    for section in config.sections():
+        for s in config[section]:
+            configs[s] = float(config[section][s])
+            input_species.add(s)
+
+    # assign the quantile values to the SGBs
+    configs_sgb = {}
+    for c in clades:
+        species = c.split('|')[6]
+        sgb = c.split('|')[7]
+        if species in configs:
+            configs_sgb[sgb] = configs[species]
+            if species in input_species:
+                input_species.remove(species)
+    
+    if len(input_species)>0:
+        input_species = ', '.join(list(input_species))
+        print("WARNING: The following species were not found in the configuration file: {}".format(input_species))
+    
+    return configs_sgb
 
 def set_mapping_arguments(index, bowtie2_db):
     mpa_pkl = 'mpa_pkl'
@@ -647,20 +681,20 @@ class TaxClade:
     markers2lens = None
     stat = None
     perc_nonzero = None
-    quantile = None
     avoid_disqm = False
     avg_read_length = 1
 
-    def __init__( self, name, tax_id, uncl = False):
+    def __init__( self, name, quantile, tax_id, uncl = False):
         self.children, self.markers2nreads = {}, {}
         self.name, self.father = name, None
         self.uncl, self.subcl_uncl = uncl, False
         self.abundance, self.uncl_abundance = None, 0
         self.nreads, self.uncl_nreads = 0, 0
         self.tax_id = tax_id
+        self.quantile = quantile
 
-    def add_child( self, name, tax_id ):
-        new_clade = TaxClade( name, tax_id )
+    def add_child( self, name, quantile, tax_id ):
+        new_clade = TaxClade( name, quantile, tax_id )
         self.children[name] = new_clade
         new_clade.father = self
         return new_clade
@@ -756,6 +790,7 @@ class TaxClade:
 
         rat_v,nreads_v = zip(*rat_nreads) if rat_nreads else ([],[])
         rat, nrawreads, loc_ab = float(sum(rat_v)) or -1.0, sum(nreads_v), 0.0
+        
         quant = int(self.quantile*len(rat_nreads))
         ql,qr,qn = (quant,-quant,quant) if quant else (None,None,0)
 
@@ -816,13 +851,14 @@ class TaxClade:
         return ret
 
 class TaxTree:
-    def __init__( self, mpa, markers_to_ignore = None ): #, min_cu_len ):
-        self.root = TaxClade( "root", 0)
+    def __init__( self, mpa, clade2quantile, markers_to_ignore = None ): #, min_cu_len ):
+        self.root = TaxClade( "root", clade2quantile['default'], 0)
         self.all_clades, self.markers2lens, self.markers2clades, self.taxa2clades, self.markers2exts = {}, {}, {}, {}, {}
         TaxClade.markers2lens = self.markers2lens
         TaxClade.markers2exts = self.markers2exts
         TaxClade.taxa2clades = self.taxa2clades
         self.avg_read_length = 1
+        self.clade2quantile = clade2quantile
 
         for clade, value in mpa['taxonomy'].items():
             clade = clade.strip().split("|")
@@ -841,7 +877,11 @@ class TaxTree:
                 else:
                     clade_taxid = taxids[i] if i < 7 and taxids is not None else None
                 if not clade_lev in father.children:
-                    father.add_child(clade_lev, tax_id=clade_taxid)
+                    if clade[i] in clade2quantile:
+                        quantile = clade2quantile[clade[i]]
+                    else:
+                        quantile = clade2quantile['default']
+                    father.add_child(clade_lev, quantile, tax_id=clade_taxid)
                     self.all_clades[clade_lev] = father.children[clade_lev]
                 if SGB_ANALYSIS: father = father.children[clade_lev]
                 if clade_lev[0] == "t":
@@ -1422,8 +1462,20 @@ def main():
     with bz2.BZ2File( pars['mpa_pkl'], 'r' ) as a:
         mpa_pkl = pickle.load( a )
 
+    # if ad hoc stat_q are provided
+    if pars['config_stat_q'] is not None:
+        if not os.path.isfile(pars['config_stat_q'] ):
+            sys.stderr.write("Error: The specified config file does not exist. Exiting...\n\n")
+            sys.exit(1)
+        clade2quantile = read_config(pars['config_stat_q'], mpa_pkl['taxonomy'])
+    else:
+        clade2quantile = dict()
+    clade2quantile['default'] = pars['stat_q']
+    
+
+
     REPORT_MERGED = mpa_pkl.get('merged_taxon',False)
-    tree = TaxTree( mpa_pkl, ignore_markers )
+    tree = TaxTree( mpa_pkl, clade2quantile, ignore_markers)
     tree.set_min_cu_len( pars['min_cu_len'] )
 
     if pars['input_type'] == 'sam' and not pars['nreads']:
