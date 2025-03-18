@@ -2,21 +2,25 @@
 # see https://toml.io/en/v1.0.0 for syntax
 
 fix_pairend = true  # whether to fix pair end information from metaphlan output, requires SAM in input
-dedup_stats = true  # whether to run samtools rmdup to mark and count duplicate reads
+dedup_stats = true  # whether to run samtools rmdup to mark and count duplicate reads. Needs to have fix_paired set to true
 
 # read mapping filtering
 min_mapping_quality = 1  # minimum mapQ
 filter_indels = true  # remove indel alignments
 filter_duplicates = false  # works only if dedup stats is set to true
 min_read_pident = 90  # minimum percentage of identity to keep a read
+oxoQ_min_base_quality = 20  # minimum PHREAD base quality to use for estimating the DNA damage
 
 # base filtering
 min_base_coverage = 1  # minimum base coverage
 min_base_quality = 30  # minimum PHRED base quality
 
 seq_error_stats_min_cov = 5
+null_err_rate_pseudocount = 1
+null_err_rate_excess_pseudocount = 1
+max_null_err_rate = 0.05
 discard_read_ends = true  # whether to check for excess error rate at the ends of the reads
-discard_read_ends_support = 1000
+discard_read_ends_support = 10
 
 #error_rate = 'phred'  # expected sequencing error rate of bases with qualities >= min_base_quality. [phred, estimate, float]
 #error_rate_estimation_positions = 100000   # min positions to take the estimate otherwise...

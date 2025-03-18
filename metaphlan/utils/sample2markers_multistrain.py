@@ -9,6 +9,7 @@ import argparse as ap
 import multiprocessing.pool as mpp
 import pathlib
 import traceback
+from typing import Sequence
 
 from tqdm.auto import tqdm
 
@@ -26,7 +27,8 @@ from .database_controller import StrainphlanDatabaseController
 
 
 class ArgTypes:
-    input: pathlib.Path
+    input: Sequence[pathlib.Path] | None
+    input_list: pathlib.Path | None
     output_dir: pathlib.Path
     database: pathlib.Path
     threads: int
@@ -43,8 +45,11 @@ def read_params():
                           formatter_class=ap.ArgumentDefaultsHelpFormatter)
 
     # TODO: consistency --input vs. --samples across strainphlan, sample2markers, sample2markers_multistrain
-    p.add_argument('-i', '--input', type=ArgumentType.existing_file, nargs='+', required=True,
-                   help="Paths to the SAM files, separate multiple samples by space")
+    input_g = p.add_mutually_exclusive_group(required=True)
+    input_g.add_argument('-i', '--input', type=ArgumentType.existing_file, nargs='+',
+                         help="Paths to the SAM files, separate multiple samples by space")
+    input_g.add_argument('--input_list', type=ArgumentType.existing_file,
+                         help='Path to a txt file, on each line there\'s a path to a SAM file as in --input')
     p.add_argument('-o', '--output_dir', type=ArgumentType.creatable_dir, required=True,
                    help="Path to the output directory")
     p.add_argument('-d', '--database', type=ArgumentType.existing_file, default='latest',
@@ -67,6 +72,11 @@ def read_params():
 
 def check_params(argp: ap.ArgumentParser):
     args = argp.parse_args(namespace=ArgTypes())
+
+    if args.input_list is not None:
+        with open(args.input_list) as f:
+            args.input = [pathlib.Path(line.strip()) for line in f if line.strip()]
+        info(f'Found {len(args.input)} samples in the specified input file')
 
     if args.config is None:
         args.config = pathlib.Path(__file__).parent / 'multistrain' / 'config-default.toml'
@@ -93,7 +103,7 @@ def check_samtools():
     info(f'Using samtools version {samtools_version}')
 
 
-def try_run(*args):
+def try_run(args):
     try:
         return run(*args, marker_to_clade=try_run.marker_to_clade, marker_to_ext=try_run.marker_to_ext)
     except Exception as e:
@@ -121,11 +131,11 @@ def main():
 
     mp_db_controller = StrainphlanDatabaseController(args.database)
     marker_to_clade = mp_db_controller.get_markers2clade()
-    mp_version = mp_db_controller.get_database_name()
+    db_name = mp_db_controller.get_database_name()
     marker_to_ext = mp_db_controller.get_markers2ext()
 
 
-    ss_args = [(sample_path, args.output_dir, config, args.target, args.save_bam_file, args.reuse, mp_version)
+    ss_args = [(sample_path, args.output_dir, config, args.target, args.save_bam_file, args.reuse, db_name)
                for sample_path in args.input]
 
     info(f'Running on {len(ss_args)} samples')
@@ -138,7 +148,7 @@ def main():
         successes = [try_run(*ss_arg) for ss_arg in ss_args]
     else:
         with mpp.Pool(args.threads) as pool:
-            successes = list(tqdm(pool.starmap(try_run, ss_args), total=len(ss_args)))
+            successes = list(tqdm(pool.imap_unordered(try_run, ss_args), total=len(ss_args)))
 
     if all(successes):
         info(f'Successfully finished sample2markers multi-strain, results are stored at {args.output_dir}')
