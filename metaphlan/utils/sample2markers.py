@@ -242,7 +242,7 @@ class SampleToMarkers:
 
     @staticmethod
     def parallel_filter_sam(input_file, tmp_dir, input_format, min_mapping_quality, min_reads_aligning,
-                            filtered_markers, all_markers):
+                            filtered_markers, all_markers, db_name):
         """
         Filters an input SAM file
             * filters out viral markers (VDB)
@@ -257,6 +257,7 @@ class SampleToMarkers:
             min_mapping_quality:
             filtered_markers (set): the list with the markers of the filtered clades, None if to use all markers
             all_markers:
+            db_name:
 
         Returns:
             str: the path to the output file
@@ -283,6 +284,11 @@ class SampleToMarkers:
         marker_to_reads = Counter()
         for line in ifn:
             if line.startswith(b'@'):
+                if line.startswith(b'@CO\tindex:'):
+                    db_sam = line[len(b'@CO\tindex:'):].decode().strip()
+                    if db_sam != db_name:
+                        error(f'The database of the sample {db_sam} does not match {db_name}', exit=True)
+
                 continue
             line_fields = line.rstrip(b'\n').split(b'\t')
             if filter_mapping_line(line_fields, filtered_markers):
@@ -311,15 +317,19 @@ class SampleToMarkers:
         ifn.close()
         return output_file
 
+
     def filter_sam_files(self):
         """Filters the input SAM files with the hits against markers of specific clades and low quality reads"""
         filtered_markers = self.database_controller.get_filtered_markers(self.clades) if len(self.clades) > 0 else None
         all_markers = set(self.database_controller.get_all_markers())
+        db_name = self.database_controller.get_database_name()
         self.input = execute_pool(((SampleToMarkers.parallel_filter_sam, i, self.tmp_dir, self.input_format,
-                                    self.min_mapping_quality, self.min_reads_aligning, filtered_markers, all_markers)
+                                    self.min_mapping_quality, self.min_reads_aligning, filtered_markers, all_markers,
+                                    db_name)
                                    for i in self.input), self.nprocs)
         self.input_format = 'sam'
         self.sorted = False
+
 
     def run_sample2markers(self):
         """Runs the full sample2markes pipeline"""
