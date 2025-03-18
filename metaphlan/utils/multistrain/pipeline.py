@@ -20,7 +20,7 @@ from .get_strainphlan_markers import get_strainphlan_markers
 from .linkage import calculate_linkage, linkage_merging
 from .model_fitting import fit_model
 from .prepare_sam import prepare_sam
-from .snp_calling import run_pileup, filter_loci_snp_call
+from .snp_calling import run_pileup, filter_loci_snp_call, PileupResult
 
 
 def try_load_bam(bam_path):
@@ -40,7 +40,7 @@ def try_load_bam(bam_path):
             raise e
 
 
-def step_bam(sample_path, bam_path, bai_path, output_dir, config):
+def step_bam(sample_path, bam_path, bai_path, output_dir, db_name, config):
     """
 
     :param pathlib.Path sample_path:
@@ -50,7 +50,7 @@ def step_bam(sample_path, bam_path, bai_path, output_dir, config):
     :param dict config:
     :return:
     """
-    read_lens = prepare_sam(sample_path, bam_path, output_dir, config)
+    read_lens = prepare_sam(sample_path, bam_path, output_dir, db_name, config)
 
     bai_path.unlink(missing_ok=True)
     pysam.index(str(bam_path))
@@ -88,51 +88,89 @@ def load_bam(bam_path, read_lens_path):
     return sam_file, read_lens
 
 
-def save_pileup(pileup_path, base_frequencies, error_rates, seq_error_path, df_seq_errors):
+def save_pileup(pr, pileup_path, seq_error_path, null_err_rate_path):
     """
 
+    :param PileupResult pr:
     :param pathlib.Path pileup_path:
-    :param dict[str, dict[str, npt.NDArray]] base_frequencies:
-    :param dict[str, npt.NDArray] error_rates:
     :param pathlib.Path seq_error_path:
-    :param pd.DataFrame df_seq_errors:
+    :param pathlib.Path null_err_rate_path:
     :return:
     """
     pileup_path_tmp = pileup_path.with_name(pileup_path.name + '.tmp')
     with gzip.open(pileup_path_tmp, 'wb') as f:
-        for m in base_frequencies.keys():
-            bfs = {b: base64.b64encode(a) for b, a in base_frequencies[m].items()}
-            er = base64.b64encode(error_rates[m])
+        for m in pr.base_frequencies.keys():
+            bfs = {b: base64.b64encode(a) for b, a in pr.base_frequencies[m].items()}
+            er = base64.b64encode(pr.avg_error_rates[m])
             line = b'\t'.join([m.encode()] + [bfs[b] for b in 'ACTG'] + [er]) + b'\n'
             f.write(line)
 
     pileup_path_tmp.rename(pileup_path)
 
     seq_error_path_tmp = seq_error_path.with_name(seq_error_path.name + '.tmp')
-    df_seq_errors.reset_index().to_csv(seq_error_path_tmp, index=False)
+    pr.df_seq_errors.reset_index().to_csv(seq_error_path_tmp, index=False)
     seq_error_path_tmp.rename(seq_error_path)
 
+    null_err_rate_path_tmp = null_err_rate_path.with_name(null_err_rate_path.name + '.tmp')
+    with open(null_err_rate_path_tmp, 'w') as f:
+        f.write('null_err_rate\t' + str(pr.null_err_rate) + '\n')
+        f.write('substitutions\t' + json.dumps(pr.substitutions) + '\n')
+        f.write('substitutions_per_position\t' + json.dumps(pr.substitutions_per_position) + '\n')
+        f.write('contexts\t' + json.dumps(pr.contexts) + '\n')
+    null_err_rate_path_tmp.rename(null_err_rate_path)
 
-def load_pileup(pileup_path):
+
+def load_pileup(pileup_path, null_err_rate_path):
     """
 
     :param pathlib.Path pileup_path:
+    :param pathlib.Path null_err_rate_path:
     :return:
     """
     with gzip.open(pileup_path, 'rb') as f:
         base_frequencies = {}
-        error_rates = {}
+        avg_error_rates = {}
         marker_to_length = {}
         for line in f:
             bf = {}
             m, bf['A'], bf['C'], bf['T'], bf['G'], er = line.strip().split(b'\t')
             m = m.decode()
             base_frequencies[m] = {b: np.frombuffer(base64.decodebytes(x), dtype=np.uint16) for b, x in bf.items()}
-            error_rates[m] = np.frombuffer(base64.decodebytes(er), dtype=np.float64)
-            marker_to_length[m] = len(error_rates[m])
+            avg_error_rates[m] = np.frombuffer(base64.decodebytes(er), dtype=np.float64)
+            marker_to_length[m] = len(avg_error_rates[m])
 
+    with open(null_err_rate_path, 'r') as f:
+        desc, null_err_rate = next(f).rstrip('\n').split('\t')
+        assert desc == "null_err_rate"
+        if null_err_rate == "None":
+            null_err_rate = None
+        else:
+            null_err_rate = float(null_err_rate)
 
-    return base_frequencies, error_rates, marker_to_length
+        desc, subs = next(f).rstrip('\n').split('\t')
+        assert desc == "substitutions"
+        if subs == "None":
+            subs = None
+        else:
+            subs = {k: Counter(v) for k, v in json.loads(subs).items()}
+
+        desc, subs_pos = next(f).rstrip('\n').split('\t')
+        assert desc == "substitutions_per_position"
+        if subs_pos == "None":
+            subs_pos = None
+        else:
+            subs_pos = {k: {k2: Counter({int(k3): int(v3) for k3, v3 in v2.items()}) for k2, v2 in v.items()}
+                        for k, v in json.loads(subs_pos).items()}
+
+        desc, contexts = next(f).rstrip('\n').split('\t')
+        assert desc == "contexts"
+        if contexts == "None":
+            contexts = None
+        else:
+            contexts = {k: {k2: Counter(v2) for k2, v2 in v.items()} for k, v in json.loads(contexts).items()}
+
+    return PileupResult(base_frequencies, avg_error_rates, marker_to_length, None, null_err_rate, subs, subs_pos,
+                        contexts)
 
 
 def markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_to_ext, clade_to_n_markers_db, config):
@@ -174,17 +212,14 @@ def markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_t
     return markers_present, clades_present
 
 
-def step_reconstructed_markers(output_dir, config, sam_file, base_frequencies, error_rates,
-                               read_lens, marker_to_length, marker_to_clade_db, marker_to_ext):
+def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, marker_to_clade_db, marker_to_ext):
     """
 
     :param pathlib.Path output_dir:
     :param dict config:
     :param sam_file:
-    :param dict[str, dict[str, npt.NDArray]] base_frequencies:
-    :param dict[str, npt.NDArray] error_rates:
+    :param PileupResult pr:
     :param Sequence read_lens:
-    :param dict[str, int] marker_to_length:
     :param dict[str, str] marker_to_clade_db:
     :param dict[str, Sequence[str]] marker_to_ext:
     :return:
@@ -195,8 +230,8 @@ def step_reconstructed_markers(output_dir, config, sam_file, base_frequencies, e
     clade_to_markers_db = s_marker_to_clade_db.groupby(s_marker_to_clade_db).groups
     clade_to_n_markers_db = {k: len(v) for k, v in clade_to_markers_db.items()}
 
-    markers_present, clades_present = markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_to_ext,
-                                                                    clade_to_n_markers_db, config)
+    markers_present, clades_present = markers_and_species_filtering(pr.base_frequencies, marker_to_clade_db,
+                                                                    marker_to_ext, clade_to_n_markers_db, config)
 
 
     result_rows = {}
@@ -209,15 +244,21 @@ def step_reconstructed_markers(output_dir, config, sam_file, base_frequencies, e
             if m not in markers_present:
                 continue
 
-            for pos in range(marker_to_length[m]):
-                bfs = {b: base_frequencies[m][b][pos] for b in 'ACTG'}
+            for pos in range(pr.marker_to_length[m]):
+                bfs = {b: pr.base_frequencies[m][b][pos] for b in 'ACTG'}
                 bfs = Counter({k: v for k, v in bfs.items() if v > 0})
                 if bfs.total() == 0:
                     continue
+
+                if pr.null_err_rate is not None:
+                    pos_err_rate = pr.null_err_rate
+                else:
+                    pos_err_rate = pr.avg_error_rates[m][pos]
+
                 loci_rows.append({
                     'marker': m,
                     'pos': pos + 1,
-                    'error_rate': error_rates[m][pos],
+                    'error_rate': pos_err_rate,
                     'base_frequencies': bfs,
                 })
         if len(loci_rows) == 0:
@@ -225,7 +266,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, base_frequencies, e
             continue
 
         df_loci_sgb = pd.DataFrame(loci_rows)
-        marker_to_length_sgb = {m: marker_to_length[m] for m in
+        marker_to_length_sgb = {m: pr.marker_to_length[m] for m in
                                 df_loci_sgb['marker'].unique()}  # downsize the possibly huge dict
         result_row, data, df_loci_sgb, df_loci_sgb_polyallelic = filter_loci_snp_call(df_loci_sgb, marker_to_length_sgb,
                                                                                       read_lens, config)
@@ -320,7 +361,7 @@ def save_reconstructed_markers(output_results, output_major, output_minor, mp_ve
 
 
 
-def run(sample_path, output_dir, config, target, save_bam_file, reuse, mp_version, marker_to_clade,
+def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, marker_to_clade,
         marker_to_ext):
     """
 
@@ -330,7 +371,7 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, mp_versio
     :param str target:
     :param bool save_bam_file:
     :param str reuse:
-    :param str mp_version:
+    :param str db_name:
     :param dict[str, str] marker_to_clade:
     :param dict[str, Sequence[str]] marker_to_ext:
     :return:
@@ -344,9 +385,13 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, mp_versio
 
     output_dir = output_dir / sample_name
 
-    pileup_path = output_dir / 'pileup.tsv.gz'
+    pileup_path_before = output_dir / 'pileup_nonfilt.tsv.gz'
+    pileup_path_after = output_dir / 'pileup.tsv.gz'
     read_lens_path = output_dir / 'read_lengths.txt.gz'
-    seq_error_path = output_dir / 'seq_error_profile.csv'
+    null_err_rate_path_before = output_dir / 'null_err_rate_nonfilt.txt'
+    null_err_rate_path_after = output_dir / 'null_err_rate.txt'
+    seq_error_path_before = output_dir / 'seq_error_profile_nonfilt.csv'
+    seq_error_path_after = output_dir / 'seq_error_profile.csv'
     bam_path = output_dir / f'{sample_name}.sorted.bam'
     bai_path = bam_path.with_suffix(bam_path.suffix + '.bai')
     output_results = output_dir / 'results.tsv'
@@ -363,9 +408,11 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, mp_versio
     dirs_to_remove = []
 
 
-    pileup_target_files = [pileup_path]  # files to consider the step to be satisfied
+    pileup_target_files = [pileup_path_before, pileup_path_after, null_err_rate_path_before,
+                           null_err_rate_path_after]  # files to consider the step to be satisfied
     bam_target_files = [bam_path, bai_path, read_lens_path]  # files to consider the step to be satisfied
-    pileup_output_files = [pileup_path, read_lens_path, bam_path, bai_path]  # files to be able to reuse this step
+    pileup_output_files = [pileup_path_before, pileup_path_after, null_err_rate_path_before, null_err_rate_path_after,
+                           read_lens_path, bam_path, bai_path]  # files to be able to reuse this step
     rm_target_files = [output_results, output_major, output_minor]  # files to consider the step to be satisfied
 
     def meta_step_pileup():
@@ -374,19 +421,20 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, mp_versio
             sam_file_, read_lens_ = load_bam(bam_path, read_lens_path)
         else:
             info(f'Preprocessing the BAM file for sample {sample_name}')
-            sam_file_, read_lens_ = step_bam(sample_path, bam_path, bai_path, output_dir, config)
+            sam_file_, read_lens_ = step_bam(sample_path, bam_path, bai_path, output_dir, db_name, config)
             save_bam(read_lens_path, read_lens_)
 
         if sam_file_ is None:
-            return None, None, None, None, None
+            return None, None, None, None, None, None
+
 
         info(f'Calculating pileup for sample {sample_name}')
-        base_frequencies_, error_rates_, marker_to_length_, df_seq_errors_ = run_pileup(sam_file_, config)
+        pr_before_, pr_after_ = run_pileup(sam_file_, config)
         info_debug('Saving pileup')
-        save_pileup(pileup_path, base_frequencies_, error_rates_, seq_error_path, df_seq_errors_)
+        save_pileup(pr_before_, pileup_path_before, seq_error_path_before, null_err_rate_path_before)
+        save_pileup(pr_after_, pileup_path_after, seq_error_path_after, null_err_rate_path_after)
 
-        return sam_file_, base_frequencies_, error_rates_, read_lens_, marker_to_length_
-
+        return sam_file_, read_lens_, pr_after_
 
 
     if target == 'pileup':
@@ -407,9 +455,9 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, mp_versio
                 sam_file, read_lens = load_bam(bam_path, read_lens_path)
                 if sam_file is None:
                     return False
-                base_frequencies, error_rates, marker_to_length = load_pileup(pileup_path)
+                pr = load_pileup(pileup_path_after, null_err_rate_path_after)
             else:
-                sam_file, base_frequencies, error_rates, read_lens, marker_to_length = meta_step_pileup()
+                sam_file, read_lens, pr = meta_step_pileup()
 
                 if sam_file is None:
                     return False
@@ -417,10 +465,9 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, mp_versio
 
             info(f'Running marker reconstruction for sample {sample_name}')
             df_results, consensuses_maj, consensuses_min = \
-                step_reconstructed_markers(output_dir, config, sam_file, base_frequencies, error_rates,
-                                           read_lens, marker_to_length, marker_to_clade, marker_to_ext)
+                step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, marker_to_clade, marker_to_ext)
 
-            save_reconstructed_markers(output_results, output_major, output_minor, mp_version, df_results,
+            save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results,
                                        consensuses_maj, consensuses_min)
 
 
