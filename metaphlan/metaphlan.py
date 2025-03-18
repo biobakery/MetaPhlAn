@@ -787,25 +787,25 @@ class Bowtie2Controller(MappingController):
                 readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), '--split_reads', str(self.split_reads)], stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
             p = subp.Popen(self.get_bowtie2cmd(), stdout=subp.PIPE, stdin=readin.stdout)
             readin.stdout.close()
-            lmybytes, outf = (mybytes, bz2.BZ2File(self.mapout, "w")) if self.mapout.endswith(".bz2") else (str, open(self.mapout, "w"))
+            outf = bz2.BZ2File(self.mapout, "wt") if self.mapout.endswith(".bz2") else open(self.mapout, "wt")
             
             try:
                 if self.samout:
                     if self.samout[-4:] == '.bz2':
-                        sam_file = bz2.BZ2File(self.samout, 'w')
+                        sam_file = bz2.BZ2File(self.samout, 'wb')
                     else:
                         sam_file = open(self.samout, 'wb')
             except IOError as e:
                 error('IOError: "{}"\nUnable to open sam output file.\n'.format(e), exit=True)
 
             if self.samout:
-                sam_file.write(lmybytes('@CO\tindex:{}\n'.format(self.index))) 
+                sam_file.write(mybytes('@CO\tindex:{}\n'.format(self.index)))
             for line in p.stdout:
                 if self.samout:
                     sam_file.write(line)
                 o = read_and_split_line(line)
                 if self.check_hq_mapping(o):
-                    outf.write(lmybytes("\t".join([o[0], o[2].split('/')[0]]) + "\n"))
+                    outf.write("\t".join([o[0], o[2].split('/')[0]]) + "\n")
                     ## check for VSC markers
                     if self.vsc_controller and o[2].startswith('VDB|'):
                         self.vsc_controller.get_viral_mapping(o)
@@ -815,8 +815,8 @@ class Bowtie2Controller(MappingController):
             p.communicate()
 
             nreads, avg_read_len = self.get_nreads_and_avg_rlen(readin.stderr.readlines())
-            outf.write(lmybytes('#nreads\t{}\n'.format(nreads)))
-            outf.write(lmybytes('#avg_read_length\t{}'.format(avg_read_len)))
+            outf.write('#nreads\t{}\n'.format(nreads))
+            outf.write('#avg_read_length\t{}'.format(avg_read_len))
             outf.close()
             self.input_type = 'mapout'
             self.inp = self.mapout
