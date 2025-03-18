@@ -1,4 +1,5 @@
-from collections import Counter
+from collections import Counter, defaultdict
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
@@ -18,6 +19,40 @@ BAM_FQCFAIL = 512
 BAM_FDUP = 1024
 
 
+@dataclass
+class PileupResult:
+    base_frequencies: dict
+    avg_error_rates: dict
+    marker_to_length: dict
+    df_seq_errors: pd.DataFrame | None
+    null_err_rate: float | None
+    substitutions: dict[Counter]
+    substitutions_per_position: dict[dict[Counter]]
+    contexts:  dict[dict[Counter]]
+
+
+read_types = ['R1', 'R2', 'UN']
+
+rev_c = {}
+for b1, b2 in ['CG', 'AT']:
+    rev_c[b1] = b2
+    rev_c[b2] = b1
+
+for b1 in 'ACTG':
+    for b2 in 'ACTG':
+        rev_c[b1 + b2] = rev_c[b1] + rev_c[b2]
+
+
+
+def pu_to_r(pu):
+    if pu.alignment.is_paired:
+        assert (not pu.alignment.is_read1) or (not pu.alignment.is_read2)
+        # from metaphlan we can get pairs but we don't know which is R1 and which R2
+        return 'R1' if pu.alignment.is_read1 else 'R2' if pu.alignment.is_read2 else 'UN'
+    else:
+        return 'UN'
+
+
 def run_pileup_inner(sam_file, config, drop_read_positions=None):
     all_markers = sam_file.references
     marker_lengths = sam_file.lengths
@@ -26,9 +61,14 @@ def run_pileup_inner(sam_file, config, drop_read_positions=None):
 
     base_frequencies = {}
     avg_error_rates = {}
-    all_positions = Counter()
-    minor_positions = Counter()
-    per_position_eror_rates_sum = Counter()
+
+    all_positions = {r: Counter() for r in read_types}
+    minor_positions = {r: Counter() for r in read_types}
+    per_position_eror_rates_sum = {r: Counter() for r in read_types}
+    subs = {r: Counter() for r in read_types}
+    subs_pos = {r: defaultdict(Counter) for r in read_types}
+    contexts = {r: defaultdict(Counter) for r in read_types}
+    err_rates_positions = 0
 
     flag_filter = BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL
     if config['filter_duplicates']:
@@ -43,20 +83,21 @@ def run_pileup_inner(sam_file, config, drop_read_positions=None):
         query_sequences = base_pileup.get_query_sequences()
         query_qualities = base_pileup.get_query_qualities()
         query_positions = base_pileup.get_query_positions()
-        query_lens = [pu.alignment.qlen for pu in base_pileup.pileups]
+        rs = [pu_to_r(pu) for pu in base_pileup.pileups]
 
         # positions from the start of the read (if base is lower-case, the read had been reverse-complemented and the
         #   position has to be counted from the end)
-        bqp = [(b.upper(), q, p if b.isupper() else ln - p - 1)
-               for b, q, p, ln in zip(query_sequences, query_qualities, query_positions, query_lens) if b in ACTGactg]
+        bqppur = [(b.upper(), q, p if b.isupper() else pu.alignment.qlen - p - 1, pu, r)
+                  for b, q, p, pu, r in zip(query_sequences, query_qualities, query_positions, base_pileup.pileups, rs)
+                  if b in ACTGactg]
 
         if drop_read_positions is not None:
-            bqp = [(b, q, p) for b, q, p in bqp if p not in drop_read_positions]
+            bqppur = [(b, q, p, pu, r) for b, q, p, pu, r in bqppur if (r, p) not in drop_read_positions]
 
-        if not bqp:  # not covered position
+        if not bqppur:  # not covered position
             continue
 
-        bases, qualities, positions = zip(*bqp)
+        bases, qualities, positions, pups, rs = zip(*bqppur)
         base_coverage = len(bases)
 
         if base_coverage < config['min_base_coverage']:
@@ -78,28 +119,66 @@ def run_pileup_inner(sam_file, config, drop_read_positions=None):
             base_frequencies[marker][b][pos] = base_frequency[b]
         avg_error_rates[marker][pos] = avg_error_rate
 
-        if drop_read_positions is None and base_coverage >= config['seq_error_stats_min_cov']:
+        if base_coverage >= config['seq_error_stats_min_cov']:
             major_base = base_frequency.most_common(1)[0][0]
-            for b, p, e in zip(bases, positions, err_rates):
-                all_positions[p] += 1
-                per_position_eror_rates_sum[p] += e
+            err_rates_positions += 1
+            for b, p, e, pu, r in zip(bases, positions, err_rates, pups, rs):
+                all_positions[r][p] += 1
+                per_position_eror_rates_sum[r][p] += e
+
                 if b != major_base:
-                    minor_positions[p] += 1
+                    minor_positions[r][p] += 1
+
+                    bb = major_base + b
+                    if not pu.alignment.is_forward:
+                        bb = rev_c[bb]
+
+                    subs[r][bb] += 1
+                    subs_pos[r][bb][p] += 1
+
+                    qp = pu.query_position
+                    if qp > 0 and qp + 1 < pu.alignment.query_length:
+                        # ctx = pu.alignment.get_reference_sequence()[qp-1:qp+2].upper()
+                        ctx = pu.alignment.query_alignment_sequence[qp - 1:qp + 2]
+                        if not all(b_c in ACTG for b_c in ctx):
+                            continue
+
+                        if not pu.alignment.is_forward:
+                            ctx = ''.join(rev_c[x] for x in reversed(ctx))
+
+                        assert ctx[1] == bb[1]
+
+                        contexts[r][bb][ctx] += 1
 
 
-    if drop_read_positions is None:
-        minor_positions = pd.Series(minor_positions, name='minor_bases')
-        all_positions = pd.Series(all_positions, name='all_bases')
-        per_position_eror_rates_sum = pd.Series(per_position_eror_rates_sum, name='sum_error_rates')
-        df_seq_errors = pd.concat([minor_positions, all_positions, per_position_eror_rates_sum], axis=1) \
+    minor_positions_tot = sum(minor_positions.values(), Counter())
+    all_positions_tot = sum(all_positions.values(), Counter())
+    a = config['null_err_rate_pseudocount']
+    null_err_rate = (minor_positions_tot.total() + a) / (all_positions_tot.total() + a)
+    info_debug(f'Null err. rate: {null_err_rate}')
+
+    if null_err_rate > config['max_null_err_rate']:
+        warning(f'Null error rate is higher than expected ({null_err_rate}), will not use it')
+        null_err_rate = None
+
+    dfs = []
+    for r in read_types:
+        s_minor_positions = pd.Series(minor_positions[r], name='minor_bases')
+        s_all_positions = pd.Series(all_positions[r], name='all_bases')
+        s_per_position_eror_rates_sum = pd.Series(per_position_eror_rates_sum[r], name='sum_error_rates')
+        df_seq_errors_r = pd.concat([s_minor_positions, s_all_positions, s_per_position_eror_rates_sum], axis=1) \
             .rename_axis('read_position').sort_index()
-        df_seq_errors['minor_bases_ratio'] = df_seq_errors['minor_bases'] / df_seq_errors['all_bases']
-        df_seq_errors['excess_err_rate'] = df_seq_errors['minor_bases'] / df_seq_errors['sum_error_rates']
-    else:
-        df_seq_errors = None
+        df_seq_errors_r['r'] = r
+        dfs.append(df_seq_errors_r)
+
+    df_seq_errors = pd.concat(dfs).reset_index().set_index(['r', 'read_position'])
+
+    a = config['null_err_rate_excess_pseudocount']
+    df_seq_errors['null_err_rate_excess'] = (df_seq_errors['minor_bases'] + a) / (df_seq_errors['sum_error_rates'] + a)
 
 
-    return base_frequencies, avg_error_rates, marker_to_length, df_seq_errors
+    return PileupResult(base_frequencies, avg_error_rates, marker_to_length, df_seq_errors, null_err_rate, subs,
+                        subs_pos, contexts)
 
 
 def run_pileup(sam_file, config):
@@ -110,28 +189,29 @@ def run_pileup(sam_file, config):
     :return:
     """
 
-    base_frequencies, avg_error_rates, marker_to_length, df_seq_errors = run_pileup_inner(sam_file, config)
+    pr_before = run_pileup_inner(sam_file, config)
 
+    pr_after = pr_before
+    if config['discard_read_ends']:
+        df_se = pr_before.df_seq_errors.query(f'all_bases>{config["discard_read_ends_support"]}')
+        if len(df_se) > 0:
+            c = df_se['null_err_rate_excess'].dropna()
+            q25 = c.quantile(0.25)
+            q75 = c.quantile(0.75)
+            iqr = q75 - q25
+            mx = q75 + 1.5 * iqr
+            m = c > mx
+            drop_read_positions = c.index[m]
 
-    if config['discard_read_ends'] and df_seq_errors['minor_bases'].sum() >= config['discard_read_ends_support']:
-        c = df_seq_errors['excess_err_rate'].dropna()
-        q25 = c.quantile(0.25)
-        q75 = c.quantile(0.75)
-        iqr = q75 - q25
-        mx = q75 + 1.5 * iqr
-        m = c > mx
-        drop_read_positions = c.index[m]
+            if len(drop_read_positions) > 0:
+                warning(f'Will not use the following positions of the reads, '
+                        f'there might be adapter contamination '
+                        f'or other issue with sequencing: {list(drop_read_positions)}')
+                pr_after = run_pileup_inner(sam_file, config, drop_read_positions)
+        else:
+            info_debug('Not dropping any read positions, not enough support')
 
-        info_debug(q25, q75, mx, len(drop_read_positions))
-        if len(drop_read_positions) > 0:
-            warning(f'Will not use the following positions of the reads, '
-                    f'there might be adapter contamination: {list(drop_read_positions)}')
-            base_frequencies, avg_error_rates, marker_to_length, _ = run_pileup_inner(sam_file, config,
-                                                                                      drop_read_positions)
-    else:
-        info_debug('Not dropping any read positions', config['discard_read_ends'], df_seq_errors['minor_bases'].sum())
-
-    return base_frequencies, avg_error_rates, marker_to_length, df_seq_errors
+    return pr_before, pr_after
 
 
 def filter_loci_snp_call(df_loci_sgb, marker_to_length, read_lens, config):
