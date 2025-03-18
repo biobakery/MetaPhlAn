@@ -1,10 +1,14 @@
+import re
 from typing import Sequence, IO
 import bz2
 from collections import Counter
 import shlex
 import subprocess as sp
 
-from ...utils import info, warning
+from ...utils import info, warning, error
+
+
+md_pat = re.compile(br'(\d+)')
 
 
 def pipe_together(commands, stdin=sp.PIPE, stdout=sp.PIPE):
@@ -31,12 +35,13 @@ def pipe_together(commands, stdin=sp.PIPE, stdout=sp.PIPE):
     return ret_p, ret_stdin, stdin
 
 
-def prepare_sam(input_path, output_bam_path, output_dir, config):
+def prepare_sam(input_path, output_bam_path, output_dir, db_name, config):
     """
 
     :param pathlib.Path input_path:
     :param pathlib.Path output_bam_path:
     :param pathlib.Path output_dir:
+    :param db_name:
     :param dict config:
     :return:
     """
@@ -64,6 +69,10 @@ def prepare_sam(input_path, output_bam_path, output_dir, config):
     marker_hits = Counter()
     for line in read_stdout:
         if line.startswith(b'@'):
+            if line.startswith(b'@CO\tindex:'):
+                db_sam = line[len(b'@CO\tindex:'):].decode().strip()
+                if db_sam != db_name:
+                    error(f'The database of the sample {db_sam} does not match {db_name}', exit=True)
             continue
         line_fields = line.rstrip(b'\n').split(b'\t')
         marker = line_fields[2]
@@ -116,6 +125,7 @@ def prepare_sam(input_path, output_bam_path, output_dir, config):
 
     # Filtering of lines
     read_lens = []
+    read_name_warning_raised = False
     for line in stdout1:
         line_fields = line.rstrip(b'\n').split(b'\t')
 
@@ -152,8 +162,9 @@ def prepare_sam(input_path, output_bam_path, output_dir, config):
             i = read_name.rfind(b'__')
             if i != -1:
                 read_name = read_name[:i]
-            else:
+            elif not read_name_warning_raised:
                 warning(f'Read {read_name} does not have __ in its name')
+                read_name_warning_raised = True
             line_w = b'\t'.join((read_name, *line_fields[1:])) + b'\n'
 
             stdin2.write(line_w)
@@ -164,5 +175,6 @@ def prepare_sam(input_path, output_bam_path, output_dir, config):
     p2.wait()
     fi.close()
     fo.close()
+
 
     return read_lens
