@@ -776,7 +776,7 @@ class Bowtie2Controller(MappingController):
                 readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), '--split_reads', str(self.split_reads)], stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
             p = subp.Popen(self.get_bowtie2cmd(), stdout=subp.PIPE, stdin=readin.stdout)
             readin.stdout.close()
-            outf = bz2.BZ2File(self.mapout, "wt") if self.mapout.endswith(".bz2") else open(self.mapout, "wt")
+            outf = bz2.open(self.mapout, "wt") if self.mapout.endswith(".bz2") else open(self.mapout, "wt")
             
             try:
                 if self.samout:
