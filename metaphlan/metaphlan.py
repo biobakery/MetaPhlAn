@@ -787,7 +787,7 @@ class Bowtie2Controller(MappingController):
                 readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), '--split_reads', str(self.split_reads)], stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
             p = subp.Popen(self.get_bowtie2cmd(), stdout=subp.PIPE, stdin=readin.stdout)
             readin.stdout.close()
-            outf = bz2.BZ2File(self.mapout, "wt") if self.mapout.endswith(".bz2") else open(self.mapout, "wt")
+            outf = bz2.open(self.mapout, "wt") if self.mapout.endswith(".bz2") else open(self.mapout, "wt")
             
             try:
                 if self.samout:
@@ -1961,7 +1961,7 @@ def read_params(args):
     g = p.add_argument_group('Required arguments')
     arg = g.add_argument
     input_type_choices = ['fastq', 'fasta', 'mapout', 'sam']
-    arg('--input_type', choices=input_type_choices, required='--install' not in args, help="set whether the input is the FASTA file of metagenomic reads or \n"
+    arg('--input_type', choices=input_type_choices, required = '--install' not in args, help="set whether the input is the FASTA file of metagenomic reads or \n"
         "the SAM file of the mapping of the reads against the MetaPhlAn db.\n")
     g = p.add_argument_group('Mapping arguments')
     arg = g.add_argument
