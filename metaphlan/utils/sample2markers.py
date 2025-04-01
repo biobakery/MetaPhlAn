@@ -16,7 +16,9 @@ import os
 import subprocess as sp
 import tempfile
 import time
+import itertools as it
 from collections import Counter
+from dataclasses import dataclass
 from shutil import rmtree
 
 import numpy as np
@@ -37,17 +39,25 @@ except ImportError:
     from consensus_markers import ConsensusMarker, ConsensusMarkers
 
 
+@dataclass
+class MapperSpecificDefaults:
+    min_reads_aligning: int
+    min_mapping_quality: int
+
+
 class SampleToMarkers:
-    """SampleToMarkers class"""
+    MAPPER_SPECIFIC_DEFAULTS = {
+        'bowtie2': MapperSpecificDefaults(min_reads_aligning=8, min_mapping_quality=10),
+        'minimap2': MapperSpecificDefaults(min_reads_aligning=1, min_mapping_quality=50),
+        None: MapperSpecificDefaults(min_reads_aligning=1, min_mapping_quality=0),
+    }
 
     class DEFAULTS:
-        min_reads_aligning = 8
         depth_avg_q = 0.2
         quasi_marker_frac = 0.33
         min_breadth = 80
         min_base_coverage = 1
         min_base_quality = 30
-        min_mapping_quality = 10
         poly_dominant_frq_thrsh = 0.8
 
     class CONSTANTS:
@@ -240,8 +250,8 @@ class SampleToMarkers:
         return consensus_markers_filtered
 
 
-    @staticmethod
-    def parallel_filter_sam(input_file, tmp_dir, input_format, min_mapping_quality, min_reads_aligning,
+    @classmethod
+    def parallel_filter_sam(cls, input_file, tmp_dir, input_format, min_mapping_quality, min_reads_aligning,
                             filtered_markers, all_markers, db_name):
         """
         Filters an input SAM file
@@ -282,20 +292,48 @@ class SampleToMarkers:
             return True
 
         marker_to_reads = Counter()
+        mapper_name = None
+        first_aln_line = None
         for line in ifn:
             if line.startswith(b'@'):
-                if line.startswith(b'@CO\tindex:'):
-                    db_sam = line[len(b'@CO\tindex:'):].decode().strip()
-                    if db_sam != db_name:
-                        error(f'The database of the sample {db_sam} does not match {db_name}', exit=True)
+                if line.startswith(b'@CO'):
+                    for item in line[len(b'@CO'):].decode().strip().split('\t'):
+                        if item.startswith('index:'):
+                            db_name_sam = item[len('index:'):].strip().strip('"')
+                            if db_name_sam != db_name:
+                                error(f'The database of the sample {db_name_sam} does not match {db_name}', exit=True)
+                elif line.startswith(b'@PG'):
+                    for item in line[len(b'@PG'):].decode().strip().split('\t'):
+                        if item.startswith('PN:'):
+                            mapper_name = item[len('PN:'):].strip().strip('"')
+            else:
+                first_aln_line = line
+                break  # already in the alignment part
 
-                continue
-            line_fields = line.rstrip(b'\n').split(b'\t')
-            if filter_mapping_line(line_fields, filtered_markers):
-                marker = line_fields[2].decode()
-                marker_to_reads[marker] += 1
-                if marker not in all_markers:
-                    error(f'Marker {marker} not in the metaphlan database', exit=True)
+        if min_reads_aligning is None or min_mapping_quality is None:
+            if mapper_name is None:
+                warning('Could not infer the mapper from the SAM file header, using default parameters')
+            elif mapper_name not in cls.MAPPER_SPECIFIC_DEFAULTS:
+                warning(f'The mapper name {mapper_name} is not recognized, using default parameters')
+                mapper_name = None
+            else:
+                info(f'Setting default parameters for mapper {mapper_name}')
+
+            if min_reads_aligning is None:
+                min_reads_aligning = cls.MAPPER_SPECIFIC_DEFAULTS[mapper_name].min_reads_aligning
+            if min_mapping_quality is None:
+                min_mapping_quality = cls.MAPPER_SPECIFIC_DEFAULTS[mapper_name].min_mapping_quality
+
+
+        if first_aln_line is not None:
+            for line in it.chain([first_aln_line], ifn):
+                line_fields = line.rstrip(b'\n').split(b'\t')
+                if filter_mapping_line(line_fields, filtered_markers):
+                    marker = line_fields[2].decode()
+                    marker_to_reads[marker] += 1
+                    if marker not in all_markers:
+                        error(f'Marker {marker} not in the metaphlan database', exit=True)
+
 
         selected_markers = set((m for m, c in marker_to_reads.items() if c >= min_reads_aligning))
 
@@ -378,7 +416,7 @@ def read_params():
     Returns:
         namespace: The populated namespace with the command line arguments
     """
-    p = ap.ArgumentParser(description="", formatter_class=ap.ArgumentDefaultsHelpFormatter)
+    p = ap.ArgumentParser(description="", formatter_class=ap.ArgumentDefaultsHelpFormatter, add_help=False)
     # required
     p.add_argument('-i', '--input', type=str, nargs='+', required=True, help="The input samples as SAM or BAM files")
     p.add_argument('-o', '--output_dir', type=str, required=True, help="The output directory")
@@ -390,14 +428,16 @@ def read_params():
                    help="Restricts the reconstruction of the markers to the specified clades")
     p.add_argument('-f', '--input_format', type=str, default="bz2", help="The input samples format {bam, sam, bz2}")
     p.add_argument('--sorted', action='store_true', default=False, help="Whether the BAM input files are sorted")
-    p.add_argument('--min_reads_aligning', type=int, default=SampleToMarkers.DEFAULTS.min_reads_aligning,
-                   help="The minimum number of reads to cover a marker")
+    p.add_argument('--min_reads_aligning', type=int, default=None,
+                   help="The minimum number of reads to cover a marker."
+                        "Default 8 for bowtie2, 1 for minimap2 nad 1 otherwise.")
     p.add_argument('--min_base_coverage', type=int, default=SampleToMarkers.DEFAULTS.min_base_coverage,
                    help="The minimum depth of coverage for a base to be considered")
     p.add_argument('--min_base_quality', type=int, default=SampleToMarkers.DEFAULTS.min_base_quality,
                    help="The minimum quality for a base to be considered. This is performed BEFORE --min_base_coverage")
-    p.add_argument('--min_mapping_quality', type=int, default=SampleToMarkers.DEFAULTS.min_mapping_quality,
-                   help="The minimum quality for a mapping of the read to be considered.")
+    p.add_argument('--min_mapping_quality', type=int, default=None,
+                   help="The minimum quality for a mapping of the read to be considered. "
+                        "Default 10 for bowtie2, 50 for minimap2 and 0 otherwise.")
     p.add_argument('--dominant_frq_threshold', type=float, default=SampleToMarkers.DEFAULTS.poly_dominant_frq_thrsh,
                    help="The cutoff for degree of 'allele dominance' for a position to be considered polymorphic")
     p.add_argument('--quasi_marker_frac', type=float, default=SampleToMarkers.DEFAULTS.quasi_marker_frac,
@@ -413,6 +453,9 @@ def read_params():
                    help="If specified, StrainPhlAn will not remove the temporary folder. "
                         "Not available with inputs in BAM format")
     p.add_argument('-n', '--nprocs', type=int, default=1, help="The number of threads to execute the script")
+    p.add_argument('-v', '--version', action='version',
+                   version=f"StrainPhlAn sample2markers version {__version__} ({__date__})")
+    p.add_argument('-h', '--help', action='help', help="Show help.")
 
     return p.parse_args()
 
