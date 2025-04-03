@@ -311,7 +311,11 @@ class TaxTree:
                 total += clade.nreads        
         for clade in self.all_clades.values():
             if clade.coverage > 0:
-                clade.rel_abundance = round(100 * clade.coverage / total_ab, 5)
+                clade.rel_abundance = round(100 * clade.coverage / total_ab, 5) if total_ab > 0 else 0
+        
+        if total_ab == 0:
+            warning('Warning: No species were detected.', init_new_line = True)
+            
         return total
     
     def clade_profiles(self):
@@ -776,7 +780,7 @@ class Bowtie2Controller(MappingController):
                 readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), '--split_reads', str(self.split_reads)], stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
             p = subp.Popen(self.get_bowtie2cmd(), stdout=subp.PIPE, stdin=readin.stdout)
             readin.stdout.close()
-            outf = bz2.BZ2File(self.mapout, "wt") if self.mapout.endswith(".bz2") else open(self.mapout, "wt")
+            outf = bz2.open(self.mapout, "wt") if self.mapout.endswith(".bz2") else open(self.mapout, "wt")
             
             try:
                 if self.samout:
