@@ -321,7 +321,11 @@ class TaxTree:
                 total += clade.nreads        
         for clade in self.all_clades.values():
             if clade.coverage > 0:
-                clade.rel_abundance = round(100 * clade.coverage / total_ab, 5)
+                clade.rel_abundance = round(100 * clade.coverage / total_ab, 5) if total_ab > 0 else 0
+        
+        if total_ab == 0:
+            warning('Warning: No species were detected.', init_new_line = True)
+            
         return total
     
     def clade_profiles(self):
@@ -1227,7 +1231,10 @@ class Minimap2Controller(MappingController):
 class MetaphlanAnalysis:
     def report_synthetic(self):
         rep_synth=set()
-        out_stream_2 = open(os.path.join(os.path.split(self.output)[0],'syn_'+os.path.split(self.output)[1]), "w")
+        #out_stream_2 = open(os.path.join(os.path.split(self.output)[0],'syn_'+os.path.split(self.output)[1]), "w")
+        if len(os.path.dirname(self.synth)) > 0 and not os.path.exists(os.path.dirname(self.synth)):
+            os.makedirs(os.path.dirname(self.synth))
+        out_stream_2 = open(self.synth, "w")
         with out_stream_2 as outf:
             outf.write( "\t".join( ['Synth_seq', 'Coverage', 'N_reads'] ) + "\n" )
             for clade in self.tree.all_clades.values():
@@ -2067,7 +2074,7 @@ def read_params(args):
         " * marker_pres_table: list of markers present in the sample (threshold at 1.0 if not differently specified with --pres_th\n"
         "[default 'rel_ab']")    
     arg('--synth', type=str, default=None,
-        help="Output file for synthetic sequences\n")
+        help="Path to the output file for synthetic sequences\n")
     arg('--nreads', metavar="NUMBER_OF_READS", type=int, default=None, help="The total number of reads in the original metagenome. \n"
         "It is mandatory when the --input_type is a SAM file.")
     arg('--pres_th', metavar="PRESENCE_THRESHOLD", type=int, default=1.0,
