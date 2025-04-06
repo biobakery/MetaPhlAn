@@ -67,7 +67,7 @@ def main( ):
         return
 
     if args.o and os.path.exists(args.o) and not args.overwrite:
-        print('merge_metaphlan_tables: output file "{}" exists, specify the --overwrite param to ovrewrite it!'.format(args.o))
+        print('merge_metaphlan_tables: output file "{}" exists, specify the --overwrite param to overwrite it!'.format(args.o))
         return
 
     merge(args.aistms, open(args.o, 'w') if args.o else sys.stdout, args.gtdb_profiles)
