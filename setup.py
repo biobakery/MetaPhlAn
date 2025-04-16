@@ -4,7 +4,7 @@ from io import open
 import sys, shutil, os, zipfile, tarfile, subprocess, tempfile, re, time
 from urllib.request import urlretrieve
 
-install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'hclust2', 'requests', 'dendropy', 'pysam', 'cmseq', 'phylophlan'],
+install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'hclust2', 'requests', 'dendropy', 'pysam', 'cmseq', 'phylophlan','minimap'],
 
 if sys.version_info[0] < 3:
     sys.stdout.write('MetaPhlAn requires Python 3 or higher. Please update you Python installation')
