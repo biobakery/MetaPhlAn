@@ -25,6 +25,7 @@ requirements:
   run:
     - python >=3
     - bowtie2 >=2.3.0
+    - minimap2 >= 2.26
     - dendropy
     - numpy
     - cmseq

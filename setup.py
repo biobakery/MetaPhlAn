@@ -4,14 +4,14 @@ from io import open
 import sys, shutil, os, zipfile, tarfile, subprocess, tempfile, re, time
 from urllib.request import urlretrieve
 
-install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'hclust2', 'requests', 'dendropy', 'pysam', 'cmseq', 'phylophlan','minimap'],
+install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'hclust2', 'requests', 'dendropy', 'pysam', 'cmseq', 'phylophlan'],
 
 if sys.version_info[0] < 3:
     sys.stdout.write('MetaPhlAn requires Python 3 or higher. Please update you Python installation')
 
 setuptools.setup(
     name='MetaPhlAn',
-    version='4.0.4',
+    version='4.2.0',
     author='Aitor Blanco-Miguez',
     author_email='aitor.blancomiguez@unitn.it',
     url='http://github.com/biobakery/MetaPhlAn/',
