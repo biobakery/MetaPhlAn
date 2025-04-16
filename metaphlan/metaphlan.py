@@ -943,7 +943,8 @@ class Minimap2Controller(MappingController):
         if self.verbose:
             info('Building minimap2 index for parameters:{}'.format(self.mm2_ps_str.replace("_"," -")), init_new_line = True)
         mmi_index = os.path.join(self.db_dir, self.index + self.mm2_ps_str + ".mmi")
-        mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-d", mmi_index, fna_file]
+        # mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-d", mmi_index, fna_file]
+        mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-I","20G","-d", mmi_index, fna_file]
 
         try:
             subp.run(mm2_cmd)
@@ -974,6 +975,7 @@ class Minimap2Controller(MappingController):
         elif os.path.getsize(mmi_index) < (30*10**9):
             warning('Small minimap index found at: {}, please check and remove if needed'.format(mmi_index), init_new_line = True)
         else:
+            info("Minimap2 index found")
             self.db_dir = mmi_index
 
     def init_mapping_arguments(self):
@@ -987,12 +989,15 @@ class Minimap2Controller(MappingController):
         Returns:
             list: the command for the Minimap2 execution
         """
-        sp_tmp = ".".join(self.mapout.split(".")[:-2]) if self.mapout.endswith("bz2") else ".".join(self.mapout.split(".")[-1])
+        # sp_tmp = ".".join(self.mapout.split(".")[:-2]) if self.mapout.endswith("bz2") else ".".join(self.mapout.split(".")[-1])
         # mm2_cmd = [self.minimap2_exe, "-x", "asm20", "-B", "3", "-O", "3,12", "--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
-        mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-v","0","--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
+        # mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-v","0","--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
+        ## version for input in stdin
+        mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-v","0","--sam-hit-only", "-a", self.db_dir]
         if int(self.nproc) > 3:
             mm2_cmd += ["-t", str(self.nproc)]
-        return mm2_cmd
+
+        return mm2_cmd + ["-"] # "-" needed for stdin input
     
     def get_gscd(self, sam_line):
         """Gets the GCSD value from the sam line
@@ -1010,17 +1015,25 @@ class Minimap2Controller(MappingController):
     def run_minimap2(self):
         """Runs Minimap2"""
         try:
-            # No read_fastx for Minimap2
             if self.verbose:
                 info("Running Minimap2", init_new_line=True)
-            p = subp.Popen(self.get_minimap2cmd(), stdout=subp.PIPE, stderr=subp.DEVNULL)
-            #readin.stdout.close()
-            lmybytes, outf = (mybytes, bz2.BZ2File(self.mapout, "w")) if self.mapout.endswith(".bz2") else (str, open(self.mapout, "w"))
+            read_fastx = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'utils', 'read_fastx.py')
+
+            if self.inp:
+                readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), self.inp], stdout=subp.PIPE, stderr=subp.PIPE)
+            else:
+                readin = subp.Popen([read_fastx, '-l', str(self.read_min_len)], stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
+            p = subp.Popen(self.get_minimap2cmd(), stdout=subp.PIPE, stdin=readin.stdout, stderr=subp.DEVNULL)
+            readin.stdout.close()
+
+            ## run without read_fastx
+            # p = subp.Popen(self.get_minimap2cmd(), stdout=subp.PIPE, stderr=subp.DEVNULL)
+            outf = bz2.open(self.mapout, "wt") if self.mapout.endswith(".bz2") else open(self.mapout, "wt")
             
             try:
                 if self.samout:
                     if self.samout[-4:] == '.bz2':
-                        sam_file = bz2.BZ2File(self.samout, 'w')
+                        sam_file = bz2.BZ2File(self.samout, 'wb')
                     else:
                         sam_file = open(self.samout, 'wb')
                 if self.vsc_controller:
@@ -1029,7 +1042,7 @@ class Minimap2Controller(MappingController):
                 error('IOError: "{}"\nUnable to open sam output file.\n'.format(e), exit=True)
             
             if self.samout:
-                sam_file.write(lmybytes('@CO\tindex:{}\n'.format(self.index))) 
+                sam_file.write(mybytes('@CO\tindex:{}\n'.format(self.index))) 
             for line in p.stdout:
                 if self.samout:
                     sam_file.write(line)
@@ -1040,7 +1053,7 @@ class Minimap2Controller(MappingController):
                 if self.check_hq_mapping(o):
                     gcsd = self.get_gscd(o)
                     nb = sum([int(x[:-1]) for x in re.findall("\d*[DM]", o[5])])
-                    outf.write(lmybytes("\t".join([o[0], o[2].split('/')[0], str(nb), str(gcsd), str(len(o[9]))]) + "\n"))
+                    outf.write("\t".join([o[0], o[2].split('/')[0], str(nb), str(gcsd), str(len(o[9]))]) + "\n")
                     ## outfile line: readname, marker, bases_covered, GCSD, read_length
 
             if self.samout:
@@ -1048,7 +1061,7 @@ class Minimap2Controller(MappingController):
             if self.vsc_controller:
                 viral_sam.close()
             p.communicate()
-            outf.write(lmybytes('#\tnbases\t{}\t#\t#\n'.format(self.nbases)))
+            outf.write('#\tnbases\t{}\t#\t#\n'.format(self.nbases))
             outf.close()
             self.input_type = 'mapout'
             self.inp = self.mapout

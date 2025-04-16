@@ -219,12 +219,9 @@ class MetaphlanDatabaseController():
 
 
     def check_folder_exists(self):
-        print('check_dir')
         if not os.path.isdir(self.db_dir):
-            print('no dir')
             try:
                 os.makedirs(self.db_dir)
-                print('make dir')
             except EnvironmentError as e:
                 error('EnvironmentError "{}"\n Unable to create folder for database install: '.format(e, self.db_dir), exit = True)
 

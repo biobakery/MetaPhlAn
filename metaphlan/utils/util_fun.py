@@ -12,7 +12,7 @@ import sys
 import time
 
 
-def info(message, init_new_line=True, stderr=False, exit=False, exit_value=0):
+def info(message, init_new_line=True, stderr=True, exit=False, exit_value=0):
     """Prints an info message
 
     Args:
