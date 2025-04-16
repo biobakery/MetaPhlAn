@@ -4,9 +4,6 @@ from io import open
 import sys, shutil, os, zipfile, tarfile, subprocess, tempfile, re, time
 from urllib.request import urlretrieve
 
-from metaphlan import download_unpack_zip
-
-
 install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'hclust2', 'requests', 'dendropy', 'pysam', 'cmseq', 'phylophlan'],
 
 if sys.version_info[0] < 3:
