@@ -20,6 +20,7 @@ import itertools as it
 from collections import Counter
 from dataclasses import dataclass
 from shutil import rmtree
+from typing import TextIO
 
 import numpy as np
 import pysam
@@ -45,6 +46,53 @@ class MapperSpecificDefaults:
     min_mapping_quality: int
 
 
+class GenericSamFilter:
+    def __init__(self, min_mapping_quality, markers_subset):
+        self.min_mapping_quality = min_mapping_quality
+        self.markers_subset = markers_subset
+
+
+    def filter_mapping_line(self, aln):
+        marker = aln.reference_name
+
+        if marker.startswith('VDB'):
+            return False
+
+        if self.markers_subset is not None and marker not in self.markers_subset:
+            return False
+
+        if aln.is_secondary or aln.is_qcfail or aln.is_unmapped:
+            return False
+
+        if aln.mapping_quality < self.min_mapping_quality:
+            return False
+
+        return True
+
+
+class Bowtie2SamFilter(GenericSamFilter):
+    pass
+
+
+class MinimapSamFilter(GenericSamFilter):
+    def __init__(self, min_mapping_quality, markers_subset, max_gcsd):
+        super().__init__(min_mapping_quality, markers_subset)
+        self.max_gcsd = max_gcsd
+
+    def filter_mapping_line(self, aln):
+        if not super().filter_mapping_line(aln):
+            return False
+
+        tags = dict(aln.tags)
+        gcsd = tags['de']
+
+        if gcsd > self.max_gcsd:
+            return False
+
+        return True
+
+
+
 class SampleToMarkers:
     MAPPER_SPECIFIC_DEFAULTS = {
         'bowtie2': MapperSpecificDefaults(min_reads_aligning=8, min_mapping_quality=10),
@@ -58,6 +106,7 @@ class SampleToMarkers:
         min_breadth = 80
         min_base_coverage = 1
         min_base_quality = 30
+        max_gcsd = 0.1
         poly_dominant_frq_thrsh = 0.8
 
     class CONSTANTS:
@@ -252,7 +301,7 @@ class SampleToMarkers:
 
     @classmethod
     def parallel_filter_sam(cls, input_file, tmp_dir, input_format, min_mapping_quality, min_reads_aligning,
-                            filtered_markers, all_markers, db_name):
+                            max_gcsd, filtered_markers, all_markers, db_name):
         """
         Filters an input SAM file
             * filters out viral markers (VDB)
@@ -265,7 +314,8 @@ class SampleToMarkers:
             input_format:
             min_reads_aligning:
             min_mapping_quality:
-            filtered_markers (set): the list with the markers of the filtered clades, None if to use all markers
+            max_gcsd:
+            filtered_markers (set): the set with the markers of the filtered clades, None if to use all markers
             all_markers:
             db_name:
 
@@ -273,43 +323,37 @@ class SampleToMarkers:
             str: the path to the output file
         """
         output_file = os.path.join(tmp_dir, input_file.split('/')[-1])
+        ifn: TextIO
         if input_format.lower() == "bz2":
-            ifn = bz2.open(input_file, 'rb')
+            ifn = bz2.open(input_file, 'rt')
             output_file = output_file.replace('.bz2', '')
         else:
             assert input_format.lower() == "sam"
-            ifn = open(input_file, 'rb')
+            ifn = open(input_file, 'rt')
 
-        def filter_mapping_line(line_fields_, markers_subset):
-            marker_ = line_fields_[2]
-            if marker_.startswith(b'VDB'):
-                return False
-            if markers_subset is not None and marker_.decode() not in markers_subset:
-                return False
-            mapq_ = int(line_fields_[4].decode())
-            if mapq_ < min_mapping_quality:
-                return False
-            return True
-
-        marker_to_reads = Counter()
+        # Pass through header
         mapper_name = None
         first_aln_line = None
+        header_lines = []
         for line in ifn:
-            if line.startswith(b'@'):
-                if line.startswith(b'@CO'):
-                    for item in line[len(b'@CO'):].decode().strip().split('\t'):
+            if line.startswith('@'):
+                if line.startswith('@CO'):
+                    for item in line[len('@CO'):].strip().split('\t'):
                         if item.startswith('index:'):
                             db_name_sam = item[len('index:'):].strip().strip('"')
                             if db_name_sam != db_name:
                                 error(f'The database of the sample {db_name_sam} does not match {db_name}', exit=True)
-                elif line.startswith(b'@PG'):
-                    for item in line[len(b'@PG'):].decode().strip().split('\t'):
+                elif line.startswith('@PG'):
+                    for item in line[len('@PG'):].strip().split('\t'):
                         if item.startswith('PN:'):
                             mapper_name = item[len('PN:'):].strip().strip('"')
-            else:
+                header_lines.append(line)
+            else:  # already in the alignment part
                 first_aln_line = line
-                break  # already in the alignment part
+                break
 
+
+        # Resolve mapper specific default arguments and sam filtering
         if min_reads_aligning is None or min_mapping_quality is None:
             if mapper_name is None:
                 warning('Could not infer the mapper from the SAM file header, using default parameters')
@@ -324,32 +368,45 @@ class SampleToMarkers:
             if min_mapping_quality is None:
                 min_mapping_quality = cls.MAPPER_SPECIFIC_DEFAULTS[mapper_name].min_mapping_quality
 
+        if mapper_name == 'bowtie2':
+            sam_filter = Bowtie2SamFilter(min_mapping_quality, filtered_markers)
+        elif mapper_name == 'minimap2':
+            sam_filter = MinimapSamFilter(min_mapping_quality, filtered_markers, max_gcsd)
+        else:
+            sam_filter = GenericSamFilter(min_mapping_quality, filtered_markers)
 
+
+        # Pass through alignment lines just to count hits
+        header = pysam.AlignmentHeader.from_text(''.join(header_lines))
+        marker_to_reads = Counter()
         if first_aln_line is not None:
             for line in it.chain([first_aln_line], ifn):
-                line_fields = line.rstrip(b'\n').split(b'\t')
-                if filter_mapping_line(line_fields, filtered_markers):
-                    marker = line_fields[2].decode()
+                aln = pysam.AlignedSegment.fromstring(line, header)
+                if sam_filter.filter_mapping_line(aln):
+                    marker = aln.reference_name
                     marker_to_reads[marker] += 1
                     if marker not in all_markers:
                         error(f'Marker {marker} not in the metaphlan database', exit=True)
 
-
         selected_markers = set((m for m, c in marker_to_reads.items() if c >= min_reads_aligning))
+        sam_filter.markers_subset = selected_markers
 
-        ifn.seek(0)  # second pass of the file
-        with open(output_file, 'wb') as ofn:
+
+        # Second pass of the file to write the filtered output SAM file
+        ifn.seek(0)
+        with open(output_file, 'wt') as ofn:
             for line in ifn:
-                line_fields = line.rstrip(b'\n').split(b'\t')
-                if line.startswith(b'@SQ'):
-                    assert line_fields[1].startswith(b'SN:')  # in bowtie2 output SN is always the first tag
-                    marker = line_fields[1][3:].decode()
+                line_fields = line.rstrip('\n').split('\t')
+                if line.startswith('@SQ'):
+                    assert line_fields[1].startswith('SN:')  # in bowtie2 output SN is always the first tag
+                    marker = line_fields[1][3:]
                     if marker in selected_markers:
                         ofn.write(line)
-                elif line.startswith(b'@'):  # other header lines like @HD and @PG
+                elif line.startswith('@'):  # other header lines like @HD and @PG
                     ofn.write(line)
                 else:  # mapping lines
-                    if filter_mapping_line(line_fields, selected_markers):
+                    aln = pysam.AlignedSegment.fromstring(line, header)
+                    if sam_filter.filter_mapping_line(aln):
                         ofn.write(line)
 
         ifn.close()
@@ -362,8 +419,8 @@ class SampleToMarkers:
         all_markers = set(self.database_controller.get_all_markers())
         db_name = self.database_controller.get_database_name()
         self.input = execute_pool(((SampleToMarkers.parallel_filter_sam, i, self.tmp_dir, self.input_format,
-                                    self.min_mapping_quality, self.min_reads_aligning, filtered_markers, all_markers,
-                                    db_name)
+                                    self.min_mapping_quality, self.min_reads_aligning, self.max_gcsd, filtered_markers,
+                                    all_markers, db_name)
                                    for i in self.input), self.nprocs)
         self.input_format = 'sam'
         self.sorted = False
@@ -400,6 +457,7 @@ class SampleToMarkers:
         self.clades = args.clades
         self.sorted = args.sorted
         self.min_reads_aligning = args.min_reads_aligning
+        self.max_gcsd = args.max_gcsd
         self.min_base_coverage = args.min_base_coverage
         self.min_base_quality = args.min_base_quality
         self.min_mapping_quality = args.min_mapping_quality
@@ -438,6 +496,8 @@ def read_params():
     p.add_argument('--min_mapping_quality', type=int, default=None,
                    help="The minimum quality for a mapping of the read to be considered. "
                         "Default 10 for bowtie2, 50 for minimap2 and 0 otherwise.")
+    p.add_argument('--max_gcsd', type=float, default=SampleToMarkers.DEFAULTS.max_gcsd,
+                   help="The maximum gap-compressed sequence divergence threshold to use in case of Minimap2 mapper.")
     p.add_argument('--dominant_frq_threshold', type=float, default=SampleToMarkers.DEFAULTS.poly_dominant_frq_thrsh,
                    help="The cutoff for degree of 'allele dominance' for a position to be considered polymorphic")
     p.add_argument('--quasi_marker_frac', type=float, default=SampleToMarkers.DEFAULTS.quasi_marker_frac,

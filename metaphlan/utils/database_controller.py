@@ -25,7 +25,8 @@ class MetaphlanDatabaseController:
         if self.database_pkl is None:
             if verbose:
                 info('Loading MetaPhlAn {} database...'.format(self.get_database_name()))
-            self.database_pkl = pickle.load(bz2.BZ2File(self.database))
+            with bz2.open(self.database, 'rb') as f:
+                self.database_pkl = pickle.load(f)
             if verbose:
                 info('Done.')
 
@@ -86,7 +87,7 @@ class MetaphlanDatabaseController:
             clades (list): the list of clades
 
         Returns:
-            set: the list of markers from the input clades
+            set: the set of markers from the input clades
         """
         self.load_database()
         return set((marker for marker in self.database_pkl['markers']

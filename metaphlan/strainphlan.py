@@ -15,7 +15,6 @@ import os
 import re
 import tempfile
 import time
-from collections import OrderedDict
 from shutil import copyfile, rmtree
 from typing import Iterable
 
@@ -49,22 +48,27 @@ class Strainphlan:
         """
 
         return execute_pool(((Strainphlan.get_matrix_for_sample, sample_path, self.clade_markers_names,
-                              self.breadth_thres) for sample_path in self.samples), self.nprocs)
+                              self.breadth_thres, self.database_controller.get_database_name())
+                             for sample_path in self.samples), self.nprocs)
 
 
     @classmethod
-    def get_matrix_for_sample(cls, sample_path, clade_markers, breadth_thres):
+    def get_matrix_for_sample(cls, sample_path, clade_markers, breadth_thres, database_name):
         """Returns the matrix with the presence / absence of the clade markers in a samples
 
         Args:
             sample_path (str): the path to the sample
             clade_markers (Iterable): the list with the clade markers names
             breadth_thres:
+            database_name:
 
         Returns:
             dict: dictionary containing the sample-to-markers information as a binary matrix
         """
         sample = ConsensusMarkers.from_file(sample_path)
+        if sample.database_name is not None and sample.database_name != database_name:
+            error(f'The database of the sample {sample.database_name} does not match the provided {database_name}',
+                  exit=True)
         sample_name = cls.sample_path_to_name(sample_path)
 
         markers = {"sample_name": sample_name}
