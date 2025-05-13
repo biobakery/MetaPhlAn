@@ -6,6 +6,8 @@ __date__ = '11 Mar 2024'
 import os
 import pickle
 import bz2
+import pathlib
+from collections.abc import Iterable
 
 import pandas as pd
 from Bio import SeqIO
@@ -41,7 +43,8 @@ class MetaphlanDatabaseController:
 
 
     def get_markers2clade(self):
-        """Retrieve information from the MetaPhlAn database
+        """
+        Get a dictionary mapping marker names to clade
 
         Returns:
             dict[str, str]: the dictionary assigning markers to clades
@@ -51,6 +54,12 @@ class MetaphlanDatabaseController:
 
 
     def get_clade2markers(self):
+        """
+        Get a dictionary mapping clades to lists of markers
+
+        Returns:
+            dict[str, Iterable]:
+        """
         markers2clade = self.get_markers2clade()
         markers2clade = pd.Series(markers2clade)
         return markers2clade.groupby(markers2clade).groups
@@ -66,6 +75,10 @@ class MetaphlanDatabaseController:
             set: marker names for the given clade
 
         """
+        db_sgbs = self.get_all_sgbs()
+        if clade not in db_sgbs:
+            error(f'Clade {clade} not found in the database', exit=True)
+
         self.load_database()
         return set(marker_name for marker_name, marker_info in self.database_pkl['markers'].items()
                    if marker_info['clade'] == clade)
@@ -75,23 +88,35 @@ class MetaphlanDatabaseController:
         self.load_database()
         return list(self.database_pkl['markers'].keys())
 
+    def get_all_sgbs(self):
+        self.load_database()
+        return set(tax.split('|')[-1] for tax in self.database_pkl['taxonomy'].keys())
+
     def get_markers2ext(self):
         self.load_database()
-        return {marker_name: ['t__' + sgb for sgb in marker_info['ext']] for marker_name, marker_info in self.database_pkl['markers'].items()}
+        return {marker_name: ['t__' + sgb for sgb in marker_info['ext']]
+                for marker_name, marker_info in self.database_pkl['markers'].items()}
 
 
     def get_filtered_markers(self, clades):
         """Retrieve the markers belonging to a list of clades
 
         Args:
-            clades (list): the list of clades
+            clades (Iterable): the list of clades
 
         Returns:
-            set: the set of markers from the input clades
+            set: the list of markers from the input clades
         """
         self.load_database()
+
+        db_sgbs = self.get_all_sgbs()
+        for clade in clades:
+            if clade not in db_sgbs:
+                error(f'Clade {clade} not found in the database', exit=True)
+
+        clades_set = set(clades)
         return set((marker for marker in self.database_pkl['markers']
-                    if self.database_pkl['markers'][marker]['clade'] in clades))
+                    if self.database_pkl['markers'][marker]['clade'] in clades_set))
 
     def get_species2sgbs(self):
         """Retrieve information from the MetaPhlAn database
@@ -105,8 +130,7 @@ class MetaphlanDatabaseController:
         for taxa in self.database_pkl['taxonomy']:
             if taxa.split('|')[-2] not in species2sgbs:
                 species2sgbs[taxa.split('|')[-2]] = {}
-            species2sgbs[taxa.split('|')[-2]][taxa.split('|')
-                                              [-1]] = sgb2size[taxa.split('|')[-1]]
+            species2sgbs[taxa.split('|')[-2]][taxa.split('|')[-1]] = sgb2size[taxa.split('|')[-1]]
         return species2sgbs
 
     def extract_markers(self, clades, output_dir):
@@ -119,22 +143,18 @@ class MetaphlanDatabaseController:
         info('\tExtracting markers from the Bowtie2 database...')
         fasta_markers = generate_markers_fasta(self.database, output_dir)
         info('\tDone.')
+        db_sgbs = self.get_all_sgbs()
         for clade in clades:
+            if clade not in db_sgbs:
+                error(f'Clade {clade} not found in the database', exit=True)
             markers = self.get_filtered_markers([clade])
-            if len(markers) == 0:
-                exit_value = True if len(clades) == 1 else False
-                error('No markers were found for the clade "{}".'.format(
-                    clade), exit=exit_value)
-            else:
-                info('\tNumber of markers for the clade "{}": {}'.format(
-                    clade, len(markers)))
-                info('\tExporting markers for clade {}...'.format(clade))
-                with open(os.path.join(output_dir, "{}.fna".format(clade)), 'w') as ofile:
-                    for rec in SeqIO.parse(open(fasta_markers, 'r'), 'fasta'):
-                        if rec.name in markers:
-                            SeqIO.write(rec, ofile, 'fasta')
-                info('\tDone.')
-        info('\tRemoving temporal FASTA files...')
+            info(f'\tExporting {len(markers)} markers for clade {clade}...')
+            with open(os.path.join(output_dir, f"{clade}.fna"), 'w') as ofile:
+                for rec in SeqIO.parse(open(fasta_markers, 'r'), 'fasta'):
+                    if rec.name in markers:
+                        SeqIO.write(rec, ofile, 'fasta')
+            info('\tDone.')
+        info('\tRemoving temporary FASTA files...')
         os.remove(fasta_markers)
         info('\tDone.')
 
@@ -142,11 +162,12 @@ class MetaphlanDatabaseController:
         """Resolves the path to the MPA database
 
         Args:
-            database (str): the name or path of the database
+            database (pathlib.Path|str): the name or path of the database
 
         Returns:
             str: the resolved path to the database
         """
+        database = str(database)
         if database == 'latest':
             if os.path.exists(os.path.join(self.default_db_folder, 'mpa_latest')):
                 with open(os.path.join(self.default_db_folder, 'mpa_latest'), 'r') as mpa_latest:
@@ -177,6 +198,12 @@ class MetaphlanDatabaseController:
         return sgb2size
 
     def __init__(self, database, bowtie2db=None):
+        """
+
+        Args:
+            database (pathlib.Path|str):
+            bowtie2db:
+        """
         self.mpa_script_folder = os.path.dirname(os.path.abspath(__file__))
         if bowtie2db is None:
             self.default_db_folder = os.path.join(
