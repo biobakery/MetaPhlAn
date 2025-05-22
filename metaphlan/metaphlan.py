@@ -25,7 +25,7 @@ import re
 import time
 import random
 from collections import defaultdict as defdict
-from distutils.version import LooseVersion
+from packaging.version import parse
 from glob import glob
 from subprocess import DEVNULL
 import argparse as ap
@@ -1115,7 +1115,7 @@ def maybe_generate_biom_file(tree, pars, abundance_predictions):
     #      run.                                                                                   *
     #  George Weingart    05/22/2017   george.weingart@mail.com                                   *
     #**********************************************************************************************
-    if LooseVersion(biom.__version__) < LooseVersion("2.0.0"):
+    if parse(biom.__version__) < parse("2.0.0"):
         biom_table = biom.table.table_factory(
             data,
         sample_ids,
