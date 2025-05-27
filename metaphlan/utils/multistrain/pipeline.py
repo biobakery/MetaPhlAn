@@ -12,6 +12,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import pysam
+from numpy import ndarray
 
 from ...utils import info, error, warning, info_debug, global_flags
 from . import utils
@@ -219,12 +220,13 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
     :param dict config:
     :param sam_file:
     :param PileupResult pr:
-    :param Sequence read_lens:
+    :param Sequence[int] read_lens:
     :param dict[str, str] marker_to_clade_db:
     :param dict[str, Sequence[str]] marker_to_ext:
     :return:
     """
 
+    avg_read_len: float = np.mean(read_lens)
 
     s_marker_to_clade_db = pd.Series(marker_to_clade_db)
     clade_to_markers_db = s_marker_to_clade_db.groupby(s_marker_to_clade_db).groups
@@ -269,7 +271,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
         marker_to_length_sgb = {m: pr.marker_to_length[m] for m in
                                 df_loci_sgb['marker'].unique()}  # downsize the possibly huge dict
         result_row, data, df_loci_sgb, df_loci_sgb_polyallelic = filter_loci_snp_call(df_loci_sgb, marker_to_length_sgb,
-                                                                                      read_lens, config)
+                                                                                      avg_read_len, config)
 
         df_loci_sgb_filtered = df_loci_sgb.query('filtered').copy()
 
@@ -322,7 +324,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
                 pickle.dump(data, f)
 
         consensuses_maj_sgb, consensuses_min_sgb = get_strainphlan_markers(strain_resolved_markers_sgb, result_row,
-                                                                           merging_results_before, config)
+                                                                           merging_results_before, avg_read_len, config)
         consensuses_maj.update(consensuses_maj_sgb)
         consensuses_min.update(consensuses_min_sgb)
 

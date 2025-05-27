@@ -1,5 +1,5 @@
 import re
-from typing import Sequence, IO
+from typing import Sequence, IO, Any
 import bz2
 from collections import Counter
 import shlex
@@ -66,7 +66,7 @@ def prepare_sam(input_path, output_bam_path, output_dir, db_name, config):
 
     _, _, read_stdout = pipe_together(commands, fi)
 
-    marker_hits = Counter()
+    marker_hits: Counter[bytes] = Counter()
     for line in read_stdout:
         if line.startswith(b'@'):
             if line.startswith(b'@CO\tindex:'):
@@ -76,9 +76,8 @@ def prepare_sam(input_path, output_bam_path, output_dir, db_name, config):
             continue
         line_fields = line.rstrip(b'\n').split(b'\t')
         marker = line_fields[2]
-        if marker.startswith(b'VDB'):
+        if config['remove_viral_hits'] and marker.startswith(b'VDB'):
             continue
-        marker = marker.decode()
         marker_hits[marker] += 1
 
     selected_markers = set(marker_hits.keys())
@@ -116,8 +115,12 @@ def prepare_sam(input_path, output_bam_path, output_dir, db_name, config):
 
     # mark duplicate reads and produce stats
     if config['dedup_stats']:
-        markdup_stats_path = output_dir / 'markdup_stats.txt'
-        commands_2.append(f'samtools markdup -f {markdup_stats_path} -T {tmp_dir} - -')
+        if config['fix_pairend']:
+            markdup_stats_path = output_dir / 'markdup_stats.txt'
+            commands_2.append(f'samtools markdup -f {markdup_stats_path} -T {tmp_dir} - -')
+        else:
+            warning('Dedup stats works only with fix_pairend unfortunately, we need to figure out a workaround for '
+                    'already paired data')
 
     p1, stdin1, stdout1 = pipe_together(commands_1, fi)
     fo = open(output_bam_path, 'wb')
@@ -131,16 +134,14 @@ def prepare_sam(input_path, output_bam_path, output_dir, db_name, config):
 
         if line.startswith(b'@SQ'):
             assert line_fields[1].startswith(b'SN:')  # in bowtie2 output SN is always the first tag
-            marker = line_fields[1][3:].decode()
+            marker = line_fields[1][3:]
             if marker in selected_markers:
                 stdin2.write(line)
-        elif line.startswith(b'@'):  # other header lines like @HD and @PG
+        elif line.startswith(b'@'):  # other header lines like @HD, @PG, @CO
             stdin2.write(line)
         else:  # mapping lines
             read_name, flag, marker, pos, mapq, cigar, rnext, pnext, tlen, seq, qual, *tags = line_fields
-            if marker.startswith(b'VDB'):
-                continue
-            if marker.decode() not in selected_markers:
+            if marker not in selected_markers:
                 continue
 
             if int(mapq) < config['min_mapping_quality']:
@@ -159,13 +160,17 @@ def prepare_sam(input_path, output_bam_path, output_dir, db_name, config):
 
             read_lens.append(read_len)
 
-            i = read_name.rfind(b'__')
-            if i != -1:
-                read_name = read_name[:i]
-            elif not read_name_warning_raised:
-                warning(f'Read {read_name} does not have __ in its name')
-                read_name_warning_raised = True
-            line_w = b'\t'.join((read_name, *line_fields[1:])) + b'\n'
+            if config['fix_pairend']:
+                i = read_name.rfind(b'__')
+                if i != -1:
+                    read_name = read_name[:i]
+                elif not read_name_warning_raised:
+                    warning(f'Read {read_name} does not have __ in its name')
+                    read_name_warning_raised = True
+
+                line_w = b'\t'.join((read_name, *line_fields[1:])) + b'\n'
+            else:
+                line_w = line
 
             stdin2.write(line_w)
 

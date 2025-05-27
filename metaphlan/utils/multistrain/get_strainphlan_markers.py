@@ -5,19 +5,21 @@ from .linkage import eval_pair
 ACTG = 'ACTG'
 
 
-def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_results, config):
+def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_results, avg_read_len, config):
     """
     Assesses the quality of reconstructed markers and produces the final genotypes to output
 
     :param strain_resolved_markers_sgb:
     :param dict result_row:
     :param merging_results:
+    :param float avg_read_len:
     :param config:
     :return:
     """
 
     def calc_breadth(s):
         t = config['trim_marker_ends']
+        t = max(t, int(avg_read_len/2))
         s_trimmed = s[t:-t] if t > 0 else s
         return 100 * (1 - s_trimmed.count('-') / len(s_trimmed)) if len(s_trimmed) > 0 else 0
 

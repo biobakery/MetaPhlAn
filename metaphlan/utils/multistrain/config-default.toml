@@ -1,8 +1,9 @@
 # TOML configuration file
 # see https://toml.io/en/v1.0.0 for syntax
 
-fix_pairend = true  # whether to fix pair end information from metaphlan output, requires SAM in input
-dedup_stats = true  # whether to run samtools rmdup to mark and count duplicate reads. Needs to have fix_paired set to true
+fix_pairend = false  # whether to fix pair end information from metaphlan output, requires SAM in input
+dedup_stats = false  # whether to run samtools rmdup to mark and count duplicate reads. Needs to have fix_paired set to true
+remove_viral_hits = true  # keeping the viral hits is not tested
 
 # read mapping filtering
 min_mapping_quality = 1  # minimum mapQ
@@ -64,18 +65,18 @@ r_fallback = 0.5  # the major/minor ratio to use when fitting fails
 # Reconstructed markers output
 min_output_quality = 10  # Minimum PHRED base quality to consider the base as called, otherwise place a gap. [e.g. 10 ~ 90%, 20 ~ 99%, 30 ~ 99.9% confidence]
 
-min_output_breadth = 80  # Minimum breadth of coverage to output the marker [%]
-min_output_snp_rate = 0.5  # Minimum SNP rate to report the second strain [%]
-min_recall = 80  # Minimum recall to report the second strain [%]
-min_precision = 80  # Minimum precision to report the second strain [%]
-min_precision_support = 100  # Minimum precision support to report the second strain
-max_r_var = 0.1  # Maximum variance of the strain ratio to consider reliable fit and report the second strain, nan to turn off filtering
-max_snp_rate_var = 0.1  # Maximum variance of the snp rate to consider reliable fit and report the second strain, nan to turn off filtering
+#min_output_breadth = 80  # Minimum breadth of coverage to output the marker [%]
+#min_output_snp_rate = 0.5  # Minimum SNP rate to report the second strain [%]
+#min_recall = 80  # Minimum recall to report the second strain [%]
+#min_precision = 80  # Minimum precision to report the second strain [%]
+#min_precision_support = 100  # Minimum precision support to report the second strain
+#max_r_var = 0.1  # Maximum variance of the strain ratio to consider reliable fit and report the second strain, nan to turn off filtering
+#max_snp_rate_var = 0.1  # Maximum variance of the snp rate to consider reliable fit and report the second strain, nan to turn off filtering
 
-# min_output_breadth = 0
-# min_output_snp_rate = 0
-# min_recall = 0
-# min_precision = 0
-# min_precision_support = 0
-# max_r_var = nan
-# max_snp_rate_var = nan
+min_output_breadth = 0
+min_output_snp_rate = 0
+min_recall = 0
+min_precision = 0
+min_precision_support = 0
+max_r_var = nan
+max_snp_rate_var = nan
