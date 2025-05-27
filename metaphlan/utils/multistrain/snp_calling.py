@@ -214,12 +214,12 @@ def run_pileup(sam_file, config):
     return pr_before, pr_after
 
 
-def filter_loci_snp_call(df_loci_sgb, marker_to_length, read_lens, config):
+def filter_loci_snp_call(df_loci_sgb, marker_to_length, avg_read_len, config):
     """
 
     :param pd.DataFrame df_loci_sgb:
     :param dict[str, int] marker_to_length:
-    :param Sequence[int] read_lens:
+    :param float avg_read_len:
     :param dict config:
     :return:
     """
@@ -239,7 +239,6 @@ def filter_loci_snp_call(df_loci_sgb, marker_to_length, read_lens, config):
 
     # filter sites with outlier coverage (outside sgb-wise 1.5 IQR)
     # to determine the IQR consider only positions at least avg-read-length away from the ends
-    avg_read_len = np.mean(read_lens)
     base_coverage_fit = df_loci_sgb.query(f'end_pos >= {avg_read_len}')['base_coverage']
     base_coverage_all = df_loci_sgb['base_coverage']
     q25 = base_coverage_fit.quantile(.25)
