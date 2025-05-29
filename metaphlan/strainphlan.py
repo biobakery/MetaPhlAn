@@ -48,18 +48,19 @@ class Strainphlan:
         """
 
         return execute_pool(((Strainphlan.get_matrix_for_sample, sample_path, self.clade_markers_names,
-                              self.breadth_thres, self.database_controller.get_database_name())
+                              self.breadth_thres, self.polymorphism_perc, self.database_controller.get_database_name())
                              for sample_path in self.samples), self.nprocs)
 
 
     @classmethod
-    def get_matrix_for_sample(cls, sample_path, clade_markers, breadth_thres, database_name):
+    def get_matrix_for_sample(cls, sample_path, clade_markers, breadth_thres, polymorphism_perc, database_name):
         """Returns the matrix with the presence / absence of the clade markers in a samples
 
         Args:
             sample_path (str): the path to the sample
             clade_markers (Iterable): the list with the clade markers names
             breadth_thres:
+            polymorphism_perc:
             database_name:
 
         Returns:
@@ -74,7 +75,9 @@ class Strainphlan:
         markers = {"sample_name": sample_name}
         markers.update({m: 0 for m in clade_markers})
         markers.update({marker.name: 1 for marker in sample.consensus_markers
-                        if marker.name in clade_markers and marker.breadth >= breadth_thres})
+                        if marker.name in clade_markers and 
+                        marker.breadth >= breadth_thres and
+                        marker.get_polymorphism_perc() <= polymorphism_perc})
         return markers
 
 
@@ -620,6 +623,7 @@ class Strainphlan:
         self.sample_with_n_markers_after_filt = args.sample_with_n_markers_after_filt
         self.sample_with_n_markers_after_filt_perc = args.sample_with_n_markers_after_filt_perc
         self.breadth_thres = args.breadth_thres
+        self.polymorphism_perc = args.polymorphism_perc if args.polymorphism_perc is not None else 100
         self.print_clades_only = args.print_clades_only
         self.non_interactive = args.non_interactive
         self.phylophlan_mode = args.phylophlan_mode
@@ -670,6 +674,8 @@ def read_params():
                         "This rule is combined with AND logic with --sample_with_n_markers_after_filt")
     p.add_argument('--breadth_thres', type=int, default=80,
                    help="Threshold defining the minimum breadth of coverage for the markers")
+    p.add_argument('--polymorphism_perc', type=int, default=None,
+                   help="Threshold defining the maximum percentage of polymorphic sites in a marker to be considered ")
     p.add_argument('--phylophlan_mode', choices=['accurate', 'fast'], default='fast',
                    help="The presets for fast or accurate phylogenetic analysis")
     p.add_argument('--phylophlan_configuration', type=str, default=None,
