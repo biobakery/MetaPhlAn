@@ -1,66 +1,4 @@
-## Version 4.1.1 (Mar 11th, 2024)
-### Database updates
-* We just released the new vJun23_202403 and vOct22_202403 databases
-  * Same SGBs as for the vJun23_202307 and vOct22_202212 versions, respectively, but the NCBI taxonomy assignment has been fixed to keep the taxa consistent across the MetaPhlAn taxonomic tree, allowing accurate relative abundance estimation also at higher taxonomic levels
-### New features
-* [MetaPhlAn] The new `fix_relab_mpa4.py` script enables to fix errors in the relative abundances in profiles generated with previous databases
-* [MetaPhlAn] Implementation of the option `--subsampling_paired [N_PAIRED_READS]` to subsample paired-end input reads. It needs to be used in conjunction with `-1 [FORWARD_READS_FILE]` and `-2 [REVERSE_READS_FILE]`
-### Fixes
-* [MetaPhlAn] Fixed a bug that would halt MetaPhlAn execution when the option `--profile_vsc` was used but had no viral hits
-* [MetaPhlAn] Fixed a bug that would halt MetaPhlAn execution when the number of reads to map was zero
-* [StrainPhlAn] Fixed a bug in the new implementation (since v4.1) of `–-print_clades_only`
-  <br/>
-
-## Version 4.1.0 (Feb 20th, 2024)
-### Database updates
-* We just released the new vJun23_202307 database
-  * Addition of ~45k reference genomes from NCBI
-  * Addition of ~50k MAGs from ocean, ~40k MAGs from soil, ~30k MAGs from domestic animals and non-human primates, ~4k MAGs from giant turtles, ~7.5k MAGs from skin microbiome, ~20k MAGs from dental plaque, ~15k MAGs from Asian populations, ~2.7k MAGs from ancient and modern Bolivians and other small datasets from diverse sources
-  * Expansion of the markers database with 36,822 SGBs (6,272 more SGBs than in vOct22)
-* Inclusion of the new Viral Sequence Clusters (VSCs) database
-  * Containing 3,944 VSCs clustered into 1,345 Viral Sequence Groups (VSGs).
-  * Including a total of 45,872 representative VSGs sequences.
-  * Each cluster/group is labeled as known (kVSG) or unknown (uVSG) depending on the presence of at least a viral RefSeq reference genome within the cluster/group.
-### New features
-* [MetaPhlAn] The new `--profile_vsc` parameter (together with  `--vsc_out` and  `--vsc_breadth`) enables the profiling of viral sequence clusters.
-* [MetaPhlAn] The `--subsampling` now subsamples the FASTQ files and not the mapping results
-* [MetaPhlAn] The new `--mapping_subsampling` parameter enables the previous mapping subsampling behaviour
-* [MetaPhlAn] The new `--subsampling_output` parameter enables to save the subsampled FASTQ file
-* [MetaPhlAn] The new `create_toy_database.py` script enables the custom filtering of the MetaPhlAn databases
-### Changed features
-* [MetaPhlAn] The average read length is included in the output header with the -t rel_ab_w_read_stats parameter
-* [StrainPhlAn] Quasi-markers behaviour in line with that of MetaPhlAn
-* [StrainPhlAn] sample2markers.py output is now in JSON format
-* [StrainPhlAn] Simplified sample and marker filtering parameters, integrated with primary/secondary samples
-* [StrainPhlAn] Faster inference of small and medium phylogenies
-* [StrainPhlAn] Faster execution of the parameter `–-print_clades_only`
-<br/>
-
-## Version 4.0.6 (Mar 1st, 2023)
-### Changed features
-* [MetaPhlAn] The GTDB taxonomic assignment for the vOct22 database is now available.
-
-<br/>
-
-## Version 4.0.5 (Feb 23rd, 2023)
-### Database updates
-* We just released the new vOct22 database
-* Addition of ~200k new genomes
-* 3,580 more SGBs than the vJan21
-* 2,548 genomes considered reference genomes in vJan21 were relabelled as MAGs in NCBI -> 1,550 kSGBs in vJan21 are now uSGBs in vOct22
-* Removed redundant reference genomes from the vJan21 genomic database using a MASH distance threshold at 0.1%
-* Local reclustering to improve SGB definitions of oversized or too-close SGBs
-* Improved GGB and FGB definitions by reclustering SGB centroids from scratch
-* Improved phylum assignment of SGBs with no reference genomes at FGB level using MASH distances on amino acids to find the closest kSGB
-### Changed features
-* [StrainPhlAn] Improved StrainPhlAn's speed when running with the --print_clades_only option
-### Missing features
-* [MetaPhlAn] The GTDB taxonomic assignment for the vOct22 database is not available yet (expected release: end of Feb 2023)
-* [MetaPhlAn] The phylogenetic tree of life for the vOct22 database is not available yet (expected release: TBD)
-
-<br/>
-
-## Version 4.0.4 (Jan 17th, 2023)
+## Version 4.0.4 (Jan 17nd, 2023)
 ### Changed features
 * [MetaPhlAn] Download of the pre-computed Bowtie2 database is now the default option during installation
 * [StrainPhlAn] Improved StrainPhlAn's sample2makers.py script performance and speed
@@ -69,7 +7,7 @@
 
 <br/>
 
-## Version 4.0.3 (Oct 24th, 2022)
+## Version 4.0.3 (Oct 24nd, 2022)
 ### Changed features
 * [MetaPhlAn] Removal of the NCBI taxID from the merged profiles produced by the `merge_metaphlan_profiles.py` script
 * [StrainPhlAn] Improved StrainPhlAn's performance in the markers/samples filtering step

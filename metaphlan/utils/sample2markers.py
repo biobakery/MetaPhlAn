@@ -5,8 +5,8 @@ __author__ = ('Michal Puncochar (michal.puncochar@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.1.1'
-__date__ = '11 Mar 2024'
+__version__ = '4.2.0'
+__date__ = '14 May 2025'
 
 
 
@@ -30,13 +30,13 @@ try:
     from .external_exec import samtools_sam_to_bam, samtools_sort_bam_v1, decompress_bz2
     from .util_fun import info, error, warning
     from .parallelisation import execute_pool
-    from .database_controller import MetaphlanDatabaseController
+    from .database_controller import StrainphlanDatabaseController
     from .consensus_markers import ConsensusMarker, ConsensusMarkers
 except ImportError:
     from external_exec import samtools_sam_to_bam, samtools_sort_bam_v1, decompress_bz2
     from util_fun import info, error, warning
     from parallelisation import execute_pool
-    from database_controller import MetaphlanDatabaseController
+    from database_controller import StrainphlanDatabaseController
     from consensus_markers import ConsensusMarker, ConsensusMarkers
 
 
@@ -450,7 +450,7 @@ class SampleToMarkers:
     def __init__(self, args):
         self.input = args.input
         self.output_dir = args.output_dir
-        self.database_controller = MetaphlanDatabaseController(args.database)
+        self.database_controller = StrainphlanDatabaseController(args.database)
         self.tmp_dir = args.output_dir if args.tmp is None else args.tmp
         self.breadth_threshold = args.breadth_threshold
         self.input_format = args.input_format

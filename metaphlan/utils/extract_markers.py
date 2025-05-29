@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.1.1'
-__date__ = '11 Mar 2024'
+__version__ = '4.2.0'
+__date__ = '14 May 2025'
 
 
 import os
@@ -10,10 +10,10 @@ import time
 import argparse as ap
 try:
     from .util_fun import info, error
-    from .database_controller import MetaphlanDatabaseController
+    from .database_controller import StrainphlanDatabaseController
 except ImportError:
     from util_fun import info, error
-    from database_controller import MetaphlanDatabaseController
+    from database_controller import StrainphlanDatabaseController
 
 
 def read_params():
@@ -55,7 +55,7 @@ def main():
     args = read_params()
     info("Start extract markers execution")
     check_params(args)
-    database_controller = MetaphlanDatabaseController(args.database)
+    database_controller = StrainphlanDatabaseController(args.database)
     database_controller.extract_markers(args.clades, args.output_dir)
     exec_time = time.time() - t0
     info("Finish extract markers execution ({} seconds): Results are stored at \"{}\"".format(

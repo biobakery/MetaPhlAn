@@ -3,12 +3,10 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.1.1'
-__date__ = '11 Mar 2024'
+__version__ = '4.2.0'
+__date__ = '14 May 2025'
 
-
-from typing import Iterable
-import itertools as it
+from typing import Iterable, Callable, Any
 
 try:
     from .util_fun import error
@@ -30,13 +28,11 @@ def init_terminating(terminating_):
     global terminating
     terminating = terminating_
 
-
 def parallel_execution(arguments):
-    """
-    Executes each parallelized call of a function
+    """Executes each parallelised call of a function
 
     Args:
-        arguments (Tuple[Callable, *Any]): tuple with the function and its arguments
+        arguments ((Callable, *Any)): tuple with the function and its arguments
 
     Returns:
         function: the call to the function
@@ -50,16 +46,6 @@ def parallel_execution(arguments):
             raise e
     else:
         terminating.set()
-
-
-def iterator_shorter_than(i, ln):
-    try:
-        for _ in range(ln):
-            next(i)
-    except StopIteration:
-        return True
-    return False
-
 
 def execute_pool_iter(args, nprocs, ordered):
     try:
@@ -76,27 +62,23 @@ def execute_pool_iter(args, nprocs, ordered):
         error('Parallel execution fails: {}'.format(e), exit=False)
         raise e
 
-
 def execute_pool(args, nprocs, return_generator=False, ordered=False):
-    """
-    Creates a pool for a parallelized function and returns the results of each execution as a list
+    """Creates a pool for a parallelised function and returns the results of each execution as a list
 
     Args:
         args (Iterable[tuple]): tuple with the function and its arguments
         nprocs (int): number of procs to use
-        return_generator (bool): Whether to return a non-blocking generator instead of list
-        ordered (bool): Whether the returning results should be in the same order as the input arguments
 
     Returns:
         list: the list with the results of the parallel executions
     """
-    args, args_tmp = it.tee(args)  # duplicate the iterator not to consume it
-    if nprocs == 1 or iterator_shorter_than(args_tmp, 2):  # no need to initialize pool
-        gen = (function(*a) for function, *a in args)
-    else:
+    try:
         gen = execute_pool_iter(args, nprocs, ordered)
-        
-    if return_generator:
-        return gen
-    else:
-        return list(gen)
+                
+        if return_generator:
+            return gen
+        else:
+            return [_ for _ in gen]
+    
+    except Exception as e:
+            error('Parallel execution fails: {}'.format(e), exit=True)

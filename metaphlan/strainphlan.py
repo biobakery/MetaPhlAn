@@ -5,8 +5,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it),'
               'Michal Puncochar (michal.puncochar@unitn.it')
-__version__ = '4.1.1'
-__date__ = '11 Mar 2024'
+__version__ = '4.2.0'
+__date__ = '14 May 2025'
 
 
 import argparse as ap
@@ -70,7 +70,6 @@ class Strainphlan:
             error(f'The database of the sample {sample.database_name} does not match the provided {database_name}',
                   exit=True)
         sample_name = cls.sample_path_to_name(sample_path)
-
         markers = {"sample_name": sample_name}
         markers.update({m: 0 for m in clade_markers})
         markers.update({marker.name: 1 for marker in sample.consensus_markers
@@ -607,7 +606,7 @@ class Strainphlan:
 
     def __init__(self, args):
         self.clade_markers_names = None
-        self.database_controller = MetaphlanDatabaseController(args.database)
+        self.database_controller = StrainphlanDatabaseController(args.database)
         self.clade_markers_file = args.clade_markers
         self.samples = Strainphlan.get_input_samples(args.samples)
         self.references = Strainphlan.get_input_samples(args.references)

@@ -3,17 +3,16 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.1.1'
-__date__ = '11 Mar 2024'
+__version__ = '4.2.0'
+__date__ = '14 May 2025'
 
-import bz2
-import gzip
 import os
 import sys
 import time
+import bz2
+import gzip
 
-
-def info(message, init_new_line=True, stderr=False, exit=False, exit_value=0):
+def info(message, init_new_line=True, stderr=True, exit=False, exit_value=0):
     """Prints an info message
 
     Args:
@@ -83,6 +82,72 @@ def create_folder(path):
             os.mkdir(path)
     except Exception as e:
         error('An error ocurred when creating the \"{}\" folder'.format(e), exit=True)
+        
+def read_and_split(ofn):
+    """Reads and splits a UTF-8 coded input stream
+
+    Args:
+        ofn (stream): the coded input stream
+
+    Returns:
+        list: the splitted decoded stream as a list
+    """
+    return (l.decode('utf-8').strip().split('\t') for l in ofn)
+
+def read_and_split_line(line):
+    """Reads and splits a UTF-8 coded line
+
+    Args:
+        line (str): the coded line
+
+    Returns:
+        list: the splitted decoded line
+    """
+    return line.decode('utf-8').strip().split('\t')
+
+def plain_read_and_split(ofn):
+    """Reads and splits an input stream
+
+    Args:
+        ofn (stream): the input stream
+
+    Returns:
+        list: the splitted stream as a list
+    """
+    return (l.strip().split('\t') for l in ofn)
+
+def plain_read_and_split_line(l):
+    """Reads and splits a line
+
+    Args:
+        line (str): the line
+
+    Returns:
+        list: the splitted line
+    """
+    return l.strip().split('\t')
+
+def mybytes(val):
+    """Encodes a value to bytes
+
+    Args:
+        val (any): the value
+
+    Returns:
+        bytes: the encoded value
+    """
+    return bytes(val, encoding='utf-8')
+
+def byte_to_megabyte(byte):
+    """Convert byte value to megabyte
+
+    Args:
+        byte (int): the byte value
+
+    Returns:
+        int: the megabyte value of the byte
+    """
+    return byte / (1024.0**2)
 
 
 def openrt(file_path):

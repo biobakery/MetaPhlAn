@@ -4,19 +4,16 @@ from io import open
 import sys, shutil, os, zipfile, tarfile, subprocess, tempfile, re, time
 from urllib.request import urlretrieve
 
-from metaphlan import download_unpack_zip
-
-
-install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'hclust2', 'requests', 'dendropy', 'pysam', 'phylophlan'],
+install_requires = ['numpy', 'h5py', 'biom-format', 'biopython', 'pandas', 'scipy', 'hclust2', 'requests', 'dendropy', 'pysam', 'cmseq', 'phylophlan'],
 
 if sys.version_info[0] < 3:
     sys.stdout.write('MetaPhlAn requires Python 3 or higher. Please update you Python installation')
 
 setuptools.setup(
     name='MetaPhlAn',
-    version='4.1.1',
-    author='Aitor Blanco-Miguez',
-    author_email='aitor.blancomiguez@unitn.it',
+    version='4.2.0',
+    author='Claudia Mengoni',
+    author_email='claudia.mengoni@unitn.it',
     url='http://github.com/biobakery/MetaPhlAn/',
     license='LICENSE.txt',
     packages=setuptools.find_packages(),
@@ -36,7 +33,6 @@ setuptools.setup(
             'add_metadata_tree.py = metaphlan.utils.add_metadata_tree:main',
             'extract_markers.py = metaphlan.utils.extract_markers:main',
             'merge_metaphlan_tables.py  = metaphlan.utils.merge_metaphlan_tables:main',
-            'merge_vsc_tables.py  = metaphlan.utils.merge_vsc_tables:main',
             'plot_tree_graphlan.py = metaphlan.utils.plot_tree_graphlan:main',
             'read_fastx.py = metaphlan.utils.read_fastx:main',
             'sample2markers.py = metaphlan.utils.sample2markers:main',
@@ -45,8 +41,6 @@ setuptools.setup(
             'metaphlan2krona.py = metaphlan.utils.metaphlan2krona:main',
             'run_treeshrink.py = metaphlan.utils.treeshrink.run_treeshrink:main',
             'treeshrink.py = metaphlan.utils.treeshrink.treeshrink:main',
-            'create_toy_database.py = metaphlan.utils.create_toy_database:main',
-            'fix_relab_mpa4.py = metaphlan.utils.fix_relab_mpa4:main',
         ]
     },
     description='MetaPhlAn is a computational tool for profiling the composition of microbial communities (Bacteria, Archaea and Eukaryotes) from metagenomic shotgun sequencing data (i.e. not 16S) with species-level. With the newly added StrainPhlAn module, it is now possible to perform accurate strain-level microbial profiling.',
