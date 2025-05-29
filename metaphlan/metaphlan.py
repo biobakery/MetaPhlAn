@@ -865,7 +865,7 @@ class Bowtie2Controller(MappingController):
             read_fastx_stderr (list): standard error from the readfastx execution
         """
         try:
-            nreads, avg_read_len = list(
+            nreads, avg_read_len, _ = list(
                 map(float, read_fastx_stderr[0].decode().split()))
             if not nreads or int(nreads)==0:
                 error('Fatal error running MetaPhlAn. Total metagenome size was not estimated or is zero.\nPlease check your input files.', exit=True)
@@ -944,7 +944,7 @@ class Minimap2Controller(MappingController):
             info('Building minimap2 index for parameters:{}'.format(self.mm2_ps_str.replace("_"," -")), init_new_line = True)
         mmi_index = os.path.join(self.db_dir, self.index + self.mm2_ps_str + ".mmi")
         # mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-d", mmi_index, fna_file]
-        mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-I","20G","-d", mmi_index, fna_file]
+        mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-v","0","-I","20G","-d", mmi_index, fna_file]
 
         try:
             subp.run(mm2_cmd)
@@ -989,6 +989,7 @@ class Minimap2Controller(MappingController):
         Returns:
             list: the command for the Minimap2 execution
         """
+        ## old version for input in file
         # sp_tmp = ".".join(self.mapout.split(".")[:-2]) if self.mapout.endswith("bz2") else ".".join(self.mapout.split(".")[-1])
         # mm2_cmd = [self.minimap2_exe, "-x", "asm20", "-B", "3", "-O", "3,12", "--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
         # mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-v","0","--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
@@ -1023,7 +1024,7 @@ class Minimap2Controller(MappingController):
                 readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), self.inp], stdout=subp.PIPE, stderr=subp.PIPE)
             else:
                 readin = subp.Popen([read_fastx, '-l', str(self.read_min_len)], stdin=sys.stdin, stdout=subp.PIPE, stderr=subp.PIPE)
-            p = subp.Popen(self.get_minimap2cmd(), stdout=subp.PIPE, stdin=readin.stdout, stderr=subp.DEVNULL)
+            p = subp.Popen(self.get_minimap2cmd(), stdout=subp.PIPE, stdin=readin.stdout) #, stderr=subp.DEVNULL)
             readin.stdout.close()
 
             ## run without read_fastx
@@ -1061,6 +1062,8 @@ class Minimap2Controller(MappingController):
             if self.vsc_controller:
                 viral_sam.close()
             p.communicate()
+
+            self.nbases = self.get_nbases(readin.stderr.readlines())
             outf.write('#\tnbases\t{}\t#\t#\n'.format(self.nbases))
             outf.close()
             self.input_type = 'mapout'
@@ -1871,9 +1874,10 @@ class Metaphlan:
                 self.mapping_controller.set_nbases(self.total_metagenome)
 
         if self.input_type in ['fastq', 'fasta']:
-            if self.long_reads and not self.total_metagenome:
+            ## This is not needed anymore as the file is now read by read_fastx, that counts the number of bases
+            # if self.long_reads and not self.total_metagenome:
                 ## calculate nbases for long reads if needed because minimap skips read_fastx
-                self.mapping_controller.set_nbases(self.rawpycount_bases(self.inp, self.input_type))
+                # self.mapping_controller.set_nbases(self.rawpycount_bases(self.inp, self.input_type))
             self.mapping_controller.run_mapping()       
         self.parse_mapping()
         self.metaphlan_analysis.report_results(self.tree, self.total_metagenome, self.avg_read_length)
@@ -2211,9 +2215,10 @@ def check_params(args):
             error("The --split_reads parameter is not accepted with --long_reads, please remove --long_reads if you want to split your long reads", exit=True)
         if args.input_type == 'sam' and not args.nbases:
             error('The --nbases parameter must be specified when using input files in SAM format with long reads', exit=True)
-        if args.inp and "," in args.inp:
-            warning("Multiple input files are not supported with long reads, only the first file will be used", init_new_line = True)
-            args.inp = args.inp.split(",")[0]
+        ## This is not needed anymore as the file is now read by read_fastx, that accepts multiploe comma-separated files
+        # if args.inp and "," in args.inp:
+        #     warning("Multiple input files are not supported with long reads, only the first file will be used", init_new_line = True)
+        #     args.inp = args.inp.split(",")[0]
         if args.subsampling_paired:
             error("The --subsampling_paired parameter is not accepted with --long_reads", exit=True)
         if not args.mapping_subsampling and args.subsampling is not None and args.subsampling < 10000*150: # TODO check threshold

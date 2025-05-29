@@ -214,11 +214,11 @@ def main():
             nreads += f_nreads
             avg_read_length += f_avg_read_length
 
-    # nbases = avg_read_length
+    nbases = avg_read_length
     avg_read_length /= nreads
 
     if nreads and avg_read_length:
-        sys.stderr.write('{}\t{}'.format(nreads, avg_read_length))
+        sys.stderr.write('{}\t{}\t{}'.format(nreads, avg_read_length, nbases))
     else:
         exit(1)
 
