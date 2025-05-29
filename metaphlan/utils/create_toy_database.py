@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 __author__ = 'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)'
-__version__ = '4.1.1'
-__date__ = '11 Mar 2024'
+__version__ = '4.2.0'
+__date__  = '14 May 2025'
 
 
 import bz2, os, pickle, time
@@ -32,7 +32,7 @@ def read_params():
     requiredNamed.add_argument('--out_dir', type=str, default=None, help="The output folder for the new MetaPhlAn database")
     requiredNamed.add_argument('--out_name', type=str, default=None, help="The name for the new MetaPhlAn database")   
     optionalNamed = p.add_argument_group('optional arguments')
-    optionalNamed.add_argument('--bowtie2db', metavar="METAPHLAN_BOWTIE2_DB", type=str, default=DEFAULT_DB_FOLDER,
+    optionalNamed.add_argument('--db_dir', metavar="METAPHLAN_DB", type=str, default=DEFAULT_DB_FOLDER,
         help=("Folder containing the MetaPhlAn database. You can specify the location by exporting the DEFAULT_DB_FOLDER variable in the shell."))
     optionalNamed.add_argument('--index', type=str, default=INDEX,
         help=("Specify the id of the database version to use. If \"latest\", MetaPhlAn will get the latest version."))

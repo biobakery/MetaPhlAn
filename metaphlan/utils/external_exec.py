@@ -3,14 +3,13 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.1.1'
-__date__ = '11 Mar 2024'
-
+__version__ = '4.2.0'
+__date__ = '14 May 2025'
 
 import os
 import re
-import shlex
 import shutil
+import shlex
 import tempfile
 import subprocess as sb
 try:
@@ -26,7 +25,7 @@ def execute(cmd):
         cmd (dict): the dict with the command line information
     """
     inp_f = None
-    out_f = sb.PIPE
+    out_f = sb.DEVNULL
     if cmd['stdin']:
         inp_f = open(cmd['stdin'], 'r')
     if cmd['stdout']:
@@ -34,22 +33,54 @@ def execute(cmd):
     exec_res = sb.run(cmd['command_line'], stdin=inp_f, stdout=out_f)
     if exec_res.returncode == 1:
         error("An error was ocurred executing a external tool, exiting...", exit=True)
-        print(exec_res.stdout)
-        print('===')
-        print(exec_res.stderr)
     if cmd['stdin']:
         inp_f.close()
     if cmd['stdout']:
         out_f.close()
 
 
-def build_bowtie2_db(input_fasta, output_database):
+def create_blastn_db(output_dir, reference):
+    """Creates the BLASTn database to align the reference genomes"""
+    reference_name = os.path.splitext(os.path.basename(reference))[0]
     params = {
-        "program_name": "bowtie2-build",
-        "params": "--large-index {} {}".format(input_fasta, output_database),
-        "command_line": "#program_name# #params#"
+        "program_name": "makeblastdb",
+        "params": "-parse_seqids -dbtype nucl",
+        "input": "-in",
+        "output": "-out",
+        "command_line": "#program_name# #params# #input# #output#"
     }
-    execute(compose_command(params, input_file=input_fasta, output_file=output_database))
+    execute(compose_command(params, input_file=reference,
+            output_file=os.path.join(output_dir, reference_name)))
+    return os.path.join(output_dir, reference_name)
+
+
+def execute_blastn(output_dir, clade_markers, blastn_db, nprocs=1):
+    """Executes BLASTn"""
+    db_name = os.path.splitext(os.path.basename(blastn_db))[0]
+    params = {
+        "program_name": "blastn",
+        "params": "-outfmt \"6 qseqid sseqid qlen qstart qend sstart send\" -evalue 1e-10 -max_target_seqs 1",
+        "input": "-query",
+        "database": "-db",
+        "output": "-out",
+        "threads": "-num_threads",
+        "command_line": "#program_name# #params# #threads# #database# #input# #output#"
+    }
+    execute(compose_command(params, input_file=clade_markers, database=blastn_db,
+                            output_file=os.path.join(output_dir, "{}.blastn".format(db_name)), nproc=nprocs))
+    return os.path.join(output_dir, "{}.blastn".format(db_name))
+
+
+def create_phylophlan_db(output_dir, clade):
+    """Creates the PhyloPhlAn database"""
+    markers = os.path.join(output_dir, clade)
+    params = {
+        "program_name": "phylophlan_setup_database",
+        "params": "-d {} -e fna -t n --overwrite".format(clade),
+        "input": "-i",
+        "command_line": "#program_name# #input# #params#"
+    }
+    execute(compose_command(params, input_file=markers))
 
 
 def generate_phylophlan_config_file(output_dir, configuration):
@@ -63,6 +94,24 @@ def generate_phylophlan_config_file(output_dir, configuration):
     }
     execute(compose_command(params, output_file=conf_file))
     return conf_file
+
+
+def execute_phylophlan(samples_markers_dir, conf_file, min_entries, min_markers, tmp_dir, output_dir, clade, phylogeny_conf, mutation_rates, nprocs):
+    """Executes PhyloPhlAn"""
+    advanced_params = "--"+phylogeny_conf
+    if mutation_rates:
+        advanced_params = advanced_params + " --mutation_rates"
+    params = {
+        "program_name": "phylophlan",
+        "params": "-d {} --data_folder {} --databases_folder {} -t n -f {} --diversity low {} --genome_extension fna --force_nucleotides --min_num_entries {} --convert_N2gap --min_num_markers {}".format(clade[:30], tmp_dir, tmp_dir, conf_file, advanced_params, min_entries, min_markers),
+        "input": "-i",
+        "output_path": "--output_folder",
+        "output": "-o",
+        "threads": "--nproc",
+        "command_line": "#program_name# #input# #output# #output_path# #params# #threads#"
+    }
+    execute(compose_command(params=params, input_file=samples_markers_dir, output_path=output_dir,
+                            output_file=".", nproc=nprocs))
 
 
 def execute_treeshrink(input_tree, output_dir, tmp=None, centroid=False, q_value=0.05, m_value='all-genes'):
@@ -86,18 +135,8 @@ def execute_treeshrink(input_tree, output_dir, tmp=None, centroid=False, q_value
         output_dir), output_file=input_tree.split('/')[-1].replace('.StrainPhlAn4.tre', '.TreeShrink')))
 
 
-def compress_bz2(input_file):
-    """Compress BZ2 files"""
-    params = {
-        "program_name": "bzip2",
-        "params": "{}".format(input_file),
-        "command_line": "#program_name# #params#"
-    }
-    execute(compose_command(params, input_file=input_file))
-    
-
 def decompress_bz2(input_file, output_dir):
-    """Decompresses BZ2 files"""
+    """Decompressed BZ2 files"""
     n, _ = os.path.splitext(os.path.basename(input_file))
     params = {
         "program_name": "bzip2",
@@ -160,14 +199,21 @@ def generate_markers_fasta(database, output_dir):
 
 def compose_command(params, check=False, input_file=None, database=None, output_path=None, output_file=None, nproc=1):
     """Compose a command for further executions. Copied from the PhyloPhlAn 3 code"""
+    program_name = None
     stdin = None
     stdout = None
     environment = os.environ.copy()
     r_output_path = None
     r_output_file = None
     command_line = params['command_line']
-    program_name = params['program_name']
-    command_line = command_line.replace('#program_name#', program_name)
+
+    if 'program_name' in list(params):
+        command_line = command_line.replace(
+            '#program_name#', params['program_name'])
+        program_name = params['program_name']
+    else:
+        error('Error: something wrong... ' +
+              program_name+' not found!', exit=True)
 
     if check:
         command_line = program_name
@@ -228,7 +274,6 @@ def compose_command(params, check=False, input_file=None, database=None, output_
             environment.update(new_environment)
 
     # find string sourrunded with " and make them as one string
-    # TODO: we should use shlex.split for this or drop this ugly function altogether (Michal)
     quotes = [j for j, e in enumerate(command_line) if e == '"']
 
     for s, e in zip(quotes[0::2], quotes[1::2]):
@@ -237,7 +282,6 @@ def compose_command(params, check=False, input_file=None, database=None, output_
 
     return {'command_line': [str(a).replace('#', ' ') for a in re.sub(' +', ' ', command_line.replace('"', '')).split(' ') if a],
             'stdin': stdin, 'stdout': stdout, 'env': environment, 'output_path': r_output_path, 'output_file': r_output_file}
-
 
 def run_command(cmd, shell=False, **kwargs):
     """

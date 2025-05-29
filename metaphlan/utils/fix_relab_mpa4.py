@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Claudia Mengoni (claudia.mengoni@unitn.it)')
-__version__ = '4.1.1'
-__date__ = '11 Mar 2024'
+__version__ = '4.2.0'
+__date__ = '14 May 2025'
 
 
 import os, time
