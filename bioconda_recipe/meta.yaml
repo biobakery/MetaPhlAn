@@ -62,7 +62,11 @@ test:
     - sample2markers.py -h
     - strain_transmission.py -h
     - sgb_to_gtdb_profile.py -h
+<<<<<<< HEAD
     - metaphlan2krona.py -h
+=======
+    - metaphlan2krona.py -h    
+>>>>>>> 9b7a737 (fix missing funcitons and unrequired dependencies)
     - run_treeshrink.py -h
     - treeshrink.py -h
     - create_toy_database.py -h
