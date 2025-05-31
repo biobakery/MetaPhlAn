@@ -675,9 +675,9 @@ class MappingController:
         """
         self.index = value
     
-    def get_sample_id(self):
-        """Get the sample id"""
-        return self.sample_id
+    #def get_sample_id(self):
+    #    """Get the sample id"""
+    #   return self.sample_id
     
     def set_vsc_controller(self, value):
         """Set the VSC controller
@@ -1580,8 +1580,8 @@ class Metaphlan:
                     if tot:
                         nbases += len(line)
                     else:
-                        nreads += 1
-                        nbases[nreads] = len(line)
+                        read_num += 1
+                        nbases[read_num] = len(line)
         f.close()
         return nbases
     

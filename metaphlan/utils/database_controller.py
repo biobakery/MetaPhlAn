@@ -230,7 +230,7 @@ class MetaphlanDatabaseController():
             try:
                 os.makedirs(self.db_dir)
             except EnvironmentError as e:
-                error('EnvironmentError "{}"\n Unable to create folder for database install: '.format(e, self.db_dir), exit = True)
+                error('EnvironmentError "{}"\n Unable to create folder for database install: {}'.format(e, self.db_dir), exit = True)
 
     def install_database(self):
         """Install the database"""       
@@ -374,7 +374,7 @@ class MetaphlanDatabaseController():
             for bt2 in glob(os.path.join(self.db_dir, self.index + "*.bt2l")):
                 os.chmod(bt2, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
         except PermissionError as e:
-            error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.db_dir, self.self.index + "*.bt2l")))
+            error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.db_dir, self.index + "*.bt2l")))
 
     def build_bwt_indexes(self):
         """Build BowTie indexes"""
@@ -587,7 +587,7 @@ class StrainphlanDatabaseController():
         Returns:
             dict: the dictionary with the size of each SGB
         """
-        with bz2.open(os.path.join(self.mpa_script_folder, '{}_size.txt.bz2'.format(self.get_database_name())), 'rt') as rf:
+        with bz2.open(os.path.join(self.db_controller_script_folder, '{}_size.txt.bz2'.format(self.get_database_name())), 'rt') as rf:
             sgb2size = {line.strip().split('\t')[0]: int(
                 line.strip().split('\t')[1]) for line in rf}
         return sgb2size

@@ -24,10 +24,10 @@ def merge(aaastrIn, ostm, gtdb):
 
     for f in aaastrIn:
         headers = [x.strip() for x in takewhile(lambda x: x.startswith('#'), open(f))]
-        listmpaVersion.add(headers[0])
         if not headers:
             print(f"merge_metaphlan_tables: file {f} has no headers with metaphlan version or is improperly formatted.")
             return
+        listmpaVersion.add(headers[0])
         names = headers[-1].split('#')[1].strip().split('\t')
 
         if len(listmpaVersion) > 1:
