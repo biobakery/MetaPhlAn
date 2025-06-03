@@ -1426,7 +1426,7 @@ class RelativeAbundanceReadStatsAnalysis(MetaphlanAnalysis):
     def __init__(self, args, database_controller, index):
         super().__init__(args, database_controller, index)
         self.tax_lev = args.tax_lev
-        self.unclassified_estimation = args.unclassified_estimation
+        self.unclassified_estimation = not args.skip_unclassified_estimation
     
 class CladeProfilesAnalysis(MetaphlanAnalysis):
     def report_results(self, tree, total_metagenome, avg_read_length):
