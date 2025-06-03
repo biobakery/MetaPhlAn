@@ -1577,11 +1577,11 @@ class Metaphlan:
         if buffer:
             line_num += 1
             if line_num % i == j:
-                    if tot:
-                        nbases += len(line)
-                    else:
-                        read_num += 1
-                        nbases[read_num] = len(line)
+                if tot:
+                    nbases += len(line)
+                else:
+                    read_num += 1
+                    nbases[read_num] = len(line)
         f.close()
         return nbases
     
