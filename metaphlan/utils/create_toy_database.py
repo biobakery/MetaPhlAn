@@ -178,7 +178,7 @@ def main():
     args = read_params()
     info("Start generating toy database")
     check_params(args)
-    create_toy_database(args.in_sgbs, args.index, args.bowtie2db, args.out_dir, args.out_name)
+    create_toy_database(args.in_sgbs, args.index, args.db_dir, args.out_dir, args.out_name)
     exec_time = time.time() - t0
     info("Finish generating toy database ({} seconds)".format(round(exec_time, 2)))
 
