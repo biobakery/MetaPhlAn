@@ -65,6 +65,7 @@ A  new ChocoPhlAn database (“vJan25”) for MetaPhlAn and related tools has be
 * [MetaPhlAn]  Removed backward compatibility with --mpa3 which includes removal of --add_viruses
 * [MetaPhlAn] Removed MetaPhlAn2 style output format --legacy-output
 <br/>
+<<<<<<< HEAD
 
 ## Version 4.2.1 (Jun 4th, 2025)
 ### Database updates
@@ -114,6 +115,8 @@ A  new ChocoPhlAn database (“vJan25”) for MetaPhlAn and related tools has be
 * [MetaPhlAn]  Removed backward compatibility with --mpa3 which includes removal of --add_viruses
 * [MetaPhlAn] Removed MetaPhlAn2 style output format --legacy-output
 <br/>
+=======
+>>>>>>> 500ce07 (fix import read_fastx and update to 4.2.2)
 
 ## Version 4.2.1 (Jun 4th, 2025)
 ### Database updates
