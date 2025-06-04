@@ -115,6 +115,54 @@ A  new ChocoPhlAn database (“vJan25”) for MetaPhlAn and related tools has be
 * [MetaPhlAn] Removed MetaPhlAn2 style output format --legacy-output
 <br/>
 
+## Version 4.2.1 (Jun 4th, 2025)
+### Database updates
+A  new ChocoPhlAn database (“vJan25”) for MetaPhlAn and related tools has been released with MetaPhlAn 4.2. This new database includes:
+* Addition of ~63k isolate genomes from NCBI, leading to a total of ~219k isolate genomes
+* Addition of ~416k new MAGs, leading to a total of ~1,3M MAGs
+* Expansion of the markers database with 58,331 SGBs  (21,509 more than vJun23)
+* Improved clustering of SGBs using skANI
+* Addition of taxonomy assignment for Viral Sequence Clusters (VSCs) database performed with GeNomad
+* Update SGB2GTDBtk file to r220 - allowing direct comparison between MetaPhlAn and GTDB results
+
+### New features
+* [MetaPhlAn]  Support for long-read sequencing datasets: 
+ Added “Long reads arguments” group of options:
+  * --long_reads to profile a long-read dataset
+  * --split_reads to profile long reads by splitting them and treating them as short reads
+  * --split_readlen to specify the length of the splits when --split_reads is selected (default is 150)
+  * --max_gcsd to set the threshold on gap-compressed sequence divergence to use when filtering the Minimap2 mapping results (default is 0.10)
+  * --minimap2_exe to set a path to the Minimap2 executable
+  * --minimap2_ps to change the mapping options for Minimap2 (defaults are '-x asm20 -B 3 -O 3,12')
+  * --nbases required to specify the total number of bases in the sample when the input is a SAM file
+* [MetaPhlAn] Added information about database used to run MetaPhlAn in SAM header as @CO index:<database_index>
+* [MetaPhlAn] Added implementation of RPKM to virus for short reads
+* [MetaPhlAn] Added compatibility of --profile_vsc with --input_type sam
+* [MetaPhlAn] Added --verbose option for debugging issues with database download
+* [StrainPhlAn] Added in sample2markers.py an automatic detection of the mapper used for the alignment (Bowtie2 or Minimap2) to set the correct default values
+* [StrainPhlAn] Added --max_gcsd option in sample2markers.py to set the threshold on gap-compressed sequence divergence to use when filtering markers from the Minimap2 mapping results (default is 0.10)
+* [StrainPhlAn] Added --polymorphism_perc option in strainphlan.py to regulate the maximum percentage of polymorphic sites in a marker to be considered (default is None)
+
+### Changed features
+* [MetaPhlAn] --unclassified_estimation is now a default parameter, making the relative abundance of detected taxa to be rescaled taking into account the estimated portion of unclassified reads. Use --skip_unclassified_estimation to not include an estimate of unclassified reads in the relative abundance profile
+* [MetaPhlAn] Changed parameter for specifying the folder containing the MetaPhlAn database from --bowtie2db to --db_dir
+* [MetaPhlAn]  Changed parameter for specifying the path to the MetaPhlAn database folder from --bowtie2out to --mapout
+* [MetaPhlAn]  Changed value of --input_type from bowtie2out to mapout to specify the input is an intermediate mapping file from a previous run with --mapout (old --bowtie2out)
+* [MetaPhlAn] Changed parameter for specifying output format from --biom to --biom_format_output. Now the parameter is a flag that allows the user to obtain the profiling in biom format only, instead of writing a separate output file. Also, --mdelim is now --biom_mdelim.
+* [MetaPhlAn] Changed some default parameters for long reads:
+--min_mapq_val has default 5 for short reads and 50 for long reads
+--vsc_breadth has default 0.75 for short reads and 0.5 for long reads
+--subsampling takes as input the number of bases to be considered from the input metagenomes (instead of number of reads) if --long_reads is selected
+* [MetaPhlAn] The MetaPhlAn species Newick trees for computing UniFrac distances in calculate_diversity.R are no longer stored in GitHub, but are downloaded with the database (or can be found here: http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/ )
+* [StrainPhlAn] Changed some default parameters for long reads in sample2markers.py, depending on the mapper detected (Bowtie2 or Minimap2):
+--min_reads_aligning has default 8 for short reads and 1 for long reads
+--min_mapping_quality has default 10 for short reads and 50 for long reads
+
+### Dropped features
+* [MetaPhlAn]  Removed backward compatibility with --mpa3 which includes removal of --add_viruses
+* [MetaPhlAn] Removed MetaPhlAn2 style output format --legacy-output
+<br/>
+
 ## Version 4.2.0 (May 29th, 2025)
 ### Database updates
 A  new ChocoPhlAn database (“vJan25”) for MetaPhlAn and related tools has been released with MetaPhlAn 4.2. This new database includes:
