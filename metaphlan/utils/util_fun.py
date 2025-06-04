@@ -3,8 +3,8 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
-__version__ = '4.2.0'
-__date__ = '14 May 2025'
+__version__ = '4.2.1'
+__date__ = '4 Jun 2025'
 
 import os
 import sys
@@ -61,7 +61,7 @@ def error(message, init_new_line=True, exit=False, exit_value=1):
     sys.stderr.write('[Error] {}'.format(message))
     sys.stderr.flush()
     if init_new_line:
-        sys.stdout.write('\n')
+        sys.stderr.write('\n')
 
     if exit:
         sys.stderr.write('{}: Stop execution.\n'.format(

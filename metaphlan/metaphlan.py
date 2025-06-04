@@ -6,8 +6,8 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Claudia Mengoni (claudia.mengoni@unitn.it), '
               'Linda Cova (linda.cova@unitn.it)')
-__version__ = '4.2.0'
-__date__ = '14 May 2025'
+__version__ = '4.2.1'
+__date__ = '4 Jun 2025'
 
 
 import time
@@ -2156,7 +2156,7 @@ def check_params(args):
     if args.inp and ',' in args.inp and not args.mapout:
         error("--mapout needs to be specified when multiple FASTQ or FASTA files (comma separated) are provided", exit=True)
     if args.mapout and os.path.exists(args.mapout) and not args.force and not args.profile_vsc:
-        error("Mapping output file detected: {}\n. Please use it as input or remove it if you want to re-perform the BowTie2 run".format(args.mapout), exit=True)
+        error("Mapping output file detected: {}.\n Please use it as input or remove it if you want to re-perform the BowTie2 run".format(args.mapout), exit=True)
     if args.input_type == 'sam' and not args.nreads and not args.long_reads:
         error('The --nreads parameter must be specified when using input files in SAM format', exit=True)
     if args.input_type not in ['fasta', 'fastq'] and args.no_map:
