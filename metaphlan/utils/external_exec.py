@@ -3,9 +3,14 @@ __author__ = ('Aitor Blanco Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Moreno Zolfo (moreno.zolfo@unitn.it), '
               'Francesco Beghini (francesco.beghini@unitn.it)')
+<<<<<<< HEAD
 __version__ = '4.2.2'
 __date__ = '4 Jun 2025'
 
+=======
+__version__ = '4.2.1'
+__date__ = '4 Jun 2025'
+>>>>>>> f4350c3 (update to 4.2.1)
 
 
 import os
