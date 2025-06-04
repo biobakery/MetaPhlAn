@@ -7,7 +7,7 @@ __author__ = (
     'Francesco Beghini (francesco.beghini@unitn.it), '
     'Michal Puncochar (michal.puncochar@unitn.it)'
 )
-__version__ = '4.2.1'
+__version__ = '4.2.2'
 __date__ = '4 Jun 2025'
 
 

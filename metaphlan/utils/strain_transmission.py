@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 __author__ = ('Aitor Blanco (aitor.blancomiguez@unitn.it), '
               'Mireia Valles-Colomer (mireia.vallescolomer@unitn.it)')
-__version__ = '4.2.1'
+__version__ = '4.2.2'
 __date__ = '4 Jun 2025'
 
 import os

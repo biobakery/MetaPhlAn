@@ -1,5 +1,5 @@
 {% set name = "metaphlan" %}
-{% set version = "4.2.1" %}
+{% set version = "4.2.2" %}
 
 package:
   name: {{ name }}

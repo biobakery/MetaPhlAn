@@ -6,7 +6,7 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Claudia Mengoni (claudia.mengoni@unitn.it), '
               'Linda Cova (linda.cova@unitn.it)')
-__version__ = '4.2.1'
+__version__ = '4.2.2'
 __date__ = '4 Jun 2025'
 
 
@@ -726,6 +726,11 @@ class Bowtie2Controller(MappingController):
 
     def check_bowtie2_database(self):
         """Checks the presence and consistency of the Bowtie2 database"""
+        try:
+            subp.check_call([self.bowtie2_exe if self.bowtie2_exe else 'bowtie2', "-h"], stdout=subp.DEVNULL)
+        except Exception as e:
+            error('OSError: "{}"\nFatal error running BowTie2. Is BowTie2 in the system path?\n'.format(e), exit=True)
+
         if glob(os.path.join(self.db_dir, "{}*.{}".format(self.index, 'bt2*'))):
             
             if glob(os.path.join(self.db_dir, "{}*.{}".format(self.index, 'bt2*')))[0].endswith('l'):
@@ -769,11 +774,21 @@ class Bowtie2Controller(MappingController):
 
     def run_bowtie2(self):
         """Runs Bowtie2"""
-        try:
-            if self.verbose:
-                info("Running BowTie2", init_new_line=True)
-            read_fastx = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'utils', 'read_fastx.py')
+        
+        if self.verbose:
+            info("Running BowTie2", init_new_line=True)
 
+        read_fastx = "read_fastx.py"
+        try:
+            subp.check_call([read_fastx, "-h"], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
+        except Exception as e:
+            try:
+                read_fastx = os.path.join(os.path.dirname(__file__), "utils", read_fastx)
+                subp.check_call([read_fastx, "-h"], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
+            except Exception as e:
+                error("OSError: fatal error running '{}'. Is it in the system path?\n".format(read_fastx), exit=True)
+
+        try:
             if self.inp:
                 readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), '--split_reads', str(self.split_reads), self.inp], stdout=subp.PIPE, stderr=subp.PIPE)
             else:
@@ -994,6 +1009,7 @@ class Minimap2Controller(MappingController):
         # mm2_cmd = [self.minimap2_exe, "-x", "asm20", "-B", "3", "-O", "3,12", "--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
         # mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-v","0","--sam-hit-only", "--split-prefix", sp_tmp, "-a", self.db_dir, self.inp]
         ## version for input in stdin
+
         mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-v","0","--sam-hit-only", "-a", self.db_dir]
         if int(self.nproc) > 3:
             mm2_cmd += ["-t", str(self.nproc)]
@@ -1015,11 +1031,21 @@ class Minimap2Controller(MappingController):
 
     def run_minimap2(self):
         """Runs Minimap2"""
-        try:
-            if self.verbose:
-                info("Running Minimap2", init_new_line=True)
-            read_fastx = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'utils', 'read_fastx.py')
+        
+        if self.verbose:
+            info("Running Minimap2", init_new_line=True)
 
+        read_fastx = "read_fastx.py"
+        try:
+            subp.check_call([read_fastx, "-h"], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
+        except Exception as e:
+            try:
+                read_fastx = os.path.join(os.path.dirname(__file__), "utils", read_fastx)
+                subp.check_call([read_fastx, "-h"], stdout=subp.DEVNULL, stderr=subp.DEVNULL)
+            except Exception as e:
+                error("OSError: fatal error running '{}'. Is it in the system path?\n".format(read_fastx), exit=True)
+        
+        try:
             if self.inp:
                 readin = subp.Popen([read_fastx, '-l', str(self.read_min_len), self.inp], stdout=subp.PIPE, stderr=subp.PIPE)
             else:
