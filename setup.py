@@ -11,11 +11,7 @@ if sys.version_info[0] < 3:
 
 setuptools.setup(
     name='MetaPhlAn',
-<<<<<<< HEAD
     version='4.2.2',
-=======
-    version='4.2.1',
->>>>>>> f4350c3 (update to 4.2.1)
     author='Claudia Mengoni',
     author_email='claudia.mengoni@unitn.it',
     url='http://github.com/biobakery/MetaPhlAn/',
