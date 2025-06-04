@@ -41,6 +41,7 @@ A  new ChocoPhlAn database (“vJan25”) for MetaPhlAn and related tools has be
 * [StrainPhlAn] Changed some default parameters for long reads in sample2markers.py, depending on the mapper detected (Bowtie2 or Minimap2):
 --min_reads_aligning has default 8 for short reads and 1 for long reads
 --min_mapping_quality has default 10 for short reads and 50 for long reads
+* Fixed bugs in 4.2.0
 
 ### Dropped features
 * [MetaPhlAn]  Removed backward compatibility with --mpa3 which includes removal of --add_viruses
