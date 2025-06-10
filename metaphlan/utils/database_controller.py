@@ -179,7 +179,7 @@ class MetaphlanDatabaseController():
         info('Downloading and uncompressing additional files', init_new_line = True)
         self.download_and_untar(self.index, self.db_dir, DB_URL)
 
-        self.download(os.path.join(DB_URL, self.index+'.nwk'), self.db_dir, exit = False)
+        self.download(os.path.join(DB_URL, self.index+'.nwk'), os.path.join(self.db_dir,self.index+'.nwk'), exit = False)
 
         # uncompress sequences
         for bz2_file in iglob(os.path.join(self.db_dir, self.index + "_*.fna.bz2")):
