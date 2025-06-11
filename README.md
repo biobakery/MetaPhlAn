@@ -14,7 +14,7 @@ To install MetaPhlan through conda run:
 $ conda install -c bioconda metaphlan
 ```
 
-For further installation instructions and alternative installation methods check the [MetaPhlAn documentation](https://github.com/biobakery/MetaPhlAn/wiki/MetaPhlAn-4#installation).
+For further installation instructions and alternative installation methods check the [MetaPhlAn documentation](https://github.com/biobakery/MetaPhlAn/wiki/MetaPhlAn-4.2).
 
 -------------
 
