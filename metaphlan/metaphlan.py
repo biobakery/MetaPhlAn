@@ -2207,8 +2207,6 @@ def check_params(args):
         error("The --mapping_subsampling parameter should be used together with the --subsampling parameter.", init_new_line = True, exit = True)
     if args.subsampling and args.subsampling_paired:
         error("You specified both --subsampling and --subsampling_paired. Choose only one of the two options.", init_new_line = True, exit = True) 
-    if not args.long_reads and not args.split_reads and not args.mapping_subsampling and (args.subsampling or args.subsampling_paired) and args.subsampling_paired < 10000:
-        warning("The specified subsampling is below the recommended minimum of 10,000 reads.", init_new_line = True) 
     if not args.mapping_subsampling and ((args.subsampling is not None) or (args.subsampling_paired is not None)):
         if args.input_type not in ['fastq', 'fasta']:
             error("The --subsampling/--subsampling_paired parameter requires FASTQ or FASTA input or --mapping_subsampling", init_new_line = True, exit = True)
@@ -2229,6 +2227,8 @@ def check_params(args):
             if args.inp is not None:
                 warning("Since --subsampling_paired has been specified, reads are taken from -1 ({}) and -2 ({}), not from -inp.".format(args.forward, args.reverse), init_new_line = True)
             args.inp = args.forward + ',' + args.reverse
+    if not args.long_reads and not args.split_reads and not args.mapping_subsampling and args.subsampling and args.subsampling < 10000:
+        warning("The specified subsampling is below the recommended minimum of 10,000 reads.", init_new_line = True) 
     if args.min_mapq_val is None:
         args.min_mapq_val = 50 if args.long_reads else 5
     if args.vsc_breadth is None:
