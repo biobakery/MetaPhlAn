@@ -49,13 +49,11 @@ def merge( aaastrIn, ostm, options ):
 
 
         # take mpaVersion
-
-        mpaVersion = list(filter(re.compile('#mpa_v[0-9]{2,}_CHOCOPhlAn_[0-9]{0,}').match, headers))
-        if len(mpaVersion):
-            listmpaVersion.add(mpaVersion[0])
+        mpaVersion = headers[0][1:]
+        listmpaVersion.add(mpaVersion)
 
         if len(listmpaVersion) > 1:
-            print('merge_vsc_tables found tables made with different versions of the MetaPhlAn2 database.\nPlease re-run MetaPhlAn2 with the same database.\n')
+            print('merge_vsc_tables found tables made with different versions of the MetaPhlAn4 database.\nPlease re-run MetaPhlAn4 with the same database.\n')
             return
          
         iIn = pd.read_csv(f,sep='\t',skiprows=len(headers)).assign(sampleID = smpl_name).fillna('')
@@ -64,8 +62,13 @@ def merge( aaastrIn, ostm, options ):
             merged_tables = iIn
         else:
             merged_tables = pd.concat([iIn, merged_tables])
+    
+    if mpaVersion == 'mpa_vJan25_CHOCOPhlAnSGB_202503':
+        other_columns = ['M-Group/Cluster', 'MV_group_type', 'Assigned_taxonomy', 'First_genome_in_cluster', 'Other_genomes_in_cluster']
+    else:
+        other_columns = ['M-Group/Cluster', 'M-Group-Type [k|u]', 'First Genome in Cluster', 'Other Genomes']
 
-    indexes_for_pivot = 'M-Group/Cluster' if suppress_info else ['M-Group/Cluster','M-Group-Type [k|u]','First Genome in Cluster','Other Genomes','Annotation']
+    indexes_for_pivot = 'M-Group/Cluster' if suppress_info else other_columns
     out_table = pd.pivot_table(merged_tables, index = indexes_for_pivot, columns = 'sampleID', values = groupby_field)
 
     if listmpaVersion:
