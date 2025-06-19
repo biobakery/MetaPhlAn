@@ -477,7 +477,12 @@ def read_params():
     """
     p = ap.ArgumentParser(description="", formatter_class=ap.ArgumentDefaultsHelpFormatter, add_help=False)
     # required
-    p.add_argument('-i', '--input', type=str, nargs='+', required=True, help="The input samples as SAM or BAM files")
+
+    input_g = p.add_mutually_exclusive_group(required=True)
+    input_g.add_argument('-i', '--input', type=str, nargs='+',
+                         help="Paths to the SAM files, separate multiple samples by space")
+    input_g.add_argument('--input_list', type=str,
+                         help='Path to a txt file, on each line there\'s a path to a SAM file as in --input')
     p.add_argument('-o', '--output_dir', type=str, required=True, help="The output directory")
 
     # optional
@@ -527,6 +532,10 @@ def check_params(args):
     Args:
         args (namespace): the arguments to check
     """
+    if args.input_list is not None:
+        with open(args.input_list) as f:
+            args.input = [line.strip() for line in f if line.strip()]
+        info(f'Found {len(args.input)} samples in the specified input file')
     if not os.path.exists(args.output_dir):
         error('The directory {} does not exist'.format(args.output_dir), exit=True)
     if args.tmp is not None and not os.path.exists(args.tmp):

@@ -52,12 +52,13 @@ def read_params():
                          help='Path to a txt file, on each line there\'s a path to a SAM file as in --input')
     p.add_argument('-o', '--output_dir', type=ArgumentType.creatable_dir, required=True,
                    help="Path to the output directory")
-    p.add_argument('-d', '--database', type=ArgumentType.existing_file, default='latest',
+    p.add_argument('-d', '--database', type=ArgumentType.existing_file, required=True,
                    help="Path to the MetaPhlAn database pkl file")
     p.add_argument('-t', '--threads', type=ArgumentType.positive_int, default=1, help="Number of threads")
     # TODO: config or arguments?
     p.add_argument('--config', type=ArgumentType.existing_file, default=None, help="Path to a config file")
-    p.add_argument('--target', type=str, choices=['pileup', 'reconstructed_markers'], default="reconstructed_markers",
+    p.add_argument('--target', type=str, choices=['pileup', 'filtered_pileup', 'reconstructed_markers'],
+                   default="reconstructed_markers",
                    help="What to calculate: pileup (only pileup file), reconstructed_markers (full reconstruction "
                         "for phylogeny)")
     p.add_argument('--reuse', type=str, default='all', choices=['none', 'bam', 'pileup', 'all'],
@@ -138,14 +139,14 @@ def main():
     ss_args = [(sample_path, args.output_dir, config, args.target, args.save_bam_file, args.reuse, db_name)
                for sample_path in args.input]
 
-    info(f'Running on {len(ss_args)} samples')
+    info(f'Running on {len(ss_args)} samples using {args.threads} processes')
 
     # bind constant data to the function so that they are shared on fork (copy-on-write)
     try_run.marker_to_clade = marker_to_clade
     try_run.marker_to_ext = marker_to_ext
 
     if args.threads == 1 or len(ss_args) == 1:
-        successes = [try_run(*ss_arg) for ss_arg in ss_args]
+        successes = [try_run(ss_arg) for ss_arg in ss_args]
     else:
         with mpp.Pool(args.threads) as pool:
             successes = list(tqdm(pool.imap_unordered(try_run, ss_args), total=len(ss_args)))

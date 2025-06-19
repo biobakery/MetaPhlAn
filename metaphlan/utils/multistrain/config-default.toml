@@ -1,7 +1,7 @@
 # TOML configuration file
 # see https://toml.io/en/v1.0.0 for syntax
 
-fix_pairend = false  # whether to fix pair end information from metaphlan output, requires SAM in input
+fix_pairend = true  # whether to fix pair end information from metaphlan output, requires SAM in input
 dedup_stats = false  # whether to run samtools rmdup to mark and count duplicate reads. Needs to have fix_paired set to true
 remove_viral_hits = true  # keeping the viral hits is not tested
 
@@ -42,7 +42,7 @@ q_uniformity_alpha = 0.05  # the alpha q value for the uniformity test for the m
 
 
 # SNP calling
-polymorphism_q_alpha = 0.001  # the maximum q-value in the polymorphism test
+polymorphism_p_alpha = 0.0001  # the maximum p-value in the polymorphism test
 
 
 # multistrain calling
