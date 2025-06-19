@@ -6,9 +6,9 @@ import numpy.typing as npt
 import pandas as pd
 import scipy.stats as sps
 import statsmodels.stats.multitest as smsm
-from typing import Sequence
+from typing import Sequence, Any
 
-from ...utils import info_debug, warning
+from ...utils import info, info_debug, warning
 
 ACTGactg = 'ACTGactg'
 ACTG = 'ACTG'
@@ -153,28 +153,41 @@ def run_pileup_inner(sam_file, config, drop_read_positions=None):
 
     minor_positions_tot = sum(minor_positions.values(), Counter())
     all_positions_tot = sum(all_positions.values(), Counter())
-    a = config['null_err_rate_pseudocount']
-    null_err_rate = (minor_positions_tot.total() + a) / (all_positions_tot.total() + a)
-    info_debug(f'Null err. rate: {null_err_rate}')
 
-    if null_err_rate > config['max_null_err_rate']:
-        warning(f'Null error rate is higher than expected ({null_err_rate}), will not use it')
+
+    if all_positions_tot.total() > 0:
+        a = config['null_err_rate_pseudocount']
+        null_err_rate = (minor_positions_tot.total() + a) / (all_positions_tot.total() + a)
+        info_debug(f'Null err. rate: {null_err_rate}')
+
+        if null_err_rate > config['max_null_err_rate']:
+            warning(f'Null error rate is higher than expected ({null_err_rate}), will not use it')
+            null_err_rate = None
+
+        dfs = []
+        for r in read_types:
+            s_minor_positions = pd.Series(minor_positions[r], name='minor_bases')
+            s_all_positions = pd.Series(all_positions[r], name='all_bases')
+            s_per_position_eror_rates_sum = pd.Series(per_position_eror_rates_sum[r], name='sum_error_rates')
+            df_seq_errors_r = pd.concat([s_minor_positions, s_all_positions, s_per_position_eror_rates_sum], axis=1) \
+                .rename_axis('read_position').sort_index()
+            df_seq_errors_r['r'] = r
+            if len(df_seq_errors_r) > 0:
+                dfs.append(df_seq_errors_r)
+
+        if len(dfs) > 0:
+            df_seq_errors = pd.concat(dfs).reset_index().set_index(['r', 'read_position'])
+
+            a = config['null_err_rate_excess_pseudocount']
+            df_seq_errors['null_err_rate_excess'] = (df_seq_errors['minor_bases'] + a) / (df_seq_errors['sum_error_rates'] + a)
+        else:
+            warning(f'No positions to get seq. errors statistics')
+            df_seq_errors = None
+    else:
+        info('No positions to establish null error rate, will use default')
+        df_seq_errors = None
         null_err_rate = None
 
-    dfs = []
-    for r in read_types:
-        s_minor_positions = pd.Series(minor_positions[r], name='minor_bases')
-        s_all_positions = pd.Series(all_positions[r], name='all_bases')
-        s_per_position_eror_rates_sum = pd.Series(per_position_eror_rates_sum[r], name='sum_error_rates')
-        df_seq_errors_r = pd.concat([s_minor_positions, s_all_positions, s_per_position_eror_rates_sum], axis=1) \
-            .rename_axis('read_position').sort_index()
-        df_seq_errors_r['r'] = r
-        dfs.append(df_seq_errors_r)
-
-    df_seq_errors = pd.concat(dfs).reset_index().set_index(['r', 'read_position'])
-
-    a = config['null_err_rate_excess_pseudocount']
-    df_seq_errors['null_err_rate_excess'] = (df_seq_errors['minor_bases'] + a) / (df_seq_errors['sum_error_rates'] + a)
 
 
     return PileupResult(base_frequencies, avg_error_rates, marker_to_length, df_seq_errors, null_err_rate, subs,
@@ -192,7 +205,7 @@ def run_pileup(sam_file, config):
     pr_before = run_pileup_inner(sam_file, config)
 
     pr_after = pr_before
-    if config['discard_read_ends']:
+    if config['discard_read_ends'] and pr_before.df_seq_errors is not None:
         df_se = pr_before.df_seq_errors.query(f'all_bases>{config["discard_read_ends_support"]}')
         if len(df_se) > 0:
             c = df_se['null_err_rate_excess'].dropna()
@@ -214,107 +227,83 @@ def run_pileup(sam_file, config):
     return pr_before, pr_after
 
 
-def filter_loci_snp_call(df_loci_sgb, marker_to_length, avg_read_len, config):
-    """
+def mask_iqr(x, q25, q75):
+    if q25 is not None and q75 is not None:
+        iqr = q75 - q25
+        return (x > q75 + 1.5 * iqr) | (x < q25 - 1.5 * iqr)
+    else:
+        return np.zeros(x.shape, dtype=bool)
 
-    :param pd.DataFrame df_loci_sgb:
-    :param dict[str, int] marker_to_length:
-    :param float avg_read_len:
-    :param dict config:
-    :return:
-    """
-    df_loci_sgb['filtered'] = False
-    df_loci_sgb['polyallelic_significant'] = False
-    df_loci_sgb['biallelic_significant'] = False
 
-    df_loci_sgb['end_pos'] = np.minimum(df_loci_sgb['pos'],
-                                        df_loci_sgb['marker'].map(marker_to_length) - df_loci_sgb['pos'] + 1)
-    df_loci_sgb['base_coverage'] = df_loci_sgb['base_frequencies'].map(lambda bf: bf.total())
-    df_loci_sgb['max_frequency'] = df_loci_sgb['base_frequencies'].map(lambda bf: max(bf.values()))
-    df_loci_sgb['allelism'] = df_loci_sgb['base_frequencies'].map(lambda bf: sum(x > 0 for x in bf.values()))
-
+def filter_loci_snp_call(bfs, err_rates, avg_read_len, config):
     result_row = {}
-    data = {}
+
+    base_coverages = {m: bf.sum(axis=0) for m, bf in bfs.items()}
+    t_avg_read_len = int(avg_read_len)
+    assert t_avg_read_len > 0
+
+    base_coverages_fit = {m: bc[t_avg_read_len:-t_avg_read_len] for m, bc in base_coverages.items()
+                          if len(bc) > 2 * t_avg_read_len}
+
+    q25, q50, q75 = None, None, None
+    outlier_coverage = 0
+    markers_outlier_covered = set()
+    if len(base_coverages_fit) > 0:
+        base_coverage_fit = np.concatenate(list(base_coverages_fit.values()))
+        base_coverage_fit = base_coverage_fit[base_coverage_fit > 0]
+        if len(base_coverage_fit) > 0:
+            q25 = np.quantile(base_coverage_fit, .25)
+            q50 = np.median(base_coverage_fit)
+            q75 = np.quantile(base_coverage_fit, .75)
+            outlier_coverage = mask_iqr(base_coverage_fit, q25, q75).mean()
+
+            marker_to_outlier_coverage = {m: mask_iqr(bc, q25, q75).mean() for m, bc in base_coverages_fit.items()}
+            markers_outlier_covered = set((m for m, oc in marker_to_outlier_coverage.items()
+                                           if oc > config['outlier_coverage_marker']))
 
 
-    # filter sites with outlier coverage (outside sgb-wise 1.5 IQR)
-    # to determine the IQR consider only positions at least avg-read-length away from the ends
-    base_coverage_fit = df_loci_sgb.query(f'end_pos >= {avg_read_len}')['base_coverage']
-    base_coverage_all = df_loci_sgb['base_coverage']
-    q25 = base_coverage_fit.quantile(.25)
-    q75 = base_coverage_fit.quantile(.75)
-    iqr = q75 - q25
-    mask_fit = (base_coverage_fit > q75 + 1.5 * iqr) | (base_coverage_fit < q25 - 1.5 * iqr)
-    mask_all = (base_coverage_all > q75 + 1.5 * iqr) | (base_coverage_all < q25 - 1.5 * iqr)
     result_row['coverage_25'] = q25
-    result_row['coverage_50'] = base_coverage_fit.median()
+    result_row['coverage_50'] = q50
     result_row['coverage_75'] = q75
-    result_row['outlier_coverage'] = mask_fit.mean()
-    marker_to_outlier_coverage = mask_fit.groupby(df_loci_sgb['marker']).mean()
-    markers_outlier_covered = marker_to_outlier_coverage.index[marker_to_outlier_coverage > config['outlier_coverage_marker']]
+    result_row['outlier_coverage'] = outlier_coverage
     result_row['outlier_covered_markers'] = len(markers_outlier_covered)
-    data['outlier_covered_markers'] = markers_outlier_covered
 
-    df_loci_sgb_filtered = df_loci_sgb[(~mask_all) & (~df_loci_sgb['marker'].isin(markers_outlier_covered))]
+    position_mask = {m: (~mask_iqr(bc, q25, q75)) & (m not in markers_outlier_covered) for m, bc in base_coverages.items()}
 
-    # trim the ends of markers
-    df_loci_sgb_filtered = df_loci_sgb_filtered[df_loci_sgb_filtered['end_pos'] >= config['trim_marker_ends']]
+    if config['trim_marker_ends'] > 0:
+        t = config['trim_marker_ends']
+        for m, pm in position_mask.items():
+            pm[:t] = False
+            pm[-t:] = False
 
+    marker_covered_positions = [np.count_nonzero(bc[position_mask[m]]) for m, bc in base_coverages.items()]
 
-    result_row['n_markers_total'] = len(df_loci_sgb['marker'].unique())
-    result_row['n_positions_total'] = len(df_loci_sgb)
-    result_row['n_positions_filtered'] = len(df_loci_sgb_filtered)
-    result_row['n_markers_filtered'] = len(df_loci_sgb_filtered['marker'].unique())
-    df_loci_sgb.loc[df_loci_sgb_filtered.index, 'filtered'] = True
+    result_row['n_markers_total'] = len(bfs)
+    result_row['n_positions_total'] = sum((np.count_nonzero(bc) for bc in base_coverages.values()))
+    result_row['n_positions_filtered'] = sum(marker_covered_positions)
+    result_row['n_markers_filtered'] = np.count_nonzero(marker_covered_positions)
 
+    allelism = {m: (bf > 0).sum(axis=0) for m, bf in bfs.items()}
+    allelism_filtered = {m: a * position_mask[m] for m, a in allelism.items()}
+    result_row['n_biallelic_total'] = sum((np.count_nonzero(a == 2) for a in allelism_filtered.values()))
+    result_row['n_triallelic_total'] = sum((np.count_nonzero(a == 3) for a in allelism_filtered.values()))
+    result_row['n_quadallelic_total'] = sum((np.count_nonzero(a == 4) for a in allelism_filtered.values()))
 
-    # poly-allelic
-    df_loci_sgb_polyallelic = df_loci_sgb.query('filtered and allelism > 1').copy()
-    result_row['n_biallelic_total'] = (df_loci_sgb_polyallelic['allelism'] == 2).sum()
-    result_row['n_triallelic_total'] = (df_loci_sgb_polyallelic['allelism'] == 3).sum()
-    result_row['n_quadallelic_total'] = (df_loci_sgb_polyallelic['allelism'] == 4).sum()
+    polyallelic_significant_masks = {}
+    for m in base_coverages.keys():
+        polyallelic_mask = allelism_filtered[m] > 1
+        mask_sig_polyallelic_full = np.zeros(len(base_coverages[m]), dtype=bool)
+        if polyallelic_mask.sum() > 0:
+            bf_poly = bfs[m][:, polyallelic_mask]
+            bc_poly = base_coverages[m][polyallelic_mask]
+            er_poly = err_rates[m][polyallelic_mask]
+            poly_max_f = bf_poly.max(axis=0)
+            p_values = sps.binom.cdf(poly_max_f, bc_poly, 1 - er_poly)
+            mask_sig_polyallelic = p_values < config['polymorphism_p_alpha']
+            mask_sig_polyallelic_full[polyallelic_mask] = mask_sig_polyallelic
+        polyallelic_significant_masks[m] = mask_sig_polyallelic_full
 
-    if len(df_loci_sgb_polyallelic) > 0:
-        # calculate p and q values of being polymorphic
-        df_loci_sgb_polyallelic['p_value'] = df_loci_sgb_polyallelic.apply(
-            lambda r: sps.binom.cdf(r['max_frequency'], r['base_coverage'], 1 - r['error_rate']), axis=1)
-        _, q_values, _, _ = smsm.multipletests(df_loci_sgb_polyallelic['p_value'], method='fdr_bh')
-        df_loci_sgb_polyallelic_significant = df_loci_sgb_polyallelic[q_values < config['polymorphism_q_alpha']]
-        df_loci_sgb_biallelic_significant = df_loci_sgb_polyallelic_significant.query('allelism == 2')
-        result_row['n_polyallelic_significant'] = len(df_loci_sgb_polyallelic_significant)
-        result_row['n_biallelic_significant'] = len(df_loci_sgb_biallelic_significant)
-        result_row['n_markers_polyallelic_significant'] = len(df_loci_sgb_polyallelic_significant['marker'].unique())
+    result_row['n_polyallelic_significant'] = sum((psm.sum() for psm in polyallelic_significant_masks.values()))
+    result_row['n_markers_polyallelic_significant'] = sum((psm.sum() > 0 for psm in polyallelic_significant_masks.values()))
 
-
-        if len(df_loci_sgb_polyallelic_significant) > 0:
-            # Filter markers by the number of sites
-            gb_marker = df_loci_sgb_polyallelic_significant.groupby('marker')
-            # Test whether the SNPs are not uniformly distributed across the marker
-            ms = []
-            ps = []
-            for m, idx_m in gb_marker.indices.items():
-                df_loci_marker = df_loci_sgb_polyallelic_significant.iloc[idx_m]
-                if len(df_loci_marker) < 2:
-                    p_ks = 1.0
-                else:
-                    pos = df_loci_marker['pos']
-                    d_uniform = sps.uniform(config['trim_marker_ends'], marker_to_length[m] - config['trim_marker_ends'])
-                    _, p_ks = sps.kstest(pos, d_uniform.cdf)
-                ms.append(m)
-                ps.append(p_ks)
-
-            _, qs, _, _ = smsm.multipletests(ps, method='fdr_bh')
-            qs = pd.Series(index=ms, data=qs)
-            non_uniformly_covered_markers = qs.index[qs < config['q_uniformity_alpha']]
-            result_row['n_markers_non_uniform_coverage'] = len(non_uniformly_covered_markers)
-            data['non_uniformly_covered_markers'] = non_uniformly_covered_markers
-
-            df_loci_sgb.loc[df_loci_sgb_polyallelic_significant.index, 'polyallelic_significant'] = True
-            df_loci_sgb_polyallelic.loc[df_loci_sgb_polyallelic_significant.index, 'polyallelic_significant'] = True
-
-            if len(df_loci_sgb_biallelic_significant) > 0:
-                df_loci_sgb.loc[df_loci_sgb_biallelic_significant.index, 'biallelic_significant'] = True
-                df_loci_sgb_polyallelic.loc[df_loci_sgb_biallelic_significant.index, 'biallelic_significant'] = True
-
-    return result_row, data, df_loci_sgb, df_loci_sgb_polyallelic
-
+    return result_row, position_mask, polyallelic_significant_masks
