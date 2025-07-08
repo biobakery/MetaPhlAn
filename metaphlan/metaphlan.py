@@ -2011,7 +2011,7 @@ def read_params(args):
                             " * very-sensitive-local\n"
                             "[default very-sensitive]\n")
     arg('--bowtie2_exe', type=str, default=None,
-        help='Full path and name of the BowTie2 executable. This option allows'
+        help='Full path and name of the BowTie2 executable. This option allows '
              'MetaPhlAn to reach the executable even when it is not in the '
              'system PATH or the system PATH is unreachable')
     arg('--bowtie2_build', type=str, default='bowtie2-build',
