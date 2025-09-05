@@ -19,7 +19,7 @@ min_base_quality = 30  # minimum PHRED base quality
 seq_error_stats_min_cov = 5
 null_err_rate_pseudocount = 1
 null_err_rate_excess_pseudocount = 1
-max_null_err_rate = 0.05
+max_null_err_rate = 0.0  # set 0 to turn of null_err rate and use the PHRED qualities from the sequencing
 discard_read_ends = true  # whether to check for excess error rate at the ends of the reads
 discard_read_ends_support = 10
 
@@ -42,7 +42,8 @@ q_uniformity_alpha = 0.05  # the alpha q value for the uniformity test for the m
 
 
 # SNP calling
-polymorphism_p_alpha = 0.0001  # the maximum p-value in the polymorphism test
+#polymorphism_p_alpha = 1e-6  # the maximum p-value in the polymorphism test
+polymorphism_q_alpha = 1e-6  # the maximum FDR-corrected p-value (q-value) in the polymorphism test
 
 
 # multistrain calling
