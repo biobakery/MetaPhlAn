@@ -393,14 +393,14 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
     return df_results, bfs_filtered, consensuses_maj, consensuses_min
 
 
-def save_reconstructed_markers(output_results, output_major, output_minor, mp_version, df_results, consensuses_maj,
+def save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results, consensuses_maj,
                                consensuses_min, bfs_filtered, pileup_filtered_path, reconstruct_genotypes):
     """
 
     :param pathlib.Path output_results:
     :param pathlib.Path output_major:
     :param pathlib.Path output_minor:
-    :param str mp_version:
+    :param str db_name:
     :param pd.DataFrame df_results:
     :param dict consensuses_maj:
     :param dict consensuses_min:
@@ -415,10 +415,10 @@ def save_reconstructed_markers(output_results, output_major, output_minor, mp_ve
         consensuses_min = list(consensuses_min.values())
 
         with bz2.open(output_minor, 'wt') as f:
-            json.dump({'database_name': mp_version, 'consensus_markers': consensuses_min}, f, indent=2)
+            json.dump({'database_name': db_name, 'consensus_markers': consensuses_min}, f, indent=2)
 
         with bz2.open(output_major, 'wt') as f:
-            json.dump({'database_name': mp_version, 'consensus_markers': consensuses_maj}, f, indent=2)
+            json.dump({'database_name': db_name, 'consensus_markers': consensuses_maj}, f, indent=2)
 
     df_results.to_csv(output_results, sep='\t')
 
@@ -507,14 +507,14 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, 
             save_bam(read_lens_path, read_lens_)
 
         if sam_file_ is None:
-            return None, None, None, None, None, None
-
-
-        info(f'Calculating pileup for sample {sample_name}')
-        pr_before_, pr_after_ = run_pileup(sam_file_, config)
-        info_debug('Saving pileup')
-        save_pileup(pr_before_, pileup_path_before, seq_error_path_before, null_err_rate_path_before)
-        save_pileup(pr_after_, pileup_path_after, seq_error_path_after, null_err_rate_path_after)
+            read_lens_ = None
+            pr_after_ = None
+        else:
+            info(f'Calculating pileup for sample {sample_name}')
+            pr_before_, pr_after_ = run_pileup(sam_file_, config)
+            info_debug('Saving pileup')
+            save_pileup(pr_before_, pileup_path_before, seq_error_path_before, null_err_rate_path_before)
+            save_pileup(pr_after_, pileup_path_after, seq_error_path_after, null_err_rate_path_after)
 
         return sam_file_, read_lens_, pr_after_
 

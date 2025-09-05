@@ -1,4 +1,4 @@
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, OrderedDict
 from dataclasses import dataclass
 
 import numpy as np
@@ -161,7 +161,8 @@ def run_pileup_inner(sam_file, config, drop_read_positions=None):
         info_debug(f'Null err. rate: {null_err_rate}')
 
         if null_err_rate > config['max_null_err_rate']:
-            warning(f'Null error rate is higher than expected ({null_err_rate}), will not use it')
+            if config['max_null_err_rate'] > 0:
+                warning(f'Null error rate is higher than expected ({null_err_rate}), will not use it')
             null_err_rate = None
 
         dfs = []
@@ -289,19 +290,58 @@ def filter_loci_snp_call(bfs, err_rates, avg_read_len, config):
     result_row['n_triallelic_total'] = sum((np.count_nonzero(a == 3) for a in allelism_filtered.values()))
     result_row['n_quadallelic_total'] = sum((np.count_nonzero(a == 4) for a in allelism_filtered.values()))
 
-    polyallelic_significant_masks = {}
+
+    # Polyallelism test with FDR
+    m_to_pvals = OrderedDict()
+    m_to_poly_mask = {}
     for m in base_coverages.keys():
         polyallelic_mask = allelism_filtered[m] > 1
-        mask_sig_polyallelic_full = np.zeros(len(base_coverages[m]), dtype=bool)
         if polyallelic_mask.sum() > 0:
             bf_poly = bfs[m][:, polyallelic_mask]
             bc_poly = base_coverages[m][polyallelic_mask]
             er_poly = err_rates[m][polyallelic_mask]
             poly_max_f = bf_poly.max(axis=0)
             p_values = sps.binom.cdf(poly_max_f, bc_poly, 1 - er_poly)
-            mask_sig_polyallelic = p_values < config['polymorphism_p_alpha']
+            m_to_pvals[m] = p_values
+        m_to_poly_mask[m] = polyallelic_mask
+
+    m_to_qvals = {}
+    if len(m_to_pvals) > 0:
+        all_pvalues = np.concatenate(list(m_to_pvals.values()))
+        _, all_qvalues, _, _ = smsm.multipletests(all_pvalues, method="fdr_bh")
+
+        # split concatenated array to per-marker arrays
+        spacer = 0
+        for m, ps in m_to_pvals.items():
+            m_to_qvals[m] = all_qvalues[spacer: spacer+len(ps)]
+            spacer += len(ps)
+        assert spacer == len(all_qvalues)
+
+    polyallelic_significant_masks = {}
+    for m in base_coverages.keys():
+        polyallelic_mask = m_to_poly_mask[m]
+        mask_sig_polyallelic_full = np.zeros(len(base_coverages[m]), dtype=bool)
+        if m in m_to_qvals:
+            q_vals = m_to_qvals[m]
+            mask_sig_polyallelic = q_vals < config['polymorphism_q_alpha']
             mask_sig_polyallelic_full[polyallelic_mask] = mask_sig_polyallelic
         polyallelic_significant_masks[m] = mask_sig_polyallelic_full
+
+
+    # Polyallelism test without FDR (just p-values)
+    # polyallelic_significant_masks = {}
+    # for m in base_coverages.keys():
+    #     polyallelic_mask = allelism_filtered[m] > 1
+    #     mask_sig_polyallelic_full = np.zeros(len(base_coverages[m]), dtype=bool)
+    #     if polyallelic_mask.sum() > 0:
+    #         bf_poly = bfs[m][:, polyallelic_mask]
+    #         bc_poly = base_coverages[m][polyallelic_mask]
+    #         er_poly = err_rates[m][polyallelic_mask]
+    #         poly_max_f = bf_poly.max(axis=0)
+    #         p_values = sps.binom.cdf(poly_max_f, bc_poly, 1 - er_poly)
+    #         mask_sig_polyallelic = p_values < config['polymorphism_p_alpha']
+    #         mask_sig_polyallelic_full[polyallelic_mask] = mask_sig_polyallelic
+    #     polyallelic_significant_masks[m] = mask_sig_polyallelic_full
 
     result_row['n_polyallelic_significant'] = sum((psm.sum() for psm in polyallelic_significant_masks.values()))
     result_row['n_markers_polyallelic_significant'] = sum((psm.sum() > 0 for psm in polyallelic_significant_masks.values()))

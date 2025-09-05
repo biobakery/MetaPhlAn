@@ -41,7 +41,7 @@ class ArgTypes:
 
 
 def read_params():
-    p = ap.ArgumentParser(description="Strain sharing pipeline: After-StrainPhlAn calculations.",
+    p = ap.ArgumentParser(description="StrainPhlAn sample2markers multi-strain version.",
                           formatter_class=ap.ArgumentDefaultsHelpFormatter)
 
     # TODO: consistency --input vs. --samples across strainphlan, sample2markers, sample2markers_multistrain
