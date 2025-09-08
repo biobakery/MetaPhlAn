@@ -1396,10 +1396,15 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
                 if self.unclassified_estimation:
                     outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped)*100,5)),""]) + "\n" )                   
                 clade2abundance = self.get_clade2abundance()
+                if len(clade2abundance) == 0 and not self.unclassified_estimation:
+                    outf.write( "\t".join(["UNCLASSIFIED", "-1", str(100), "-", str(self.total_metagenome - self.mapped)]) + "\n" )
                 for clade, values in clade2abundance.items():
                     taxid, relab = values
-                    if (clade, taxid) in self.database_controller.database_pkl['merged_taxon'] and not self.use_group_representative:
-                        add_repr = '{}'.format(','.join( [ n[0] for n in self.database_controller.database_pkl['merged_taxon'][(clade, taxid)]] ))
+                    if not self.use_group_representative:
+                        if (clade, taxid) in self.database_controller.database_pkl['merged_taxon']:
+                            add_repr = '{}'.format(','.join( [ n[0] for n in self.database_controller.database_pkl['merged_taxon'][(clade, taxid)]] ))
+                        else:
+                            add_repr = ''
                         outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped), add_repr ] ) + "\n" )
                     else:                        
                         outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped)] ) + "\n" )                            
@@ -1445,6 +1450,8 @@ class RelativeAbundanceReadStatsAnalysis(MetaphlanAnalysis):
             if self.unclassified_estimation:
                 outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped)*100,5)),"-", str(self.total_metagenome - self.mapped)]) + "\n" )                   
             clade2abundance = self.get_clade2abundance()
+            if len(clade2abundance) == 0 and not self.unclassified_estimation:
+                outf.write( "\t".join(["UNCLASSIFIED", "-1", str(100), "-", str(self.total_metagenome - self.mapped)]) + "\n" )
             for clade, values in clade2abundance.items():
                 taxid, relab, coverage, nreads = values
                 outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped), str(coverage), str(nreads)] ) + "\n" )         
