@@ -312,7 +312,9 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
                 for pos in range(pr.marker_to_length[m]):
                     bfs = {b: pr.base_frequencies[m][b][pos] for b in ACTG}
                     bfs = Counter({k: v for k, v in bfs.items() if v > 0})
-                    if bfs.total() == 0:
+                    base_coverage = bfs.total()
+
+                    if base_coverage < config['min_output_base_coverage']:
                         continue
 
                     pos_err_rate = err_rates[m][pos]
@@ -326,7 +328,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
                         'pos': pos + 1,
                         'error_rate': pos_err_rate,
                         'base_frequencies': bfs,
-                        'base_coverage': bfs.total(),
+                        'base_coverage': base_coverage,
                         'max_frequency': max(bfs.values()),
                         'allelism': allelism,
                         'filtered': filtered,
@@ -378,8 +380,8 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
                 'marker': m,
                 'sequence_maj': consensuses_major[m].decode(),
                 'sequence_min': consensuses_minor[m].decode(),
-                'qualities_maj': utils.qualities_to_phred(qualities_major[m]),
-                'qualities_min': utils.qualities_to_phred(qualities_minor[m]),
+                'log_p_maj': qualities_major[m],
+                'log_p_min': qualities_minor[m],
             } for m in consensuses_major.keys()]
 
             consensuses_maj_sgb, consensuses_min_sgb = get_strainphlan_markers(strain_resolved_markers_sgb, result_row,

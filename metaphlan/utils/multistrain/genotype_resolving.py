@@ -6,7 +6,7 @@ import scipy.stats as sps
 
 from typing import Iterable
 from .linkage import NodePair
-from .utils import FrozenCounter
+from .utils import FrozenCounter, log1mexp
 
 ACTG = 'ACTG'
 
@@ -150,6 +150,36 @@ def get_probas_2(get_probas_2_cache, log_margin_mono, log_facts_mono, log_facts_
     return get_probas_2_cache[key]
 
 
+def get_probas_switch(get_probas_switch_cache, max_f, cov):
+    def get_probas_switch_inner():
+        p_bi = 0.01  # prior that a position is bi-allelic (prior SNP rate)
+
+        rs = np.log10(np.logspace(0, 0.5, 100)) + 0.5
+        rs_prior = np.ones(len(rs)) * p_bi / (len(rs) - 1)
+        rs_prior[-1] = 1 - p_bi
+
+        log_p_rs = np.log(rs_prior)
+
+        min_f = cov - max_f
+
+        log_p1s = sps.binom.logpmf(max_f, cov, rs) + log_p_rs
+        log_p2s = sps.binom.logpmf(min_f, cov, rs)
+
+        z = np.logaddexp.reduce(log_p1s)
+
+        log_p_switch = np.logaddexp.reduce(log_p1s - z + log_p2s)
+
+        log_q = log1mexp(log_p_switch)
+
+        return log_q
+
+    key = (max_f, cov)
+    if key not in get_probas_switch_cache:
+        get_probas_switch_cache[key] = get_probas_switch_inner()
+
+    return get_probas_switch_cache[key]
+
+
 def compute_genotypes(df_loci_sgb_filtered, node_pairs, result_row, marker_to_length):
     """
     Calculates per-position probabilities of each base for both major and minor in the multi-strain case or
@@ -271,13 +301,19 @@ def compute_genotypes(df_loci_sgb_filtered, node_pairs, result_row, marker_to_le
             qualities_minor[marker][pos] = min_log_p
 
     else:
+        get_probas_switch_cache = {}
         df_loci_sgb_filtered['log_p'] = df_loci_sgb_filtered.apply(
-            lambda row_: {b: row_['log_facts_mono'][b] - row_['log_margin_mono'] for b in ACTG}, axis=1)
+            lambda row_: get_probas_switch(get_probas_switch_cache, row_['max_frequency'], row_['base_coverage']), axis=1)
+
+        # df_loci_sgb_filtered['log_p'] = df_loci_sgb_filtered.apply(
+        #     lambda row_: {b: row_['log_facts_mono'][b] - row_['log_margin_mono'] for b in ACTG}, axis=1)
 
         for _, row in df_loci_sgb_filtered.iterrows():
             pos = row['pos'] - 1
             marker = row['marker']
-            maj_b, maj_log_p = max(row['log_p'].items(), key=lambda x: x[1])
+            # maj_b, maj_log_p = max(row['log_p'].items(), key=lambda x: x[1])
+            maj_b = row['base_frequencies'].most_common()[0][0]
+            maj_log_p = row['log_p']
             consensuses_major[marker][pos] = ord(maj_b)
             qualities_major[marker][pos] = maj_log_p
 

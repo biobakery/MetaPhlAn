@@ -50,32 +50,35 @@ class Strainphlan:
         """
 
         return execute_pool(((Strainphlan.get_matrix_for_sample, sample_path, self.clade_markers_names,
-                              self.breadth_thres, self.polymorphism_perc, self.database_controller.get_database_name())
+                              self.breadth_thres, self.trim_sequences, self.polymorphism_perc,
+                              self.database_controller.get_database_name())
                              for sample_path in self.samples), self.nprocs)
 
 
     @classmethod
-    def get_matrix_for_sample(cls, sample_path, clade_markers, breadth_thres, polymorphism_perc, database_name):
+    def get_matrix_for_sample(cls, sample_path, clade_markers, breadth_thres, trim_ends, polymorphism_perc,
+                              database_name):
         """Returns the matrix with the presence / absence of the clade markers in a samples
 
         Args:
             sample_path (str): the path to the sample
             clade_markers (Iterable): the list with the clade markers names
             breadth_thres:
+            trim_ends:
             polymorphism_perc:
             database_name:
 
         Returns:
             dict: dictionary containing the sample-to-markers information as a binary matrix
         """
-        sample = ConsensusMarkers.from_file(sample_path)
-        if sample.database_name is not None and sample.database_name != database_name:
-            error(f'The database of the sample {sample.database_name} does not match the provided {database_name}',
+        cms = ConsensusMarkers.from_file(sample_path, trim_ends)
+        if cms.database_name is not None and cms.database_name != database_name:
+            error(f'The database of the sample {cms.database_name} does not match the provided {database_name}',
                   exit=True)
         sample_name = cls.sample_path_to_name(sample_path)
         markers = {"sample_name": sample_name}
         markers.update({m: False for m in clade_markers})
-        markers.update({marker.name: True for marker in sample.consensus_markers
+        markers.update({marker.name: True for marker in cms.consensus_markers
                         if marker.name in clade_markers and 
                         marker.breadth >= breadth_thres and
                         marker.get_polymorphism_perc() <= polymorphism_perc})
@@ -159,20 +162,20 @@ class Strainphlan:
 
 
     @classmethod
-    def sample_markers_to_fasta(cls, sample_path, filtered_markers, trim_sequences, markers_tmp_dir):
+    def sample_markers_to_fasta(cls, sample_path, filtered_markers, trim_ends, markers_tmp_dir):
         """Writes a FASTA file with the filtered clade markers of a sample
 
         Args:
             sample_path (str): the path to the sample
             filtered_markers:
-            trim_sequences:
+            trim_ends (int):
             markers_tmp_dir (str): the temporary folder were the FASTA file is written
         """
         sample_name = cls.sample_path_to_name(sample_path)
         marker_output_file = os.path.join(markers_tmp_dir, f'{sample_name}.fna.bz2')
-        sample = ConsensusMarkers.from_file(sample_path)
+        sample = ConsensusMarkers.from_file(sample_path, trim_ends)
         sample.consensus_markers = [m for m in sample.consensus_markers if m.name in filtered_markers]
-        sample.to_fasta(marker_output_file, trim_ends=trim_sequences)
+        sample.to_fasta(marker_output_file, trim_ends)
 
 
     def get_markers_from_references(self):
@@ -192,12 +195,12 @@ class Strainphlan:
             clade_markers_file = self.clade_markers_file
 
         return execute_pool(((Strainphlan.process_reference, reference, self.tmp_dir, clade_markers_file,
-                              self.clade_markers_names, self.trim_sequences)
+                              self.clade_markers_names, self.breadth_thres, self.trim_sequences)
                              for reference in self.references), self.nprocs)
 
 
     @classmethod
-    def process_reference(cls, reference_path, tmp_dir, clade_markers_file, clade_markers, trim_sequences):
+    def process_reference(cls, reference_path, tmp_dir, clade_markers_file, clade_markers, breadth_thres, trim_ends):
         """Processes each reference file and get a markers dictionary to add to the markers matrix
 
         Args:
@@ -205,7 +208,8 @@ class Strainphlan:
             tmp_dir (str): the temporary folder where the BLASTn results where saved
             clade_markers_file (str):
             clade_markers (Iterable): the list with the clade markers names
-            trim_sequences:
+            breadth_thres (float):
+            trim_ends (int):
 
         Returns:
             dict: the dictionary with the reference-to-markers information
@@ -220,12 +224,12 @@ class Strainphlan:
         reference_markers_dir = os.path.join(tmp_dir, "reference_markers")
         os.makedirs(reference_markers_dir, exist_ok=True)
 
-        consensus_markers = ConsensusMarkers([ConsensusMarker(m, s) for m, s in ext_markers.items()])
+        cms = ConsensusMarkers([ConsensusMarker(m, s, trim_ends) for m, s in ext_markers.items()])
         reference_name = cls.sample_path_to_name(reference_path)
-        consensus_markers.to_fasta(os.path.join(reference_markers_dir, f'{reference_name}.fna.bz2'),
-                                   trim_ends=trim_sequences)
+        cms.to_fasta(os.path.join(reference_markers_dir, f'{reference_name}.fna.bz2'), trim_ends)
 
-        markers_matrix = {'sample_name': reference_name}
+
+        markers_matrix = {"sample_name": reference_name}
         markers_matrix.update({m: m in ext_markers for m in clade_markers})
 
         return markers_matrix
@@ -383,7 +387,8 @@ class Strainphlan:
     def calculate_polymorphic_rates(self):
         """Generates a file with the polymorphic rates of the species for each sample"""
         rows = []
-        consensus_markers = execute_pool(((ConsensusMarkers.from_file, sample_path) for sample_path in self.samples),
+        consensus_markers = execute_pool(((ConsensusMarkers.from_file, sample_path, self.trim_sequences)
+                                          for sample_path in self.samples),
                                          nprocs=self.nprocs, return_generator=True, ordered=True)
         for sample_path, cm in zip(self.samples, consensus_markers):
             p_stats, p_count, m_len = [], 0, 0

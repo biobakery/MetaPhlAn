@@ -136,6 +136,7 @@ def logit_pdf(x, f_pdf):  # f(logit(x)) * d/dx logit(x) = f(logit(x)) * 1 / ( x*
 
 
 def log1mexp(x):
+    # log(1-exp(x))
     # https://stackoverflow.com/a/20888225
     with np.errstate(divide='ignore'):  # probabilities 1 will get division by zero warning and return -inf => supress
         return np.where(x < np.log(.5), np.log1p(-np.exp(x)), np.log(-np.expm1(x)))

@@ -360,7 +360,7 @@ class MetaphlanDatabaseController():
                     with open(fna_file, 'r') as fna_r:
                         for line in fna_r:
                             fna_h.write(line)
-        
+
         # check bowtie2
         try:
             subp.check_call([self.bowtie2_exe, "-h"], stdout=subp.DEVNULL)

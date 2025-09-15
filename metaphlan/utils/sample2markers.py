@@ -105,6 +105,7 @@ class SampleToMarkers:
         depth_avg_q = 0.2
         quasi_marker_frac = 0.33
         min_breadth = 80
+        trim_seuqences = 50
         min_base_coverage = 1
         min_base_quality = 30
         max_gcsd = 0.1
@@ -292,7 +293,7 @@ class SampleToMarkers:
             cov_trimmed = cov[t:-t]
             avg_depth = np.mean(cov_trimmed)
 
-            c = ConsensusMarker(m, seq, avg_depth=avg_depth)
+            c = ConsensusMarker(m, seq, trim_ends=self.trim_sequences, avg_depth=avg_depth)
             if c.breadth < self.breadth_threshold:
                 continue
             consensus_markers_filtered.append(c)
@@ -454,6 +455,7 @@ class SampleToMarkers:
         self.database_controller = StrainphlanDatabaseController(args.database)
         self.tmp_dir = args.output_dir if args.tmp is None else args.tmp
         self.breadth_threshold = args.breadth_threshold
+        self.trim_sequences = args.trim_sequences
         self.input_format = args.input_format
         self.clades = args.clades
         self.sorted = args.sorted
@@ -515,6 +517,8 @@ def read_params():
                         "Otherwise the output directory will be used.")
     p.add_argument('-b', '--breadth_threshold', type=int, default=SampleToMarkers.DEFAULTS.min_breadth,
                    help="The breadth of coverage threshold for the consensus markers")
+    p.add_argument('--trim_sequences', type=int, default=SampleToMarkers.DEFAULTS.trim_seuqences,
+                   help='The bases to trim from the end ONLY for the breadth calculation, all bases are stored')
     p.add_argument('--debug', action='store_true', default=False,
                    help="If specified, StrainPhlAn will not remove the temporary folder. "
                         "Not available with inputs in BAM format")

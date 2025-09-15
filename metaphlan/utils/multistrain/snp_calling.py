@@ -236,19 +236,51 @@ def mask_iqr(x, q25, q75):
         return np.zeros(x.shape, dtype=bool)
 
 
+def fit_nb(q50, avg_read_len_i, z, p_t):
+    if q50 is None:
+        return None, None
+
+    q50s = np.arange(avg_read_len_i + 1) / avg_read_len_i * q50  # taper the median linearly at the ends of the markers
+
+    # convert median to mean assuming poisson dist.
+    a = 50
+    b = 50 / 3 - 50 * q50s
+    c = -1
+    ks = (-b + np.sqrt(b ** 2 - 4 * a * c)) / 2 / a
+
+    # get Negative binomial parameters, z is the variance:mean ratio
+    rs = ks / (z - 1)
+    ps = rs / (rs + ks)
+    d_nb = sps.nbinom(rs, ps)
+
+    min_cs, max_cs = d_nb.isf(1 - p_t), d_nb.isf(p_t) - 1
+
+    return min_cs, max_cs
+
+
+def mask_nb(bc, min_cs, max_cs):
+    mask = np.ones(len(bc), dtype=bool)
+    if min_cs is not None:
+        crop = min(len(min_cs) - 1, len(bc))
+        mask[:crop] = (bc[:crop] >= min_cs[:crop]) & (bc[:crop] <= max_cs[:crop])
+        mask[-crop:] = (bc[-crop:] >= min_cs[:crop:][::-1]) & (bc[-crop:] <= max_cs[:crop][::-1])
+        mask[crop:-crop] = (bc[crop:-crop] >= min_cs[-1]) & (bc[crop:-crop] <= max_cs[-1])
+
+    return mask
+
+
+
 def filter_loci_snp_call(bfs, err_rates, avg_read_len, config):
     result_row = {}
 
     base_coverages = {m: bf.sum(axis=0) for m, bf in bfs.items()}
-    t_avg_read_len = int(avg_read_len)
-    assert t_avg_read_len > 0
+    avg_read_len_i = int(avg_read_len)
+    assert avg_read_len_i > 0
 
-    base_coverages_fit = {m: bc[t_avg_read_len:-t_avg_read_len] for m, bc in base_coverages.items()
-                          if len(bc) > 2 * t_avg_read_len}
+    base_coverages_fit = {m: bc[avg_read_len_i:-avg_read_len_i] for m, bc in base_coverages.items()
+                          if len(bc) > 2 * avg_read_len_i}
 
     q25, q50, q75 = None, None, None
-    outlier_coverage = 0
-    markers_outlier_covered = set()
     if len(base_coverages_fit) > 0:
         base_coverage_fit = np.concatenate(list(base_coverages_fit.values()))
         base_coverage_fit = base_coverage_fit[base_coverage_fit > 0]
@@ -256,11 +288,15 @@ def filter_loci_snp_call(bfs, err_rates, avg_read_len, config):
             q25 = np.quantile(base_coverage_fit, .25)
             q50 = np.median(base_coverage_fit)
             q75 = np.quantile(base_coverage_fit, .75)
-            outlier_coverage = mask_iqr(base_coverage_fit, q25, q75).mean()
 
-            marker_to_outlier_coverage = {m: mask_iqr(bc, q25, q75).mean() for m, bc in base_coverages_fit.items()}
-            markers_outlier_covered = set((m for m, oc in marker_to_outlier_coverage.items()
-                                           if oc > config['outlier_coverage_marker']))
+
+    min_cs, max_cs = fit_nb(q50, avg_read_len_i, config['outlier_coverage_overdispersion'], config['outlier_coverage_p'])
+    position_mask = {m: mask_nb(bc, min_cs, max_cs) for m, bc in base_coverages.items()}
+    outlier_coverage = sum(np.count_nonzero(~x) for x in position_mask.values()) /\
+                       sum(len(x) for x in position_mask.values())
+    marker_to_outlier_coverage = {m: (~x).mean() for m, x in position_mask.items()}
+    markers_outlier_covered = set((m for m, oc in marker_to_outlier_coverage.items()
+                                   if oc > config['outlier_coverage_marker']))
 
 
     result_row['coverage_25'] = q25
@@ -269,7 +305,6 @@ def filter_loci_snp_call(bfs, err_rates, avg_read_len, config):
     result_row['outlier_coverage'] = outlier_coverage
     result_row['outlier_covered_markers'] = len(markers_outlier_covered)
 
-    position_mask = {m: (~mask_iqr(bc, q25, q75)) & (m not in markers_outlier_covered) for m, bc in base_coverages.items()}
 
     if config['trim_marker_ends'] > 0:
         t = config['trim_marker_ends']
