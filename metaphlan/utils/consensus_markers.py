@@ -31,19 +31,19 @@ class ConsensusMarker:
         """
         return str(int(sha256(self.name.encode('utf-8')).hexdigest(), 16) % 10**12)
 
-    def to_seq_record(self, trim_sequences=0):
+    def to_seq_record(self, trim_ends=0):
         """Gets FASTA sequence as a biopython object
 
         Args:
-            trim_sequences (int, optional): The number of nt to trim from both ends of the sequence. Defaults to 0.
+            trim_ends (int, optional): The number of nt to trim from both ends of the sequence. Defaults to 0.
 
         Returns:
             SeqRecord: the parsed and trimmed sequence
         """
         marker_name = self.parse_marker_name()
         seq = self.sequence.replace("*", "-")
-        if trim_sequences != 0:
-            seq = seq[trim_sequences: -trim_sequences]
+        if trim_ends != 0:
+            seq = seq[trim_ends: -trim_ends]
         return SeqRecord(Seq(seq), id=marker_name, description=marker_name)
 
     def get_polymorphisms(self):
@@ -70,14 +70,22 @@ class ConsensusMarker:
         """
         return self.sequence.count('*') * 100 / self.get_sequence_length()
 
-    def get_breadth(self):
-        """Returns the breadth of coverage of the marker
-
-        Returns:
-            float: the breadth of coverage of the marker sequence
+    @staticmethod
+    def get_breadth(sequence, trim_ends):
         """
-        seq_len = len(self.sequence)
-        return ((seq_len - self.sequence.count('N') - self.sequence.count('*') - self.sequence.count('-')) * 100) / seq_len
+
+        :param str sequence:
+        :param int trim_ends:
+        :return:
+        """
+
+        if trim_ends > 0:
+            sequence = sequence[trim_ends:-trim_ends]
+
+        seq_len = len(sequence)
+        if seq_len == 0:
+            return 0
+        return ((seq_len - sequence.count('N') - sequence.count('*') - sequence.count('-')) * 100) / seq_len
 
 
     def to_dict(self):
@@ -85,59 +93,64 @@ class ConsensusMarker:
 
 
     @classmethod
-    def from_dict(cls, d):
-        return cls(d['marker'], d['sequence'], breadth=d['breadth'] if 'breadth' in d else d['breath'], avg_depth=d['avg_depth'] if 'avg_depth' in d else None)
+    def from_dict(cls, d, trim_ends):
+        """
+
+        :param dict d:
+        :param int trim_ends:
+        :return:
+        """
+        return cls(d['marker'], d['sequence'], trim_ends, avg_depth=d.get('avg_depth'))
 
 
-    def __init__(self, name, sequence, breadth=None, avg_depth=None):
+    def __init__(self, name, sequence, trim_ends, avg_depth=None):
         self.name = name
         self.sequence = sequence
-        if breadth is None:
-            self.breadth = self.get_breadth()
-        else:
-            self.breadth = breadth
+        self.breadth = self.get_breadth(self.sequence, trim_ends)
         self.avg_depth = avg_depth
 
 
 class ConsensusMarkers:
 
     @classmethod
-    def from_file(cls, sample_file):
+    def from_file(cls, sample_file, trim_ends):
         """
         Loads from file, automatically detecting the format
 
         Args:
             sample_file (str): A path to the sample file, either .pkl or .json (possibly compressed)
+            trim_ends (int):
 
         Returns:
 
         """
         if sample_file.endswith('.pkl'):
-            return cls.from_pkl(sample_file)
+            return cls.from_pkl(sample_file, trim_ends)
         else:
-            return cls.from_json(sample_file)
+            return cls.from_json(sample_file, trim_ends)
 
 
 
     @classmethod
-    def from_pkl(cls, pkl_file):
-        """Init from PKL file
+    def from_pkl(cls, pkl_file, trim_ends):
+        """
 
-        Args:
-            pkl_file (str): the path to the PKL file
+        :param str pkl_file:
+        :param int trim_ends:
+        :return:
         """
         sample_as_pkl = pickle.load(bz2.BZ2File(pkl_file)) if os.path.splitext(
             pkl_file)[1] == ".bz2" else pickle.load(open(pkl_file, "rb"))
-        return cls([ConsensusMarker.from_dict(marker) for marker in sample_as_pkl])
+        return cls([ConsensusMarker.from_dict(marker, trim_ends) for marker in sample_as_pkl])
 
 
     @classmethod
-    def from_json(cls, json_file):
+    def from_json(cls, json_file, trim_ends):
         with util_fun.openrt(json_file) as f:
             python_repr = json.load(f)
 
         database_name = python_repr['database_name'] if python_repr['database_name'] != 'None' else None
-        consensus_markers = [ConsensusMarker.from_dict(m) for m in python_repr['consensus_markers']]
+        consensus_markers = [ConsensusMarker.from_dict(m, trim_ends) for m in python_repr['consensus_markers']]
         return cls(consensus_markers, database_name)
 
 

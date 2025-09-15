@@ -1,5 +1,6 @@
 import numpy as np
 
+from . import utils
 from .linkage import eval_pair
 
 ACTG = 'ACTG'
@@ -29,12 +30,14 @@ def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_res
     consensuses_sgb_min = {}
     breadths_min = []
     for srm in strain_resolved_markers_sgb:
-        q_maj = [ord(q) - 33 for q in srm['qualities_maj']]
-        q_min = [ord(q) - 33 for q in srm['qualities_min']]
-        sequence_maj = ''.join(
-            b if q >= config['min_output_quality'] else '-' for b, q in zip(srm['sequence_maj'], q_maj))
-        sequence_min = ''.join(
-            b if q >= config['min_output_quality'] else '-' for b, q in zip(srm['sequence_min'], q_min))
+        phred_maj = utils.qualities_to_phred(srm['log_p_maj'])
+        phred_min = utils.qualities_to_phred(srm['log_p_min'])
+
+        q_maj = [ord(q) - 33 for q in phred_maj]
+        q_min = [ord(q) - 33 for q in phred_min]
+
+        sequence_maj = ''.join(b if q >= config['min_output_quality'] else '-' for b, q in zip(srm['sequence_maj'], q_maj))
+        sequence_min = ''.join(b if q >= config['min_output_quality'] else '-' for b, q in zip(srm['sequence_min'], q_min))
         breadth_maj = calc_breadth(sequence_maj)
         breadth_min = calc_breadth(sequence_min)
         breadths_min.append(breadth_min)
