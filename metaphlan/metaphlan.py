@@ -295,6 +295,25 @@ class TaxTree:
                 return
         
         clade.markers2nreads[marker] = nreads
+    
+    def conditional_rounding(values):
+        """Rounds the relative abundances to avoid 0 values for very low abundance taxa with non-zero coverage
+
+        Args: 
+            values (list): the list of relative abundances
+        Returns:
+            rounding (int): the number of decimal places to round to
+        """
+        rounding = 5
+        while rounding <= 10:
+            rounded = [round(num, rounding) for num in values]
+            if 0 in rounded:
+                rounding += 1
+            else:
+                return rounding
+        warning('Warning: Unable to avoid 0 relative abundances with a maximum of 10 decimal places. Some very low abundance taxa may be rounded to 0.', init_new_line = True)
+        return rounding 
+    
         
     def relative_abundances(self):
         """Compute the relative abundances for the taxa present in the sample
@@ -308,12 +327,20 @@ class TaxTree:
             clade.compute_coverage()
             if len(clade.children) == 0 and clade.coverage > 0:
                 total_ab += clade.coverage
-                total += clade.nreads        
+                total += clade.nreads
+
+        all_rel_ab = list()        
         for clade in self.all_clades.values():
             if clade.coverage > 0:
-                clade.rel_abundance = round(100 * clade.coverage / total_ab, 5) if total_ab > 0 else 0
+                clade.rel_abundance = 100 * clade.coverage / total_ab if total_ab > 0 else 0
+                all_rel_ab.append(clade.rel_abundance)
         
-        if total_ab == 0:
+        if total_ab != 0:
+            rounding_value = conditional_rounding(all_rel_ab)
+            for clade in self.all_clades.values():
+                if clade.coverage > 0:
+                    clade.rel_abundance = round(clade.rel_abundance, rounding_value)
+        else:
             warning('Warning: No species were detected.', init_new_line = True)
             
         return total
@@ -1397,7 +1424,7 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
                     outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped)*100,5)),""]) + "\n" )                   
                 clade2abundance = self.get_clade2abundance()
                 if len(clade2abundance) == 0 and not self.unclassified_estimation:
-                    outf.write( "\t".join(["UNCLASSIFIED", "-1", str(100), "-", str(self.total_metagenome - self.mapped)]) + "\n" )
+                    outf.write( "\t".join(["UNCLASSIFIED", "-1", str(100), "", ""]) + "\n" )
                 for clade, values in clade2abundance.items():
                     taxid, relab = values
                     if not self.use_group_representative:
@@ -2112,7 +2139,7 @@ def read_params(args):
         help="Report the profiling using the biom output format\n")
     arg('--biom_mdelim',  metavar="mdelim", type=str, default="|",
         help="Delimiter for metadata in the biom output format [default '|'] \n")
-    g = p.add_argument_group('Viral Sequence Clusters Analisys')
+    g = p.add_argument_group('Viral Sequence Clusters Analysis')
     arg = g.add_argument
     arg("--profile_vsc", action="store_true",help="Add this parameter to profile Viruses with VSCs approach.")
     arg("--vsc_out", help="Path to the VSCs breadth-of-coverage output file", default="mp3_viruses.csv")
@@ -2145,9 +2172,9 @@ def read_params(args):
     arg('--mapping_subsampling', action='store_true',
         help="If used, the subsamping will be done on the mapping results instead of on the reads.")
     arg('--subsampling_seed', type=str, default='1992',
-        help="Random seed to use in the selection of the subsampled reads. Choose \"random\r for a random behaviour")
+        help="Random seed to use in the selection of the subsampled reads. Choose \"random\" for a random behaviour")
     arg('--subsampling_output', type=str, default=None,
-        help="The output file for the subsampled reads. If not specified the subsampled reads will not be saved.")
+        help="The output file for the subsampled reads. If the extension is bz2 or gzip, the files will be compressed. If not specified the subsampled reads will not be saved.")
     arg('--subsampling_paired',  type=int, default=None,
         help="Specify the number of paired reads to be considered from the input metagenomes [default None]")
     arg('-1', type=str, default=None, metavar='FORWARD_READS', dest='forward',
