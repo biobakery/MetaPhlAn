@@ -2192,12 +2192,24 @@ def read_params(args):
              "'read_fastx.py' script, default value is 70")
     arg('--verbose', action='store_true',
         help="Makes MetaPhlAn verbose")
-    arg('-v', '--version', action='version',
-        version="MetaPhlAn version {} ({})".format(__version__, __date__),
+    arg('-v', '--version', action='store_true',
         help="Prints the current MetaPhlAn version and exit")
     arg("-h", "--help", action="help", help="show this help message and exit")
     return p.parse_args()
 
+def get_installed_db_version():
+    """Return DB base name if both .pkl and .fna exist inside DEFAULT_DB_FOLDER."""
+    if not os.path.exists(DEFAULT_DB_FOLDER):
+        return None
+    files = os.listdir(DEFAULT_DB_FOLDER)
+    pkl_bases = {os.path.splitext(f)[0] for f in files if f.endswith(".pkl")}
+    fna_bases = {os.path.splitext(f)[0] for f in files if f.endswith(".fna")}
+    # Intersection: only bases that have both .pkl and .fna
+    common_bases = pkl_bases & fna_bases
+    if not common_bases:
+        return None
+    # Return one of the valid DBs version
+    return sorted(common_bases)[0]
 
 def check_params(args):
     """Checks the mandatory command line arguments of the script
@@ -2289,6 +2301,14 @@ def check_params(args):
 
 def main():
     t0 = time.time()
+    if '-v' in sys.argv or '--version' in sys.argv:
+        print(f"MetaPhlAn version {__version__} ({__date__})")
+        db_version = get_installed_db_version()
+        if db_version:
+            print(f"Installed database: {db_version}")
+        else:
+            print("No complete MetaPhlAn Bowtie2 database found")
+        return  
     args = read_params(sys.argv)
     if args.verbose:
         info("Start MetaPhlAn execution", stderr=True)
