@@ -376,12 +376,49 @@ def read_params(args):
     arg('--read_min_len', type=int, default=70,
         help="Specify the minimum length of the reads to be considered when parsing the input file with "
              "'read_fastx.py' script, default value is 70")
-    arg('-v', '--version', action='version',
-        version="MetaPhlAn version {} ({})".format(__version__, __date__),
+    arg('-v', '--version', action='store_true',
         help="Prints the current MetaPhlAn version and exit")
     arg("-h", "--help", action="help", help="show this help message and exit")
 
     return vars(p.parse_args())
+
+def get_installed_db_version(db_dir: str = None):
+    """
+    Return a sorted list of DB base names (e.g., mpa_vJan24_CHOCOPhlAnSGB_202401)
+    for which both .pkl and .fna exist in db_dir.
+    """
+    if db_dir:
+        db_folder = db_dir
+    else:
+        db_folder = DEFAULT_DB_FOLDER
+    if not os.path.exists(db_folder):
+        return None
+    files = os.listdir(db_folder)
+    pkl_bases = {os.path.splitext(f)[0] for f in files if f.endswith(".pkl")}
+    bt2l_bases = {os.path.basename(f).split('.')[0] for f in files if f.endswith(".bt2l")}
+    common = sorted(pkl_bases & bt2l_bases)
+    return common or None
+
+def get_cli_db_dir(argv=None):
+    """
+    Robustly detect database folder from CLI (--db_dir or --bowtie2db),
+    supporting both '--flag value' and '--flag=value'.
+    """
+    if argv is None:
+        argv = sys.argv[1:]
+
+    p = ap.ArgumentParser(add_help=False)
+    p.add_argument("--db_dir", dest="db_dir")
+    p.add_argument("--bowtie2db", dest="bowtie2db")
+    # Ignore everything else for now
+    args, _ = p.parse_known_args(argv)
+
+    val = args.db_dir or args.bowtie2db
+    if not val:
+        return None
+    # normalize: expand ~ and $VARS, strip trailing slash, absolutize
+    val = os.path.abspath(os.path.expanduser(os.path.expandvars(val).rstrip("/")))
+    return val
 
 def set_mapping_arguments(index, bowtie2_db):
     mpa_pkl = 'mpa_pkl'
@@ -1691,6 +1728,15 @@ def main():
 
 if __name__ == '__main__':
     t0 = time.time()
-    main()
-    sys.stderr.write('Elapsed time to run MetaPhlAn: {} s\n'.format( (time.time()-t0) ) )
+    if '-v' in sys.argv or '--version' in sys.argv:
+        print(f"MetaPhlAn version {__version__} ({__date__})")
+        db_dir=get_cli_db_dir()
+        db_version=get_installed_db_version(db_dir)
+        if db_version:
+            print("Installed databases:", ", ".join(db_version))
+        else:
+            print("No complete MetaPhlAn Bowtie2 database found")
+    else: 
+        main()
+        sys.stderr.write('Elapsed time to run MetaPhlAn: {} s\n'.format( (time.time()-t0) ) )
 
