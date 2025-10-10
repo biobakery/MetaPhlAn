@@ -2192,12 +2192,48 @@ def read_params(args):
              "'read_fastx.py' script, default value is 70")
     arg('--verbose', action='store_true',
         help="Makes MetaPhlAn verbose")
-    arg('-v', '--version', action='version',
-        version="MetaPhlAn version {} ({})".format(__version__, __date__),
+    arg('-v', '--version', action='store_true',
         help="Prints the current MetaPhlAn version and exit")
     arg("-h", "--help", action="help", help="show this help message and exit")
     return p.parse_args()
 
+def get_installed_db_version(db_dir: str = None):
+    """
+    Return a sorted list of DB base names (e.g., mpa_vJan24_CHOCOPhlAnSGB_202401)
+    for which both .pkl and .fna exist in db_dir.
+    """
+    if db_dir:
+        db_folder = db_dir
+    else:
+        db_folder = DEFAULT_DB_FOLDER
+    if not os.path.exists(db_folder):
+        return None
+    files = os.listdir(db_folder)
+    pkl_bases = {os.path.splitext(f)[0] for f in files if f.endswith(".pkl")}
+    bt2l_bases = {os.path.basename(f).split('.')[0] for f in files if f.endswith(".bt2l")}
+    common = sorted(pkl_bases & bt2l_bases)
+    return common or None
+
+def get_cli_db_dir(argv=None):
+    """
+    Robustly detect database folder from CLI (--db_dir or --bowtie2db),
+    supporting both '--flag value' and '--flag=value'.
+    """
+    if argv is None:
+        argv = sys.argv[1:]
+
+    p = ap.ArgumentParser(add_help=False)
+    p.add_argument("--db_dir", dest="db_dir")
+    p.add_argument("--bowtie2db", dest="bowtie2db")
+    # Ignore everything else for now
+    args, _ = p.parse_known_args(argv)
+
+    val = args.db_dir or args.bowtie2db
+    if not val:
+        return None
+    # normalize: expand ~ and $VARS, strip trailing slash, absolutize
+    val = os.path.abspath(os.path.expanduser(os.path.expandvars(val).rstrip("/")))
+    return val
 
 def check_params(args):
     """Checks the mandatory command line arguments of the script
@@ -2289,6 +2325,15 @@ def check_params(args):
 
 def main():
     t0 = time.time()
+    if '-v' in sys.argv or '--version' in sys.argv:
+        print(f"MetaPhlAn version {__version__} ({__date__})")
+        db_dir=get_cli_db_dir()
+        db_version=get_installed_db_version(db_dir)
+        if db_version:
+            print("Installed databases:", ", ".join(db_version))
+        else:
+            print("No complete MetaPhlAn Bowtie2 database found")
+        return  
     args = read_params(sys.argv)
     if args.verbose:
         info("Start MetaPhlAn execution", stderr=True)
