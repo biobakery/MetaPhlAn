@@ -202,26 +202,30 @@ class MetaphlanDatabaseController():
         if os.path.isdir(self.db_dir) and len(glob(os.path.join(self.db_dir, "*{}*bt2l".format(self.index)))) >= 6:
             if self.verbose:
                 info('Bowtie2 indexes found', init_new_line = True)
-            if os.path.exists(os.path.join(self.db_dir, self.index + "_VSG.fna")) and os.path.exists(os.path.join(self.db_dir, self.index + "_VINFO.csv")):
+            if os.path.isfile(os.path.join(self.db_dir, "{}.pkl".format(self.index))):
                 if self.verbose:
-                    info('ViralDB files found', init_new_line = True)
-                if os.path.isfile(os.path.join(self.db_dir, "{}.pkl".format(self.index))):
-                    if self.verbose:
-                        info('Pickle file found', init_new_line = True)
-                    mpa_pkl = os.path.join(self.db_dir, "{}.pkl".format(self.index))
+                    info('Pickle file found', init_new_line = True)
+                mpa_pkl = os.path.join(self.db_dir, "{}.pkl".format(self.index))
 
-                    with bz2.BZ2File(mpa_pkl, 'r') as handle:
-                        self.database_pkl = pkl.load(handle)
-                    return True
+                with bz2.BZ2File(mpa_pkl, 'r') as handle:
+                    self.database_pkl = pkl.load(handle)
+                    
+                if self.profile_vsc: #only checked when running metaphlan, not metaphlan --install
+                    if os.path.exists(os.path.join(self.db_dir, self.index + "_VSG.fna")) and os.path.exists(os.path.join(self.db_dir, self.index + "_VINFO.csv")):
+                        if self.verbose:
+                            info('ViralDB files found', init_new_line = True)
+                        return True
+                    else:
+                        if self.verbose:
+                            info('ViralDB files not found ({}, {})'.format(os.path.join(self.db_dir, self.index + "_VSG.fna"),os.path.join(self.db_dir, self.index + "_VINFO.csv")), init_new_line = True)
                 else:
-                    if self.verbose:
-                        info('Pickle file not found ({})'.format(os.path.join(self.db_dir, "{}.pkl".format(self.index))), init_new_line = True)
+                    return True
             else:
                 if self.verbose:
-                    info('ViralDB files not found ({}, {})'.format(os.path.join(self.db_dir, self.index + "_VSG.fna"),os.path.join(self.db_dir, self.index + "_VINFO.csv")), init_new_line = True)
+                    info('Pickle file not found ({})'.format(os.path.join(self.db_dir, "{}.pkl".format(self.index))), init_new_line = True)
         else:
             if self.verbose:
-                info('Bowtie2 indexes not found ({})'.format(os.path.join(self.db_dir, "*{}*bt2l".format(self.index))), init_new_line = True)
+                info('Bowtie2 indexes not found ({})'.format(os.path.join(self.db_dir, "*{}*bt2l".format(self.index))), init_new_line = True)        
         return False
 
 
@@ -332,7 +336,8 @@ class MetaphlanDatabaseController():
 
     def prepare_indexes(self):
         """Prepare for building indexes"""
-        if len(glob(os.path.join(self.db_dir, self.index + "*.fna"))) > 1 and not glob(os.path.join(self.db_dir, self.index + ".fna")):
+        # join FASTA files if more than one (VSG and SGB) or if the main one is not present (e.g. still called *_SGB.fna)
+        if len(glob(os.path.join(self.db_dir, self.index + "*.fna"))) > 1 or not glob(os.path.join(self.db_dir, self.index + ".fna")):
             info('Joining FASTA databases', init_new_line = True )
             if not os.path.exists(os.path.join(self.db_dir, self.index + "_VSG.fna")) and self.profile_vsc:
                 error('Viral markers are missing. Please try to re-download the database', init_new_line = True, exit=True)
@@ -341,12 +346,6 @@ class MetaphlanDatabaseController():
                     with open(fna_file, 'r') as fna_r:
                         for line in fna_r:
                             fna_h.write(line)
-
-        # remove partial FASTA file except for ViralDB
-        for fna_file in iglob(os.path.join(self.db_dir, self.index + "_*.fna")):
-            if not fna_file.endswith('_VSG.fna') and not fna_file.endswith('{}.fna'.format(self.index)):
-                info('Removing uncompressed databases', init_new_line = True)
-                os.remove(fna_file)
         
         # check bowtie2
         try:
@@ -376,6 +375,12 @@ class MetaphlanDatabaseController():
         except PermissionError as e:
             error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.db_dir, self.index + "*.bt2l")))
 
+        # remove partial FASTA file except for ViralDB
+        for fna_file in iglob(os.path.join(self.db_dir, self.index + "*.fna")):
+            if not fna_file.endswith('_VSG.fna'): # and not fna_file.endswith('{}.fna'.format(self.index)):
+                info('Removing uncompressed databases {}'.format(fna_file), init_new_line = True)
+                os.remove(fna_file)
+                
     def build_bwt_indexes(self):
         """Build BowTie indexes"""
         fna_file = os.path.join(self.db_dir, self.index + ".fna")
