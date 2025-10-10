@@ -2210,8 +2210,8 @@ def get_installed_db_version(db_dir: str = None):
         return None
     files = os.listdir(db_folder)
     pkl_bases = {os.path.splitext(f)[0] for f in files if f.endswith(".pkl")}
-    fna_bases = {os.path.splitext(f)[0] for f in files if f.endswith(".fna")}
-    common = sorted(pkl_bases & fna_bases)
+    bt2l_bases = {os.path.basename(f).split('.')[0] for f in files if f.endswith(".bt2l")}
+    common = sorted(pkl_bases & bt2l_bases)
     return common or None
 
 def get_cli_db_dir(argv=None):
