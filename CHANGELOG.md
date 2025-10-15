@@ -1,3 +1,17 @@
+## Version 4.2.3 (Oct 16th, 2025)
+### Fixes
+* [MetaPhlAn] Bug when downloading newick tree [#500ce07](https://github.com/biobakery/MetaPhlAn/commit/500ce07edce6c12289a6197369ae76a19f54a546)
+* [MetaPhlAn] Minor bug that didn’t allow `merge_vsc_tables.py` to be retrocompatible with older releases [#9235c65](https://github.com/biobakery/MetaPhlAn/commit/9235c652b02e406e2b630d9f3f2204d5246c5444)
+* [MetaPhlAn] Minor bug in parameter checks when using subsampling option [#b82924f](https://github.com/biobakery/MetaPhlAn/commit/b82924f139e532e2f092fadb131de5a34f71c971)
+* [MetaPhlAn] When no additional taxonomy exists add empty value to avoid broken profile [#5b73b7c](https://github.com/biobakery/MetaPhlAn/commit/5b73b7c64d11229269eb7c8bef2a15fbf24a8b1a)
+* [MetaPhlAn] Remove fasta file after installation and avoid viral database check if `--profile_vsc` is not used [#8b3f425](https://github.com/biobakery/MetaPhlAn/commit/8b3f42597cc0736ae6209e54ad9b408c5519e3bd)
+* [MetaPhlAn] `UNCLASSIFIED==100` when the profile is empty even when `--skip_unclassified_estimation` option is used [#5b73b7c](https://github.com/biobakery/MetaPhlAn/commit/5b73b7c64d11229269eb7c8bef2a15fbf24a8b1a)
+* [MetaPhlAn] Choose the number of digits to round the relative abundance to avoid very low abundance species with non-zero coverage to return relative abundance of zero [#27e60f3](https://github.com/biobakery/MetaPhlAn/commit/27e60f3ae0608f01e58c33725daafc21e841a5aa)
+
+### New features
+* [MetaPhlAn] `metaphlan --version` now reports also locally available databases [PR #238](https://github.com/biobakery/MetaPhlAn/pull/238)
+
+
 ## Version 4.2.2 (Jun 4th, 2025)
 ### Database updates
 A  new ChocoPhlAn database (“vJan25”) for MetaPhlAn and related tools has been released with MetaPhlAn 4.2. This new database includes:

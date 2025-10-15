@@ -7,8 +7,8 @@ __author__ = (
     'Francesco Beghini (francesco.beghini@unitn.it), '
     'Michal Puncochar (michal.puncochar@unitn.it)'
 )
-__version__ = '4.2.2'
-__date__ = '4 Jun 2025'
+__version__ = '4.2.3'
+__date__ = '16 Oct 2025'
 
 
 import argparse as ap
@@ -696,8 +696,9 @@ def read_params():
                    help="If specified, StrainPhlAn will execute TreeShrink after building the tree")
     p.add_argument('--debug', action='store_true', default=False,
                    help="If specified, StrainPhlAn will not remove the temporary folders")
-    p.add_argument('-v', '--version', action='store_true',
-                   help="Shows this help message and exit")
+    p.add_argument('-v', '--version', action='version',
+                   version="StrainPhlAn version {} ({})".format(__version__, __date__),
+                   help="Prints the current StrainPhlAn version and exit")
 
     return p.parse_args()
 
@@ -740,9 +741,6 @@ def check_params(args):
 def main():
     t0 = time.time()
     args = read_params()
-    if args.version:
-        info('StrainPhlAn version {} ({})'.format(__version__, __date__))
-        exit(0)
     check_params(args)
     info("Start StrainPhlAn {} execution".format(__version__))
     strainphlan_runner = Strainphlan(args)
