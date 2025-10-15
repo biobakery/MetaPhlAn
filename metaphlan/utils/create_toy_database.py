@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 __author__ = 'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)'
-__version__ = '4.1.1'
-__date__ = '11 Mar 2024'
+__version__ = '4.1.2'
+__date__ = '16 Oct 2025'
 
 
 import bz2, os, pickle, time

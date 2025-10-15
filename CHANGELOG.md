@@ -1,3 +1,8 @@
+## Version 4.1.2 (Oct 16th, 2025)
+### New features
+* [MetaPhlAn] `metaphlan --version` now also reports locally available databases (PR #238) 
+  <br/>
+
 ## Version 4.1.1 (Mar 11th, 2024)
 ### Database updates
 * We just released the new vJun23_202403 and vOct22_202403 databases

@@ -6,8 +6,8 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Duy Tin Truong, '
               'Francesco Asnicar (f.asnicar@unitn.it), ' 
               'Claudia Mengoni (claudia.mengoni@unitn.it)')
-__version__ = '4.1.1'
-__date__ = '11 Mar 2024'
+__version__ = '4.1.2'
+__date__ = '16 Oct 2025'
 
 import sys
 try:
@@ -1279,6 +1279,16 @@ def subsample_reads(inp, subsampling, subsampling_seed, subsampling_output, tmp_
     return subsampling_output, subsampling
 
 def main():
+    if '-v' in sys.argv or '--version' in sys.argv:
+        print(f"MetaPhlAn version {__version__} ({__date__})")
+        db_dir=get_cli_db_dir()
+        db_version=get_installed_db_version(db_dir)
+        if db_version:
+            print("Installed databases:", ", ".join(db_version))
+        else:
+            print("No complete MetaPhlAn Bowtie2 database found")
+        exit(0)
+
     ranks2code = { 'k' : 'superkingdom', 'p' : 'phylum', 'c':'class',
                    'o' : 'order', 'f' : 'family', 'g' : 'genus', 's' : 'species'}
     pars = read_params(sys.argv)
@@ -1725,18 +1735,7 @@ def main():
                 sys.stderr.write("Clade "+pars['clade']+" not present at an abundance >"+str(round(pars['min_ab'],2))+"%, "
                                  "so no clade specific markers are reported\n")
 
-
 if __name__ == '__main__':
     t0 = time.time()
-    if '-v' in sys.argv or '--version' in sys.argv:
-        print(f"MetaPhlAn version {__version__} ({__date__})")
-        db_dir=get_cli_db_dir()
-        db_version=get_installed_db_version(db_dir)
-        if db_version:
-            print("Installed databases:", ", ".join(db_version))
-        else:
-            print("No complete MetaPhlAn Bowtie2 database found")
-    else: 
-        main()
-        sys.stderr.write('Elapsed time to run MetaPhlAn: {} s\n'.format( (time.time()-t0) ) )
-
+    main()
+    sys.stderr.write('Elapsed time to run MetaPhlAn: {} s\n'.format( (time.time()-t0) ) )
