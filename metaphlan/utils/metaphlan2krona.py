@@ -33,15 +33,15 @@ def main():
     metaPhLan_FH = open(krona_tmp, 'w')
 
     for aline in (metaPhLan):
+        if 'SGB' in aline:  # SGB lines seem to be broken...
+            break
         if(re.search(re_candidates, aline)):
-            x=re.sub(re_replace, '\t', aline)
-            x=re.sub(re_bar, '', x)
-
-            x_cells = x.split('\t')
-            lineage = '\t'.join(x_cells[0:(len(x_cells) -1)])
-            abundance = float(x_cells[-2].rstrip('\n')) 
-
-            metaPhLan_FH.write('%s\n'%(str(abundance) + '\t' + lineage))
+            lin,tax,frac = aline.split()
+            tax = tax.split('|')[-1]
+            x = re.sub(re_replace, '\t', lin)
+            lineage = re.sub(re_bar, '', x)
+            abundance = float(frac.rstrip('\n'))
+            metaPhLan_FH.write(f'{abundance}\t{lineage}\t{tax}\n')
 
     metaPhLan_FH.close()
 
