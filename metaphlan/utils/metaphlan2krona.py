@@ -34,6 +34,8 @@ def main():
 
     for aline in (metaPhLan):
         if(re.search(re_candidates, aline)):
+            if 't__' in aline:
+                break
             lin,tax,frac = aline.split()[0:3]
             tax = tax.split('|')[-1]
             x = re.sub(re_replace, '\t', lin)
