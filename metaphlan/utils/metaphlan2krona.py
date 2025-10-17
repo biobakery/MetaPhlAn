@@ -33,10 +33,8 @@ def main():
     metaPhLan_FH = open(krona_tmp, 'w')
 
     for aline in (metaPhLan):
-        if 'SGB' in aline:  # SGB lines seem to be broken...
-            break
         if(re.search(re_candidates, aline)):
-            lin,tax,frac = aline.split()
+            lin,tax,frac = aline.split()[0:3]
             tax = tax.split('|')[-1]
             x = re.sub(re_replace, '\t', lin)
             lineage = re.sub(re_bar, '', x)
