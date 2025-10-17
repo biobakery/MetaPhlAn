@@ -41,8 +41,7 @@ def main():
             x = re.sub(re_replace, '\t', lin)
             lineage = re.sub(re_bar, '', x)
             abundance = float(frac.rstrip('\n'))
-            metaPhLan_FH.write(f'{abundance}\t{lineage}\t{tax}\n')
-
+            metaPhLan_FH.write(f'{abundance}\t{tax}\t{lineage}\n')
     metaPhLan_FH.close()
 
 if __name__ == '__main__':
