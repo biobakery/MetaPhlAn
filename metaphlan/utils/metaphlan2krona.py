@@ -34,15 +34,14 @@ def main():
 
     for aline in (metaPhLan):
         if(re.search(re_candidates, aline)):
-            x=re.sub(re_replace, '\t', aline)
-            x=re.sub(re_bar, '', x)
-
-            x_cells = x.split('\t')
-            lineage = '\t'.join(x_cells[0:(len(x_cells) -1)])
-            abundance = float(x_cells[-2].rstrip('\n')) 
-
-            metaPhLan_FH.write('%s\n'%(str(abundance) + '\t' + lineage))
-
+            if 't__' in aline:
+                break
+            lin,tax,frac = aline.split()[0:3]
+            tax = tax.split('|')[-1]
+            x = re.sub(re_replace, '\t', lin)
+            lineage = re.sub(re_bar, '', x)
+            abundance = float(frac.rstrip('\n'))
+            metaPhLan_FH.write(f'{abundance}\t{tax}\t{lineage}\n')
     metaPhLan_FH.close()
 
 if __name__ == '__main__':
