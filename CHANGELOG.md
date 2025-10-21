@@ -1,3 +1,8 @@
+## Version 4.2.4 (Oct 21st, 2025)
+### Fixes
+* [MetaPhlAn] Fix NameError in conditional rounding
+* [MetaPhlAn] Fix metaphlan2krona.py to work with v4 [PR #239](https://github.com/biobakery/MetaPhlAn/pull/239)
+
 ## Version 4.2.3 (Oct 16th, 2025)
 ### Fixes
 * [MetaPhlAn] Bug when downloading newick tree [#500ce07](https://github.com/biobakery/MetaPhlAn/commit/500ce07edce6c12289a6197369ae76a19f54a546)

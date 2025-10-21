@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), '
               'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)')
-__version__ = '4.2.3'
-__date__ = '16 Oct 2025'
+__version__ = '4.2.4'
+__date__    = '21 Oct 2025'
 
 import argparse as ap
 import dendropy

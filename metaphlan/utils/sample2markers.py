@@ -7,10 +7,8 @@ __author__ = (
     'Moreno Zolfo (moreno.zolfo@unitn.it), '
     'Francesco Beghini (francesco.beghini@unitn.it)'
 )
-__version__ = '4.2.3'
-__date__ = '16 Oct 2025'
-
-
+__version__ = '4.2.4'
+__date__    = '21 Oct 2025'
 
 import argparse as ap
 import bz2
