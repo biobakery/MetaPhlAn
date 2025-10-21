@@ -6,8 +6,8 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Claudia Mengoni (claudia.mengoni@unitn.it), '
               'Linda Cova (linda.cova@unitn.it)')
-__version__ = '4.2.3'
-__date__ = '16 Oct 2025'
+__version__ = '4.2.4'
+__date__    = '21 Oct 2025'
 
 
 import time
@@ -296,24 +296,6 @@ class TaxTree:
         
         clade.markers2nreads[marker] = nreads
     
-    def conditional_rounding(self, values):
-        """Rounds the relative abundances to avoid 0 values for very low abundance taxa with non-zero coverage
-
-        Args: 
-            values (list): the list of relative abundances
-        Returns:
-            rounding (int): the number of decimal places to round to
-        """
-        rounding = 5
-        while rounding <= 10:
-            rounded = [round(num, rounding) for num in values]
-            if 0 in rounded:
-                rounding += 1
-            else:
-                return rounding
-        warning('Warning: Unable to avoid 0 relative abundances with a maximum of 10 decimal places. Some very low abundance taxa may be rounded to 0.', init_new_line = True)
-        return rounding 
-    
         
     def relative_abundances(self):
         """Compute the relative abundances for the taxa present in the sample
@@ -328,21 +310,14 @@ class TaxTree:
             if len(clade.children) == 0 and clade.coverage > 0:
                 total_ab += clade.coverage
                 total += clade.nreads
-
-        all_rel_ab = list()        
+      
         for clade in self.all_clades.values():
             if clade.coverage > 0:
                 clade.rel_abundance = 100 * clade.coverage / total_ab if total_ab > 0 else 0
-                all_rel_ab.append(clade.rel_abundance)
         
-        if total_ab != 0:
-            rounding_value = self.conditional_rounding(all_rel_ab)
-            for clade in self.all_clades.values():
-                if clade.coverage > 0:
-                    clade.rel_abundance = round(clade.rel_abundance, rounding_value)
-        else:
+        if total_ab == 0:
             warning('Warning: No species were detected.', init_new_line = True)
-            
+        
         return total
     
     def clade_profiles(self):
@@ -1291,10 +1266,12 @@ class MetaphlanAnalysis:
         """Gets the estimated fraction of mapped reads (bases for long reads)""" 
         self.mapped = self.tree.relative_abundances()
         if self.unclassified_estimation:
-            self.fraction_mapped = round(min(self.mapped/float(self.total_metagenome), 1.0), 5)
+            self.fraction_mapped = min(self.mapped/float(self.total_metagenome), 1.0)
         else:
             self.fraction_mapped = 1.0
-            
+
+        self.rounding = 7 if self.fraction_mapped < 0.1 else 6 if self.fraction_mapped < 1 else 5
+
     def write_common_headers(self, outf):
         """Writes the common headers of the MetaPhlAn output
 
@@ -1330,6 +1307,7 @@ class MetaphlanAnalysis:
         self.mapped = None
         self.avg_read_length = None        
         self.tree = None
+        self.rounding = 5
         
 
 class RelativeAbundanceAnalysis(MetaphlanAnalysis):
@@ -1346,9 +1324,7 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
                     rank = ranks2code[clade.split('|')[-1][0]]       
                     leaf_taxid = taxid.split('|')[-1]
                     taxpathsh = '|'.join([re.sub(r'^[a-z]__', '', name) for name in clade.split('|')])
-                    outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(relab*self.fraction_mapped) ] ) + '\n' )
-    
-
+                    outf.write( '\t'.join( [ leaf_taxid, rank, taxid, taxpathsh, str(round(relab*self.fraction_mapped, self.rounding)) ] ) + '\n' )
 
     def to_biomformat(self, clade_name):
         """Converts the clade name to a BIOM format 
@@ -1371,7 +1347,7 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
             for clade, values in clade2abundance.items():
                 taxid, relab = values
                 if clade.split(self.biom_mdelim)[-1].startswith('s__'): 
-                    packed.append([[relab], clade, taxid])
+                    packed.append([[round(relab, self.rounding)], clade, taxid])
             data, clade_names, _ = zip(*packed)
             data = np.array(data)
             sample_ids = [self.sample_id]
@@ -1421,7 +1397,7 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
                 else:
                     outf.write('#clade_name\tNCBI_tax_id\trelative_abundance\n')
                 if self.unclassified_estimation:
-                    outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped)*100,5)),""]) + "\n" )                   
+                    outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped)*100, self.rounding)),""]) + "\n" )                   
                 clade2abundance = self.get_clade2abundance()
                 if len(clade2abundance) == 0 and not self.unclassified_estimation:
                     outf.write( "\t".join(["UNCLASSIFIED", "-1", str(100), "", ""]) + "\n" )
@@ -1432,9 +1408,9 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
                             add_repr = '{}'.format(','.join( [ n[0] for n in self.database_controller.database_pkl['merged_taxon'][(clade, taxid)]] ))
                         else:
                             add_repr = ''
-                        outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped), add_repr ] ) + "\n" )
+                        outf.write( "\t".join( [clade,  taxid, str(round(relab*self.fraction_mapped, self.rounding)), add_repr ] ) + "\n" )
                     else:                        
-                        outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped)] ) + "\n" )                            
+                        outf.write( "\t".join( [clade,  taxid, str(round(relab*self.fraction_mapped, self.rounding))] ) + "\n" )                            
             if add_repr is not None:
                 warning("The metagenome profile contains clades that represent multiple species merged into a single representant. "
                         "An additional column listing the merged species is added to the MetaPhlAn output.")
@@ -1475,13 +1451,13 @@ class RelativeAbundanceReadStatsAnalysis(MetaphlanAnalysis):
             outf.write( "#Estimated {} mapped to known clades: {}\n".format(unit, int(self.mapped)))
             outf.write( "\t".join( ["#clade_name","clade_taxid","relative_abundance","coverage","estimated_number_of_{}_from_the_clade".format(unit) ]) +"\n" )
             if self.unclassified_estimation:
-                outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped)*100,5)),"-", str(self.total_metagenome - self.mapped)]) + "\n" )                   
+                outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped)*100, self.rounding)),"-", str(self.total_metagenome - self.mapped)]) + "\n" )                   
             clade2abundance = self.get_clade2abundance()
             if len(clade2abundance) == 0 and not self.unclassified_estimation:
                 outf.write( "\t".join(["UNCLASSIFIED", "-1", str(100), "-", str(self.total_metagenome - self.mapped)]) + "\n" )
             for clade, values in clade2abundance.items():
                 taxid, relab, coverage, nreads = values
-                outf.write( "\t".join( [clade,  taxid, str(relab*self.fraction_mapped), str(coverage), str(nreads)] ) + "\n" )         
+                outf.write( "\t".join( [clade,  taxid, str(round(relab*self.fraction_mapped, self.rounding)), str(coverage), str(nreads)] ) + "\n" )         
             
     def __init__(self, args, database_controller, index):
         super().__init__(args, database_controller, index)
