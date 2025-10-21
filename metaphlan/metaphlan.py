@@ -296,7 +296,7 @@ class TaxTree:
         
         clade.markers2nreads[marker] = nreads
     
-    def conditional_rounding(values):
+    def conditional_rounding(self, values):
         """Rounds the relative abundances to avoid 0 values for very low abundance taxa with non-zero coverage
 
         Args: 
@@ -336,7 +336,7 @@ class TaxTree:
                 all_rel_ab.append(clade.rel_abundance)
         
         if total_ab != 0:
-            rounding_value = conditional_rounding(all_rel_ab)
+            rounding_value = self.conditional_rounding(all_rel_ab)
             for clade in self.all_clades.values():
                 if clade.coverage > 0:
                     clade.rel_abundance = round(clade.rel_abundance, rounding_value)
@@ -1291,7 +1291,7 @@ class MetaphlanAnalysis:
         """Gets the estimated fraction of mapped reads (bases for long reads)""" 
         self.mapped = self.tree.relative_abundances()
         if self.unclassified_estimation:
-            self.fraction_mapped = min(self.mapped/float(self.total_metagenome), 1.0)
+            self.fraction_mapped = round(min(self.mapped/float(self.total_metagenome), 1.0), 5)
         else:
             self.fraction_mapped = 1.0
             
