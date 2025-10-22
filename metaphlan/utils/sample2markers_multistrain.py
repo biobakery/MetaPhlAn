@@ -106,7 +106,8 @@ def check_samtools():
 
 def try_run(args):
     try:
-        return run(*args, marker_to_clade=try_run.marker_to_clade, marker_to_ext=try_run.marker_to_ext)
+        return run(*args, marker_to_clade=try_run.marker_to_clade, marker_to_ext=try_run.marker_to_ext,
+                   clade_to_markers=try_run.clade_to_markers)
     except Exception as e:
         error(f'Error running sample {args[0]}')
         error(str(e))
@@ -134,6 +135,7 @@ def main():
     marker_to_clade = mp_db_controller.get_markers2clade()
     db_name = mp_db_controller.get_database_name()
     marker_to_ext = mp_db_controller.get_markers2ext()
+    clade_to_markers = mp_db_controller.get_clade2markers()
 
 
     ss_args = [(sample_path, args.output_dir, config, args.target, args.save_bam_file, args.reuse, db_name)
@@ -145,6 +147,7 @@ def main():
 
     # bind constant data to the function so that they are shared on fork (copy-on-write)
     try_run.marker_to_clade = marker_to_clade
+    try_run.clade_to_markers = clade_to_markers
     try_run.marker_to_ext = marker_to_ext
 
     if n_threads == 1:

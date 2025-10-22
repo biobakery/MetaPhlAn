@@ -273,8 +273,7 @@ def compute_genotypes(df_loci_sgb_filtered, node_pairs, result_row, marker_to_le
             pos = row['pos'] - 1
             marker = row['marker']
             # maj_b, maj_log_p = max(row['log_p'].items(), key=lambda x: x[1])
-            maj_b = row['base_frequencies_c'].most_common()[0][0]
-            # maj_b = ACTG[np.argmax(row['base_frequencies'])]
+            maj_b = ACTG[np.argmax(row['base_frequencies'])]
             maj_log_p = row['log_p']
             consensuses_major[marker][pos] = ord(maj_b)
             qualities_major[marker][pos] = maj_log_p
