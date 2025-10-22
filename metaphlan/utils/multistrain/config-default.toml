@@ -69,8 +69,8 @@ min_output_base_coverage = 1
 
 #min_output_breadth = 80  # Minimum breadth of coverage to output the marker [%]
 #min_output_snp_rate = 0.5  # Minimum SNP rate to report the second strain [%]
-#min_recall = 80  # Minimum recall to report the second strain [%]
-#min_precision = 80  # Minimum precision to report the second strain [%]
+#min_recall = 20  # Minimum recall to report the second strain [%]
+#min_precision = 90  # Minimum precision to report the second strain [%]
 #min_precision_support = 100  # Minimum precision support to report the second strain
 #max_r_var = 0.1  # Maximum variance of the strain ratio to consider reliable fit and report the second strain, nan to turn off filtering
 #max_snp_rate_var = 0.1  # Maximum variance of the snp rate to consider reliable fit and report the second strain, nan to turn off filtering

@@ -139,16 +139,18 @@ def main():
     ss_args = [(sample_path, args.output_dir, config, args.target, args.save_bam_file, args.reuse, db_name)
                for sample_path in args.input]
 
-    info(f'Running on {len(ss_args)} samples using {args.threads} processes')
+    n_threads = min(args.threads, len(ss_args))
+
+    info(f'Running on {len(ss_args)} samples using {n_threads} processes')
 
     # bind constant data to the function so that they are shared on fork (copy-on-write)
     try_run.marker_to_clade = marker_to_clade
     try_run.marker_to_ext = marker_to_ext
 
-    if args.threads == 1 or len(ss_args) == 1:
+    if n_threads == 1:
         successes = [try_run(ss_arg) for ss_arg in ss_args]
     else:
-        with mpp.Pool(args.threads) as pool:
+        with mpp.Pool(n_threads) as pool:
             successes = list(tqdm(pool.imap_unordered(try_run, ss_args), total=len(ss_args)))
 
     if all(successes):

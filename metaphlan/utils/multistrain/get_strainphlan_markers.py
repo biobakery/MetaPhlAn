@@ -26,6 +26,9 @@ def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_res
 
     snp_rate_n = 0
     snp_rate_d = 0
+    polyallelic_masked = 0
+    p_switch = 0
+    p_switch_d = 0
     consensuses_sgb_maj = {}
     consensuses_sgb_min = {}
     breadths_min = []
@@ -36,8 +39,14 @@ def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_res
         q_maj = [ord(q) - 33 for q in phred_maj]
         q_min = [ord(q) - 33 for q in phred_min]
 
+        # TODO: optimize using numpy arrays
         sequence_maj = ''.join(b if q >= config['min_output_quality'] else '-' for b, q in zip(srm['sequence_maj'], q_maj))
         sequence_min = ''.join(b if q >= config['min_output_quality'] else '-' for b, q in zip(srm['sequence_min'], q_min))
+
+        polyallelic_masked += sum(ps and b == '-' for b, ps in zip(sequence_maj, srm['polyallelic_significant']))
+        p_switch += np.exp(np.logaddexp.reduce([log_p for b, log_p in zip(sequence_maj, srm['log_probas_switch']) if b != '-']))
+        p_switch_d += len(sequence_maj) - sequence_maj.count('-')
+
         breadth_maj = calc_breadth(sequence_maj)
         breadth_min = calc_breadth(sequence_min)
         breadths_min.append(breadth_min)
@@ -62,10 +71,15 @@ def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_res
             snp_rate_n += a != b
             snp_rate_d += 1
 
+
+
     snp_rate_reconstructed = snp_rate_n / snp_rate_d if snp_rate_d > 0 else 0
 
     result_row.update({
         'snp_rate_reconstructed': snp_rate_reconstructed,
+        'polyallelic_masked': polyallelic_masked,
+        'p_switch': p_switch,
+        'p_switch_d': p_switch_d,
     })
 
     if result_row['multi_strain'] and result_row['r_fit_var'] is not None and result_row['snp_rate_var'] is not None:

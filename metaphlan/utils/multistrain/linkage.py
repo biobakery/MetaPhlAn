@@ -1,10 +1,12 @@
 import itertools as it
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 import networkx as nx
+import numpy as np
 
 from ...utils import error
 
+ACTG = 'ACTG'
 
 def calculate_linkage(df_loci_sgb, sam_file, config):
     sgb_linkage = defaultdict(lambda: defaultdict(set))  # (m1,p1,m2,p2) => (b1 + b2) => set of read names
@@ -188,7 +190,8 @@ def generate_node_pairs(df_loci_sgb):
     node_pairs = []   # triplet (list of positions, string of major bases, string of minor bases)
     nodes = {}
     for i, ((marker, pos), row) in enumerate(df_loci_sgb.iterrows()):
-        base_frequencies = row['base_frequencies']
+        base_frequencies = row['base_frequencies_c']
+        # base_frequencies = Counter(dict(zip(ACTG, base_frequencies)))
         b_maj, b_min = [x[0] for x in base_frequencies.most_common()]
         node_pair = NodePair([(marker, pos)], b_maj, b_min)
         node_pairs.append(node_pair)

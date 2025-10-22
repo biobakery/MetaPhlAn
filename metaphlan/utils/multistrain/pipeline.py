@@ -4,6 +4,7 @@ import gzip
 import json
 import os
 import pathlib
+import pickle
 from collections import Counter
 from typing import Sequence
 
@@ -310,15 +311,19 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
             loci_rows = []
             for m in clade_markers_present:
                 for pos in range(pr.marker_to_length[m]):
-                    bfs = {b: pr.base_frequencies[m][b][pos] for b in ACTG}
-                    bfs = Counter({k: v for k, v in bfs.items() if v > 0})
-                    base_coverage = bfs.total()
+                    bfs = np.array([pr.base_frequencies[m][b][pos] for b in ACTG])
+                    bfs_c = {b: bfs[i] for i, b in enumerate(ACTG)}
+                    bfs_c = Counter({k: v for k, v in bfs_c.items() if v > 0})
+                    # base_coverage = bfs.total()
+                    # max_frequency = max(bfs.values())
+                    base_coverage = bfs.sum()
+                    max_frequency = bfs.max()
 
                     if base_coverage < config['min_output_base_coverage']:
                         continue
 
                     pos_err_rate = err_rates[m][pos]
-                    allelism = len(bfs)
+                    allelism = np.count_nonzero(bfs > 0)
                     polyallelic_significant = polyallelic_significant_masks[m][pos]
                     biallelic_significant = (allelism == 2) and polyallelic_significant
                     filtered = position_mask[m][pos]
@@ -328,8 +333,9 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
                         'pos': pos + 1,
                         'error_rate': pos_err_rate,
                         'base_frequencies': bfs,
+                        'base_frequencies_c': bfs_c,
                         'base_coverage': base_coverage,
-                        'max_frequency': max(bfs.values()),
+                        'max_frequency': max_frequency,
                         'allelism': allelism,
                         'filtered': filtered,
                         'polyallelic_significant': polyallelic_significant,
@@ -372,17 +378,23 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
 
 
             info_debug(sgb_id, 'Generating genotype by maximizing per-position probabilities')
-            consensuses_major, consensuses_minor, qualities_major, qualities_minor =\
+            consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch =\
                 compute_genotypes(df_loci_sgb_filtered, sgb_nps, result_row, marker_to_length_sgb)
 
             strain_resolved_markers_sgb = [{
-                'sgb_id': sgb_id,
                 'marker': m,
                 'sequence_maj': consensuses_major[m].decode(),
                 'sequence_min': consensuses_minor[m].decode(),
                 'log_p_maj': qualities_major[m],
                 'log_p_min': qualities_minor[m],
+                'polyallelic_significant': polyallelic_significant_masks[m],
+                'log_probas_switch': log_probas_switch[m],
             } for m in consensuses_major.keys()]
+
+            if global_flags.debug:
+                info_debug('Saving strain resolved markers')
+                with open(output_dir_per_sgb / f'strain_resolved_markers_{sgb_id}.pic', 'wb') as f:
+                    pickle.dump(strain_resolved_markers_sgb, f)
 
             consensuses_maj_sgb, consensuses_min_sgb = get_strainphlan_markers(strain_resolved_markers_sgb, result_row,
                                                                                merging_results_before, avg_read_len,
