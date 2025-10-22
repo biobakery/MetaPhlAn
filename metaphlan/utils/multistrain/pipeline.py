@@ -2,7 +2,6 @@ import base64
 import bz2
 import gzip
 import json
-import os
 import pathlib
 import pickle
 from collections import Counter
@@ -51,6 +50,7 @@ def step_bam(sample_path, bam_path, bai_path, output_dir, db_name, config):
     :param pathlib.Path bam_path:
     :param pathlib.Path bai_path:
     :param pathlib.Path output_dir:
+    :param str db_name:
     :param dict config:
     :return:
     """
@@ -227,7 +227,7 @@ def markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_t
 
 
 def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, marker_to_clade_db, marker_to_ext,
-                               reconstruct_genotypes):
+                               clade_to_markers_db, reconstruct_genotypes):
     """
 
     :param pathlib.Path output_dir:
@@ -238,6 +238,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
     :param dict[str, str] marker_to_clade_db:
     :param dict[str, str] marker_to_clade_db:
     :param dict[str, Sequence[str]] marker_to_ext:
+    :param dict[str, Sequence[str]] clade_to_markers_db:
     :param bool reconstruct_genotypes:
     :return:
     """
@@ -248,8 +249,6 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
 
     avg_read_len: float = np.mean(read_lens)
 
-    s_marker_to_clade_db = pd.Series(marker_to_clade_db)
-    clade_to_markers_db = s_marker_to_clade_db.groupby(s_marker_to_clade_db).groups
     clade_to_n_markers_db = {k: len(v) for k, v in clade_to_markers_db.items()}
 
     markers_present, clades_present = markers_and_species_filtering(pr.base_frequencies, marker_to_clade_db,
@@ -312,10 +311,6 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
             for m in clade_markers_present:
                 for pos in range(pr.marker_to_length[m]):
                     bfs = np.array([pr.base_frequencies[m][b][pos] for b in ACTG])
-                    bfs_c = {b: bfs[i] for i, b in enumerate(ACTG)}
-                    bfs_c = Counter({k: v for k, v in bfs_c.items() if v > 0})
-                    # base_coverage = bfs.total()
-                    # max_frequency = max(bfs.values())
                     base_coverage = bfs.sum()
                     max_frequency = bfs.max()
 
@@ -333,7 +328,6 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
                         'pos': pos + 1,
                         'error_rate': pos_err_rate,
                         'base_frequencies': bfs,
-                        'base_frequencies_c': bfs_c,
                         'base_coverage': base_coverage,
                         'max_frequency': max_frequency,
                         'allelism': allelism,
@@ -363,8 +357,8 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
 
 
             if result_row['multi_strain']:
-                df_loci_biallelic_significant = df_loci_sgb_filtered.query('biallelic_significant')
                 info_debug(sgb_id, 'Creating and merging linkage')
+                df_loci_biallelic_significant = df_loci_sgb_filtered.query('biallelic_significant')
                 sgb_linkage = calculate_linkage(df_loci_biallelic_significant, sam_file,
                                                 config)  # (m1, p1, m2, p2) => (b1 + b2) => count
                 merging_results_before, merging_results = linkage_merging(df_loci_biallelic_significant, sgb_linkage,
@@ -449,7 +443,7 @@ def save_reconstructed_markers(output_results, output_major, output_minor, db_na
 
 
 def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, marker_to_clade,
-        marker_to_ext):
+        marker_to_ext, clade_to_markers):
     """
 
     :param pathlib.Path sample_path:
@@ -461,6 +455,7 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, 
     :param str db_name:
     :param dict[str, str] marker_to_clade:
     :param dict[str, Sequence[str]] marker_to_ext:
+    :param dict clade_to_markers:
     :return:
     """
 
@@ -559,7 +554,7 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, 
             info(f'Computing filtered pileup for sample {sample_name}')
             df_results, bfs_filtered, consensuses_maj, consensuses_min = \
                 step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, marker_to_clade, marker_to_ext,
-                                           reconstruct_genotypes=False)
+                                           clade_to_markers, reconstruct_genotypes=False)
 
             save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results,
                                        consensuses_maj, consensuses_min, bfs_filtered, pileup_path_filtered,
@@ -587,7 +582,7 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, 
             info(f'Running marker reconstruction for sample {sample_name}')
             df_results, bfs_filtered, consensuses_maj, consensuses_min = \
                 step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, marker_to_clade, marker_to_ext,
-                                           reconstruct_genotypes=True)
+                                           clade_to_markers, reconstruct_genotypes=True)
 
             save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results,
                                        consensuses_maj, consensuses_min, bfs_filtered, pileup_path_filtered,
