@@ -209,7 +209,7 @@ def run_pileup(sam_file, config):
     if config['discard_read_ends'] and pr_before.df_seq_errors is not None:
         df_se = pr_before.df_seq_errors.query(f'all_bases>{config["discard_read_ends_support"]}')
         if len(df_se) > 0:
-            c = df_se['null_err_rate_excess'].dropna()
+            c = np.log(df_se['null_err_rate_excess'].dropna())
             q25 = c.quantile(0.25)
             q75 = c.quantile(0.75)
             iqr = q75 - q25
