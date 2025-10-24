@@ -5,7 +5,6 @@ import scipy.special as spsp
 import scipy.stats as sps
 from typing import Sequence
 
-from .utils import defaultdict_with_args
 from ...utils import info_debug, warning
 
 
@@ -18,19 +17,25 @@ def expit_d(x):
 def expit_d2(x):
     """d2/dx2 expit(x)"""
     sx = spsp.expit(x)
-    return sx * (1 - sx) * (1 - 2*sx)
+    return sx * (1 - sx) * (1 - 2 * sx)
 
 
-def binom_pmf_f(args):
-    """pmf = c(n,k) * p**k * (1-p)**(n-k)"""
-    max_frequency, base_coverage, r = args
-    return sps.binom(base_coverage, r).pmf(max_frequency)
+def binom_pmf_d(k, n, p, pmf):
+    """
+    d/dp pmf = c(n,k) * p**(k-1) * (1-p)**(n-k-1) * (k-np)
+             = pmf * (k - np) / p / (1-p)
+    """
+    return pmf * (k - n * p) / p / (1 - p)
 
 
-def binom_logpmf_f(args):
-    """pmf = c(n,k) * p**k * (1-p)**(n-k)"""
-    max_frequency, base_coverage, r = args
-    return sps.binom(base_coverage, r).logpmf(max_frequency)
+def binom_pmf_d2(k, n, p, pmf):
+    """
+    d2/dp2 pmf = c(n,k) * ((k-1)*k * p**(k-2) * (1-p)**(n-k) - 2*k*(n-k) * p**(k-1) * (1-p)**(n-k-1) +
+    (n-k-1)*(n-k) * p**k * (1-p)**(n-k-2))
+    """
+    # return math.comb(n,k) * ((k-1)*k * p**(k-2) * (1-p)**(n-k) - 2*k*(n-k) * p**(k-1) * (1-p)**(n-k-1) +
+    # (n-k-1)*(n-k) * p**k * (1-p)**(n-k-2))
+    return pmf * ((k - 1) * k / p ** 2 - 2 * k * (n - k) / p / (1 - p) + (n - k - 1) * (n - k) / (1 - p) ** 2)
 
 
 def get_calc_fs(df_vc):
@@ -48,58 +53,46 @@ def get_calc_fs(df_vc):
     da1, da2, dda1, dda2 are the first and second derivatives wrt. r of a1, a2
     """
 
-    binom_pmf_cache = defaultdict_with_args(binom_pmf_f)
-    binom_logpmf_cache = defaultdict_with_args(binom_logpmf_f)
+    bcs = df_vc['base_coverage'].values
+    max_fs = df_vc['max_frequency'].values
+    min_fs = bcs - max_fs
+    eps = df_vc['error_rate'].values
 
-    def binom_pmf_d_f(args):
-        """
-        d/dp pmf = c(n,k) * p**(k-1) * (1-p)**(n-k-1) * (k-np)
-                 = pmf * (k - np) / p / (1-p)
-        """
-        k, n, p = args
-        pmf = binom_pmf_cache[args]
-        return pmf * (k - n * p) / p / (1 - p)
-
-
-    def binom_pmf_d2_f(args):
-        """d2/dp2 pmf = c(n,k) * ((k-1)*k * p**(k-2) * (1-p)**(n-k) - 2*k*(n-k) * p**(k-1) * (1-p)**(n-k-1) + (n-k-1)*(n-k) * p**k * (1-p)**(n-k-2))"""
-        k, n, p = args
-        pmf = binom_pmf_cache[args]
-        # return math.comb(n,k) * ((k-1)*k * p**(k-2) * (1-p)**(n-k) - 2*k*(n-k) * p**(k-1) * (1-p)**(n-k-1) + (n-k-1)*(n-k) * p**k * (1-p)**(n-k-2))
-        return pmf * ((k - 1) * k / p ** 2 - 2 * k * (n - k) / p / (1 - p) + (n - k - 1) * (n - k) / (1 - p) ** 2)
-
-
-    def calc_ab(r):
-        a1 = df_vc.apply(lambda row: binom_pmf_cache[(row['max_frequency'], row['base_coverage'], r * (1 - row['error_rate']) + (1 - r) * row['error_rate'] / 3)], axis=1)
-        a2 = df_vc.apply(lambda row: binom_pmf_cache[(row['base_coverage'] - row['max_frequency'], row['base_coverage'], r * (1 - row['error_rate']) + (1 - r) * row['error_rate'] / 3)], axis=1)
-        b1 = df_vc.apply(lambda row: binom_pmf_cache[(row['max_frequency'], row['base_coverage'], 1 - row['error_rate'])], axis=1)
-        b2 = df_vc.apply(lambda row: binom_pmf_cache[(row['base_coverage'] - row['max_frequency'], row['base_coverage'], 1 - row['error_rate'])], axis=1)
-        return a1 + a2, b1 + b2
-
+    def get_r_adj(r):
+        return r * (1 - eps) + (1 - r) * eps / 3
 
     def calc_logab(r):
-        a1 = df_vc.apply(lambda row: binom_logpmf_cache[(row['max_frequency'], row['base_coverage'], r * (1 - row['error_rate']) + (1 - r) * row['error_rate'] / 3)], axis=1)
-        a2 = df_vc.apply(lambda row: binom_logpmf_cache[(row['base_coverage'] - row['max_frequency'], row['base_coverage'], r * (1 - row['error_rate']) + (1 - r) * row['error_rate'] / 3)], axis=1)
-        b1 = df_vc.apply(lambda row: binom_logpmf_cache[(row['max_frequency'], row['base_coverage'], 1 - row['error_rate'])], axis=1)
-        b2 = df_vc.apply(lambda row: binom_logpmf_cache[(row['base_coverage'] - row['max_frequency'], row['base_coverage'], 1 - row['error_rate'])], axis=1)
+        r_adj = get_r_adj(r)
+        a1 = sps.binom.logpmf(max_fs, bcs, r_adj)
+        a2 = sps.binom.logpmf(min_fs, bcs, r_adj)
+        b1 = sps.binom.logpmf(max_fs, bcs, 1 - eps)
+        b2 = sps.binom.logpmf(min_fs, bcs, 1 - eps)
+
         return np.logaddexp(a1, a2), np.logaddexp(b1, b2)
 
+    def calc_all(r):
+        r_adj = get_r_adj(r)
+        a1 = sps.binom.pmf(max_fs, bcs, r_adj)
+        a2 = sps.binom.pmf(min_fs, bcs, r_adj)
+        b1 = sps.binom.pmf(max_fs, bcs, 1 - eps)
+        b2 = sps.binom.pmf(min_fs, bcs, 1 - eps)
+        a = a1 + a2
+        b = b1 + b2
 
-    def calc_dab(r):
-        da1 = df_vc.apply(lambda row: (1-row['error_rate'] - row['error_rate']/3)*binom_pmf_d_f((row['max_frequency'], row['base_coverage'], r * (1-row['error_rate']) + (1-r) * row['error_rate']/3)), axis=1)
-        da2 = df_vc.apply(lambda row: (1-row['error_rate'] - row['error_rate']/3)*binom_pmf_d_f((row['base_coverage'] - row['max_frequency'], row['base_coverage'], r * (1-row['error_rate']) + (1-r) * row['error_rate']/3)), axis=1)
-        return da1 + da2
+        da1 = (1 - eps - eps / 3) * binom_pmf_d(max_fs, bcs, r_adj, a1)
+        da2 = (1 - eps - eps / 3) * binom_pmf_d(min_fs, bcs, r_adj, a2)
+        da = da1 + da2
+
+        dda1 = (1 - 4 * eps / 3) ** 2 * binom_pmf_d2(max_fs, bcs, r_adj, a1)
+        dda2 = (1 - 4 * eps / 3) ** 2 * binom_pmf_d2(min_fs, bcs, r_adj, a2)
+        dda = dda1 + dda2
+
+        return a, b, da, dda
+
+    return calc_all, calc_logab
 
 
-    def calc_d2ab(r):
-        dda1 = df_vc.apply(lambda row: (1-4*row['error_rate']/3)**2 * binom_pmf_d2_f((row['max_frequency'], row['base_coverage'], r * (1-row['error_rate']) + (1-r) * row['error_rate']/3)), axis=1)
-        dda2 = df_vc.apply(lambda row: (1-4*row['error_rate']/3)**2 * binom_pmf_d2_f((row['base_coverage'] - row['max_frequency'], row['base_coverage'], r * (1-row['error_rate']) + (1-r) * row['error_rate']/3)), axis=1)
-        return dda1 + dda2
-
-    return calc_ab, calc_logab, calc_dab, calc_d2ab
-
-
-def neg_log_lik(x, df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache):
+def neg_log_lik(x, df_vc, calc_all, calc_logab):
     logit_snp_rate, logit_r = x
     snp_rate = spsp.expit(logit_snp_rate)
     r = spsp.expit(logit_r)
@@ -107,14 +100,14 @@ def neg_log_lik(x, df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache):
     if r < 0.5:
         r = 1 - r
 
-    a, b = ab_cache[r]
+    a, b, da, dda = calc_all(r)
     lik = a * snp_rate + b * (1 - snp_rate)
     nll = -np.log(lik)
 
     return (nll * df_vc['count']).mean()
 
 
-def neg_log_lik_logspace(x, df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache):
+def neg_log_lik_logspace(x, df_vc, calc_all, calc_logab):
     logit_snp_rate, logit_r = x
     snp_rate = spsp.expit(logit_snp_rate)
     r = spsp.expit(logit_r)
@@ -122,13 +115,13 @@ def neg_log_lik_logspace(x, df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache)
     if r < 0.5:
         r = 1 - r
 
-    loga, logb = logab_cache[r]
+    loga, logb = calc_logab(r)
     nll = -np.logaddexp(loga + np.log(snp_rate), logb + np.log(1 - snp_rate))
 
     return (nll * df_vc['count']).mean()
 
 
-def neg_log_lik_jac(x, df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache):
+def neg_log_lik_jac(x, df_vc, calc_all, calc_logab):
     logit_snp_rate, logit_r = x
     snp_rate = spsp.expit(logit_snp_rate)
     r = spsp.expit(logit_r)
@@ -136,8 +129,7 @@ def neg_log_lik_jac(x, df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache):
     if r < 0.5:
         r = 1 - r
 
-    a, b = ab_cache[r]
-    da = dab_cache[r]
+    a, b, da, dda = calc_all(r)
 
     lik = a * snp_rate + b * (1 - snp_rate)
 
@@ -153,7 +145,7 @@ def neg_log_lik_jac(x, df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache):
     return np.array([nll_ds, nll_dr])
 
 
-def neg_log_lik_d2(x, ab_cache, logab_cache, dab_cache, d2ab_cache):
+def neg_log_lik_d2(x, calc_all, calc_logab):
     logit_snp_rate, logit_r = x
     snp_rate = spsp.expit(logit_snp_rate)
     r = spsp.expit(logit_r)
@@ -161,9 +153,7 @@ def neg_log_lik_d2(x, ab_cache, logab_cache, dab_cache, d2ab_cache):
     if r < 0.5:
         r = 1 - r
 
-    a, b = ab_cache[r]
-    da = dab_cache[r]
-    dda = d2ab_cache[r]
+    a, b, da, dda = calc_all(r)
 
     lik = a * snp_rate + b * (1 - snp_rate)
 
@@ -191,7 +181,7 @@ def div_in_logspace(a, log_b):
     return np.sign(a) * np.exp(np.log(np.abs(a)) - log_b)
 
 
-def neg_log_lik_d2_logspace(x, ab_cache, logab_cache, dab_cache, d2ab_cache):
+def neg_log_lik_d2_logspace(x, calc_all, calc_logab):
     logit_snp_rate, logit_r = x
     snp_rate = spsp.expit(logit_snp_rate)
     r = spsp.expit(logit_r)
@@ -199,11 +189,10 @@ def neg_log_lik_d2_logspace(x, ab_cache, logab_cache, dab_cache, d2ab_cache):
     if r < 0.5:
         r = 1 - r
 
-    loga, logb = logab_cache[r]
+    a, b, da, dda = calc_all(r)
+    loga, logb = calc_logab(r)
     ll = np.logaddexp(loga + np.log(snp_rate), logb + np.log(1 - snp_rate))
     a, b = np.exp(loga), np.exp(logb)
-    da = dab_cache[r]
-    dda = d2ab_cache[r]
 
     lik = np.exp(ll)
 
@@ -231,8 +220,8 @@ def neg_log_lik_d2_logspace(x, ab_cache, logab_cache, dab_cache, d2ab_cache):
     return nllik_dss, nllik_drr, nllik_drs
 
 
-def neg_log_lik_hess(x, df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache):
-    nllik_dss, nllik_drr, nllik_drs = neg_log_lik_d2(x, ab_cache, logab_cache, dab_cache, d2ab_cache)
+def neg_log_lik_hess(x, df_vc, calc_all, calc_logab):
+    nllik_dss, nllik_drr, nllik_drs = neg_log_lik_d2(x, calc_all, calc_logab)
 
     nllik_dss = (nllik_dss * df_vc['count']).mean()
     nllik_drr = (nllik_drr * df_vc['count']).mean()
@@ -241,14 +230,17 @@ def neg_log_lik_hess(x, df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache):
     return np.array([[nllik_dss, nllik_drs], [nllik_drs, nllik_drr]])
 
 
-def fisher_information(x, df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache):
+def fisher_information(x, df_vc, calc_all, calc_logab):
     """
     Observed fisher information matrix => asymptotically corresponds to the inverse of variance of the MLE estimate
 
     :param npt.NDArray x:
+    :param df_vc:
+    :param calc_all:
+    :param calc_logab:
     :return:
     """
-    nllik_dss, nllik_drr, nllik_drs = neg_log_lik_d2_logspace(x, ab_cache, logab_cache, dab_cache, d2ab_cache)
+    nllik_dss, nllik_drr, nllik_drs = neg_log_lik_d2_logspace(x, calc_all, calc_logab)
 
     counts = df_vc['count'].values
 
@@ -331,12 +323,7 @@ def fit_model(sgb_id, df_loci_sgb_filtered, result_row, config):
     df_vc = df_loci_sgb_filtered[['max_frequency', 'base_coverage', 'error_rate']].value_counts()\
         .rename('count').to_frame().reset_index()
 
-    calc_ab, calc_logab, calc_dab, calc_d2ab = get_calc_fs(df_vc)
-
-    ab_cache = defaultdict_with_args(calc_ab)
-    logab_cache = defaultdict_with_args(calc_logab)
-    dab_cache = defaultdict_with_args(calc_dab)
-    d2ab_cache = defaultdict_with_args(calc_d2ab)
+    calc_all, calc_logab = get_calc_fs(df_vc)
 
     # determine starting guess
     df_loci_polyallelic = df_loci_sgb_filtered.query('polyallelic_significant')
@@ -346,7 +333,7 @@ def fit_model(sgb_id, df_loci_sgb_filtered, result_row, config):
     info_debug(f'[{sgb_id}] Picking initial guess', r0, snp_rate0)
 
     x0 = (spsp.logit(snp_rate0), spsp.logit(r0))
-    args = (df_vc, ab_cache, logab_cache, dab_cache, d2ab_cache)
+    args = (df_vc, calc_all, calc_logab)
 
 
     # Try three optimization methods in succession

@@ -274,10 +274,12 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
             le = bfs[m].shape[1]
             marker_to_length_sgb[m] = le
 
-            if pr.null_err_rate is not None:
+            if config['error_rate'] == 'estimate' and pr.null_err_rate is not None:
                 err_rates[m] = np.array([pr.null_err_rate] * le)
-            else:
+            elif config['error_rate'] == 'phred' or (config['error_rate'] == 'estimate' and pr.null_err_rate is None):
                 err_rates[m] = pr.avg_error_rates[m]
+            else:
+                err_rates[m] = np.array([float(config['error_rate'])] * le)
 
         result_row, position_mask, polyallelic_significant_masks = filter_loci_snp_call(bfs, err_rates, avg_read_len,
                                                                                         config)

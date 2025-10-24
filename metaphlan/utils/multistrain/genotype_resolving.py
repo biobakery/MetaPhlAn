@@ -6,7 +6,7 @@ import scipy.stats as sps
 
 from typing import Iterable
 from .linkage import NodePair
-from .utils import FrozenCounter, log1mexp
+from .utils import log1mexp
 
 ACTG = 'ACTG'
 
