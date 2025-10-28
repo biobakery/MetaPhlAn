@@ -16,6 +16,7 @@ import os
 import re
 import tempfile
 import time
+from collections import defaultdict
 from shutil import copyfile, rmtree
 from typing import Iterable
 
@@ -73,8 +74,8 @@ class Strainphlan:
                   exit=True)
         sample_name = cls.sample_path_to_name(sample_path)
         markers = {"sample_name": sample_name}
-        markers.update({m: 0 for m in clade_markers})
-        markers.update({marker.name: 1 for marker in sample.consensus_markers
+        markers.update({m: False for m in clade_markers})
+        markers.update({marker.name: True for marker in sample.consensus_markers
                         if marker.name in clade_markers and 
                         marker.breadth >= breadth_thres and
                         marker.get_polymorphism_perc() <= polymorphism_perc})
@@ -225,7 +226,7 @@ class Strainphlan:
                                    trim_ends=trim_sequences)
 
         markers_matrix = {'sample_name': reference_name}
-        markers_matrix.update({m: int(m in ext_markers) for m in clade_markers})
+        markers_matrix.update({m: m in ext_markers for m in clade_markers})
 
         return markers_matrix
 
@@ -441,57 +442,60 @@ class Strainphlan:
         """Checks the clades that can be reconstructed from the pkl files
 
         Returns:
-            dict: dictionary containing the number of samples a clade can be reconstructed from
+            dict: dictionary containing the list of samples a clade can be reconstructed from
         """
         markers2clade = self.database_controller.get_markers2clade()
-        clade2markers = self.database_controller.get_clade2markers()
-        sample2markers = {}
-        clades_to_check = set()
-        all_markers = set()
-        info('Processing samples...')
-        consensus_markers = execute_pool(((ConsensusMarkers.from_file, sample_path) for sample_path in self.samples),
-                                         nprocs=self.nprocs, return_generator=True, ordered=True)
-        for sample_path, cm in zip(self.samples, consensus_markers):
-            sample_markers = [marker.name for marker in cm.consensus_markers
-                              if marker.name in markers2clade and marker.breadth >= self.breadth_thres]
-            sample2markers[sample_path] = sample_markers
-            all_markers.update(sample_markers)
-            clades_to_check.update((markers2clade[m] for m in sample_markers))
 
-        info('Constructing the big marker matrix')
-        all_samples = list(sample2markers.keys())
-        all_markers = list(all_markers)
-        markers_matrix_big = np.zeros(shape=(len(all_samples), len(all_markers)), dtype=int)
-        for i, sample in enumerate(all_samples):
-            sample_markers = set(sample2markers[sample])
-            for j, marker in enumerate(all_markers):
-                if marker in sample_markers:
-                    markers_matrix_big[i, j] = 1
+        clade2sample2markers = defaultdict(lambda: defaultdict(set))
+        clade2all_markers = defaultdict(set)
 
-        markers_matrix_big = pd.DataFrame(markers_matrix_big, index=all_samples, columns=all_markers)
+        info(f'Processing {len(self.samples)} samples')
+        cms = execute_pool(((ConsensusMarkers.from_file, sample_path) for sample_path in self.samples),
+                           nprocs=self.nprocs, return_generator=True, ordered=True)
+        for sample_path, cm in zip(self.samples, cms):
+            sample_name = Strainphlan.sample_path_to_name(sample_path)
+            for marker in cm.consensus_markers:
+                marker_name = marker.name
+                if marker_name not in markers2clade or marker.breadth < self.breadth_thres \
+                        or marker.get_polymorphism_perc() > self.polymorphism_perc:
+                    continue
+                clade = markers2clade[marker_name]
+                clade2sample2markers[clade][sample_name].add(marker_name)
+                clade2all_markers[clade].add(marker_name)
+        info('Done.')
 
-        info(f'Checking {len(clades_to_check)} species')
-        species2samples = {}
-        for clade in clades_to_check:
-            markers_for_clade = markers_matrix_big.columns.intersection(clade2markers[clade])
-            markers_matrix = markers_matrix_big.loc[:, markers_for_clade]
+        info(f'Processing {len(clade2sample2markers)} clades')
+        clade2samples = {}
+        for clade in clade2all_markers.keys():
+            sample2markers = clade2sample2markers[clade]
+            all_samples = list(sample2markers.keys())
+            all_markers = list(clade2all_markers[clade])
+            markers_matrix = np.zeros(shape=(len(all_samples), len(all_markers)), dtype=bool)
+            for i, sample in enumerate(all_samples):
+                sample_markers = sample2markers[sample]
+                for j, marker in enumerate(all_markers):
+                    if marker in sample_markers:
+                        markers_matrix[i, j] = True
+
+            markers_matrix = pd.DataFrame(markers_matrix, index=all_samples, columns=all_markers)
             markers_matrix_filtered = self.filter_markers_matrix(markers_matrix, messages=False)
             if len(markers_matrix_filtered) >= 4:
-                species2samples[clade] = markers_matrix_filtered.index
+                clade2samples[clade] = markers_matrix_filtered.index
+
         info('Done.')
-        return species2samples
+
+        return clade2samples
 
 
     def print_clades(self):
         """Prints the clades detected in the reconstructed markers"""
-        species2samples = self.detect_clades()
-        info(f'Detected {len(species2samples)} clades: ')
+        clade2samples = self.detect_clades()
+        info(f'Detected {len(clade2samples)} clades: ')
         with open(os.path.join(self.output_dir, 'print_clades_only.tsv'), 'w') as f:
             f.write('Clade\tNumber_of_samples\tSamples\n')
-            for species, samples in sorted(species2samples.items(), key=lambda kv: len(kv[1]), reverse=True):
-                info('\t{}: in {} samples.'.format(species, len(samples)))
-                f.write('{}\t{}\t{}\n'.format(species, len(samples),
-                                              ','.join(map(Strainphlan.sample_path_to_name, samples))))
+            for clade, samples in sorted(clade2samples.items(), key=lambda kv: len(kv[1]), reverse=True):
+                info(f'\t{clade}: in {len(samples)} samples.')
+                f.write(f'{clade}\t{len(samples)}\t{",".join(samples)}\n')
         info('Done.')
 
 
@@ -591,29 +595,12 @@ class Strainphlan:
             info("Done.")
 
 
-    @staticmethod
-    def get_input_samples(args_samples):
-        samples = []
-        for s in args_samples:
-            if os.path.isfile(s):
-                samples.append(s)
-            elif os.path.isdir(s):
-                dir_files = [os.path.join(s, f) for f in os.listdir(s)]
-                samples.extend([f for f in dir_files if os.path.isfile(f)])
-            elif not os.path.exists(s):
-                error(f'Sample file/folder {s} does not exist', exit=True)
-            else:
-                error(f'Neither file nor directory: {s}', exit=True)
-
-        return samples
-
-
     def __init__(self, args):
         self.clade_markers_names = None
         self.database_controller = StrainphlanDatabaseController(args.database)
         self.clade_markers_file = args.clade_markers
-        self.samples = Strainphlan.get_input_samples(args.samples)
-        self.references = Strainphlan.get_input_samples(args.references)
+        self.samples = args.samples
+        self.references = args.references
         self.clade = args.clade
         self.output_dir = args.output_dir
         self.trim_sequences = args.trim_sequences
@@ -643,11 +630,17 @@ def read_params():
     """
     p = ap.ArgumentParser(description="", formatter_class=ap.ArgumentDefaultsHelpFormatter)
     p.add_argument('-d', '--database', type=str, default='latest',
-                   help="The input MetaPhlAn {} database".format(__version__))
+                   help="The input MetaPhlAn {} database, path to the .pkl file or 'latest'".format(__version__))
     p.add_argument('-m', '--clade_markers', type=str, default=None,
                    help="The clade markers as FASTA file")
-    p.add_argument('-s', '--samples', type=str, nargs='+',
-                   help="The reconstructed markers for each sample")
+
+    input_g = p.add_mutually_exclusive_group(required=True)
+    input_g.add_argument('-s', '--samples', type=str, nargs='+',
+                         help="The reconstructed markers for each sample (json.bz2 or pkl), can also be a directory "
+                              "containing the samples")
+    input_g.add_argument('--sample_list', type=str, help="A file containing on each row a path to a sample "
+                                                         "(json.bz2 or pkl")
+
     p.add_argument('-r', '--references', type=str, nargs='+', default=[],
                    help="The reference genomes")
     p.add_argument('-c', '--clade', type=str, default=None,
@@ -702,12 +695,29 @@ def read_params():
     return p.parse_args()
 
 
+def get_input_samples(args_samples):
+    samples = []
+    for s in args_samples:
+        if os.path.isfile(s):
+            samples.append(s)
+        elif os.path.isdir(s):
+            dir_files = [os.path.join(s, f) for f in os.listdir(s)]
+            samples.extend([f for f in dir_files if os.path.isfile(f)])
+        elif not os.path.exists(s):
+            error(f'Sample file/folder {s} does not exist', exit=True)
+        else:
+            error(f'Neither file nor directory: {s}', exit=True)
+
+    return samples
+
+
 def check_params(args):
     """Checks the mandatory command line arguments of the script
 
     Args:
         args (namespace): the arguments to check
     """
+
     if args.print_clades_only and args.clade_markers:
         error('-m (or --clade_markers) cannot be specified together with --print_clades_only', exit=True)
     elif not args.print_clades_only and not args.clade:
@@ -722,11 +732,26 @@ def check_params(args):
         error('The clade markers file does not exist', exit=True)
     elif args.phylophlan_configuration and not os.path.exists(args.phylophlan_configuration):
         error('The phylophlan configuration file does not exist', exit=True)
-    elif len(args.samples)+len(args.references) < 4:
+
+    info('Checking input samples and references')
+    if args.sample_list is not None:
+        args.samples = []
+        with open(args.sample_list) as f:
+            for line in f:
+                s = line.strip()
+                if not s:
+                    continue
+                if not os.path.exists(s):
+                    error('The input sample file \"{}\" does not exist'.format(s), exit=True)
+                args.samples.append(s)
+        info(f'  Found {len(args.samples)} samples in the specified input file')
+    else:
+        args.samples = get_input_samples(args.samples)
+    args.references = get_input_samples(args.references)
+
+    if len(args.samples) + len(args.references) < 4:
         error('The main inputs samples + references are less than 4', exit=True)
-    for s in args.samples:
-        if not os.path.exists(s):
-            error('The input sample file \"{}\" does not exist'.format(s), exit=True)
+
     for r in args.references:
         if not os.path.exists(r):
             error('The reference file \"{}\" does not exist'.format(r), exit=True)
