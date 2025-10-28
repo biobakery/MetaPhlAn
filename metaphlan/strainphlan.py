@@ -455,7 +455,8 @@ class Strainphlan:
         clade2all_markers = defaultdict(set)
 
         info(f'Processing {len(self.samples)} samples')
-        cms = execute_pool(((ConsensusMarkers.from_file, sample_path) for sample_path in self.samples),
+        cms = execute_pool(((ConsensusMarkers.from_file, sample_path, self.trim_sequences)
+                            for sample_path in self.samples),
                            nprocs=self.nprocs, return_generator=True, ordered=True)
         for sample_path, cm in zip(self.samples, cms):
             sample_name = Strainphlan.sample_path_to_name(sample_path)
