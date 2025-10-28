@@ -298,12 +298,12 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
             result_row['multi_strain'] = False
 
         for m in clade_markers_present:
-            bfm = bfs[m]
+            bfs_m = bfs[m]
             # replace with zeros minor alleles that are not in polyallelic significant positions
             with np.errstate(invalid='ignore'):  # 0/0 will be NaN which will produce False down the line
-                afs = bfm / bfm.sum(axis=0)
+                afs = bfs_m / bfs_m.sum(axis=0)
             mask = (afs > 0.5) | polyallelic_significant_masks[m]
-            bfm_filtered = bfm.copy()
+            bfm_filtered = bfs_m.copy()
             bfm_filtered[~mask] = 0
             bfs_filtered[m] = dict(zip(ACTG, bfm_filtered))
 
@@ -312,15 +312,15 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
             loci_rows = []
             for m in clade_markers_present:
                 for pos in range(pr.marker_to_length[m]):
-                    bfs = np.array([pr.base_frequencies[m][b][pos] for b in ACTG])
-                    base_coverage = bfs.sum()
-                    max_frequency = bfs.max()
+                    bfs_m = np.array([pr.base_frequencies[m][b][pos] for b in ACTG])
+                    base_coverage = bfs_m.sum()
+                    max_frequency = bfs_m.max()
 
                     if base_coverage < config['min_output_base_coverage']:
                         continue
 
                     pos_err_rate = err_rates[m][pos]
-                    allelism = np.count_nonzero(bfs > 0)
+                    allelism = np.count_nonzero(bfs_m > 0)
                     polyallelic_significant = polyallelic_significant_masks[m][pos]
                     biallelic_significant = (allelism == 2) and polyallelic_significant
                     filtered = position_mask[m][pos]
@@ -329,7 +329,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
                         'marker': m,
                         'pos': pos + 1,
                         'error_rate': pos_err_rate,
-                        'base_frequencies': bfs,
+                        'base_frequencies': bfs_m,
                         'base_coverage': base_coverage,
                         'max_frequency': max_frequency,
                         'allelism': allelism,
@@ -339,9 +339,9 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
                     })
 
             df_loci_sgb = pd.DataFrame(loci_rows)
+            output_dir_per_sgb = output_dir / 'per_sgb_data'
             if global_flags.debug:
                 info_debug(sgb_id, 'Saving debug files')
-                output_dir_per_sgb = output_dir / 'per_sgb_data'
                 output_dir_per_sgb.mkdir(parents=True, exist_ok=True)
                 df_loci_sgb.to_csv(output_dir_per_sgb / f'df_loci_{sgb_id}.tsv', sep='\t', index=False)
 
@@ -374,7 +374,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
 
 
             info_debug(sgb_id, 'Generating genotype by maximizing per-position probabilities')
-            consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch =\
+            consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch = \
                 compute_genotypes(df_loci_sgb_filtered, sgb_nps, result_row, marker_to_length_sgb)
 
             strain_resolved_markers_sgb = [{

@@ -43,7 +43,7 @@ q_uniformity_alpha = 0.05  # the alpha q value for the uniformity test for the m
 
 
 # SNP calling
-polymorphism_q_alpha = 1e-6  # the maximum FDR-corrected p-value (q-value) in the polymorphism test
+polymorphism_q_alpha = 1e-5  # the maximum FDR-corrected p-value (q-value) in the polymorphism test
 
 
 # multistrain calling

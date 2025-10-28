@@ -132,8 +132,10 @@ def main():
 
 
     mp_db_controller = StrainphlanDatabaseController(args.database)
-    marker_to_clade = mp_db_controller.get_markers2clade()
+    mp_db_controller.load_database()
+    info('Getting information from the MetaPhlAn database')
     db_name = mp_db_controller.get_database_name()
+    marker_to_clade = mp_db_controller.get_markers2clade()
     marker_to_ext = mp_db_controller.get_markers2ext()
     clade_to_markers = mp_db_controller.get_clade2markers()
 

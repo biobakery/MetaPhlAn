@@ -259,6 +259,13 @@ def fit_nb(q50, avg_read_len_i, z, p_t):
 
 
 def mask_nb(bc, min_cs, max_cs):
+    """
+
+    :param npt.NDArray[int] bc:
+    :param npt.NDArray[int] min_cs:
+    :param npt.NDArray[int] max_cs:
+    :return:
+    """
     mask = np.ones(len(bc), dtype=bool)
     if min_cs is not None:
         crop = min(len(min_cs) - 1, len(bc))
@@ -271,6 +278,14 @@ def mask_nb(bc, min_cs, max_cs):
 
 
 def filter_loci_snp_call(bfs, err_rates, avg_read_len, config):
+    """
+
+    :param dict[str, npt.NDArray[int]] bfs:
+    :param dict[str, npt.NDArray[float]] err_rates:
+    :param float avg_read_len:
+    :param dict config:
+    :return:
+    """
     result_row = {}
 
     base_coverages = {m: bf.sum(axis=0) for m, bf in bfs.items()}
