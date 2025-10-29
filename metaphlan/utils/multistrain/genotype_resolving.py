@@ -259,7 +259,7 @@ def compute_genotypes(df_loci_sgb_filtered, node_pairs, result_row, marker_to_le
             qualities_minor[marker][pos] = min_log_p
             log_probas_switch[marker][pos] = row['log_p_switch']
 
-    else:
+    else:  # single strain
         # use a groupby to run the computation only on unique values
         idx = df_loci_sgb_filtered.groupby(['max_frequency', 'base_coverage']).indices
         log_p_grouped = get_probas_switch_vect(*np.array(list(idx.keys())).T)

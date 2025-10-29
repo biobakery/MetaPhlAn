@@ -55,10 +55,12 @@ max_w_across = 0
 min_w_along = 1
 
 # model fitting
-max_iter = 50  # maximum iterations to give to the optimizer
-init_r_max = 0.99  # maximum r to use as an initial guess
+max_iter = 100  # maximum iterations to give to the optimizer
+init_r_min = 0.51  # minimum r to use as an initial guess (to avoid boundary problems)
+init_r_max = 0.99  # maximum r to use as an initial guess (to avoid boundary problems)
+acceptable_tol = 1e-3 # acceptable convergence error tolerance (norm of gradient)
 negative_variance_tol = 1e-6  # if the calculated variance is negative but close to zero within this tolerance, accept it
-init_snp_rate_min = 0.0001  # minimum snp_rate to use as an initial guess for the optimization
+init_snp_rate_min = 0.0001  # minimum snp_rate to use as an initial guess for the optimization (to avoid boundary problems)
 snp_rate_fallback = 0.01  # the snp rate to use when fitting fails
 r_fallback = 0.5  # the major/minor ratio to use when fitting fails
 
@@ -72,8 +74,8 @@ min_output_base_coverage = 1
 #min_recall = 20  # Minimum recall to report the second strain [%]
 #min_precision = 90  # Minimum precision to report the second strain [%]
 #min_precision_support = 100  # Minimum precision support to report the second strain
-#max_r_var = 0.1  # Maximum variance of the strain ratio to consider reliable fit and report the second strain, nan to turn off filtering
-#max_snp_rate_var = 0.1  # Maximum variance of the snp rate to consider reliable fit and report the second strain, nan to turn off filtering
+#max_r_var = nan  # Maximum variance of the strain ratio to consider reliable fit and report the second strain, nan to turn off filtering
+#max_snp_rate_var = nan  # Maximum variance of the snp rate to consider reliable fit and report the second strain, nan to turn off filtering
 
 min_output_breadth = 0
 min_output_snp_rate = 0
