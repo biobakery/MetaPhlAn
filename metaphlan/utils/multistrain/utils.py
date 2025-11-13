@@ -38,8 +38,11 @@ class ArgumentType:
     @staticmethod
     def existing_file(path):
         path = pathlib.Path(path).resolve()
-        if not os.path.isfile(path):
-            raise ap.ArgumentTypeError('The file does not exist (%s).' % path)
+        if not path.is_file():
+            if path.exists():
+                raise ap.ArgumentTypeError('The path exists but is not a file (%s).' % path)
+            else:
+                raise ap.ArgumentTypeError('The file does not exist (%s).' % path)
         return path
 
     @classmethod

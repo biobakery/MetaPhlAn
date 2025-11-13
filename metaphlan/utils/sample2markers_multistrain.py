@@ -58,16 +58,12 @@ def read_params():
     p.add_argument('-t', '--threads', type=ArgumentType.positive_int, default=1, help="Number of threads")
     # TODO: config or arguments?
     p.add_argument('--config', type=ArgumentType.existing_file, default=None, help="Path to a config file")
-    p.add_argument('--target', type=str, choices=['pileup', 'filtered_pileup', 'reconstructed_markers'],
-                   default="reconstructed_markers",
-                   help="What to calculate: pileup (only pileup file), reconstructed_markers (full reconstruction "
-                        "for phylogeny)")
-    p.add_argument('--reuse', type=str, default='all', choices=['none', 'bam', 'pileup', 'all'],
+    p.add_argument('--reuse', type=str, default='bam', choices=['none', 'bam', 'pileup', 'all'],
                    help="Which intermediate files to reuse if present. None will force to re-run everything.")
     p.add_argument('--save_bam_file', action='store_true', default=False,
                    help="Whether to keep the preprocessed BAM file")
     p.add_argument('--debug', action='store_true', default=False,
-                   help="Store intermediate files for debugging")
+                   help="Store intermediate files for debugging including pileup and BAM file")
     p.add_argument('--output_suffix', type=str, default='', help="Suffix to append to json file names.")
 
     return p
@@ -142,8 +138,7 @@ def main():
     clade_to_markers = mp_db_controller.get_clade2markers()
 
 
-    ss_args = [(sample_path, args.output_dir, config, args.target, args.save_bam_file, args.reuse, db_name,
-                args.output_suffix)
+    ss_args = [(sample_path, args.output_dir, config, args.save_bam_file, args.reuse, db_name, args.output_suffix)
                for sample_path in args.input]
 
     n_threads = min(args.threads, len(ss_args))

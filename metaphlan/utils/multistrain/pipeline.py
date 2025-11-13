@@ -4,6 +4,7 @@ import gzip
 import json
 import pathlib
 import pickle
+import zipfile
 from collections import Counter
 from typing import Sequence
 
@@ -72,8 +73,10 @@ def save_bam(read_lens_path, read_lens):
     :return:
     """
     read_lens_path_tmp = read_lens_path.with_name(read_lens_path.name + '.tmp')
+
     with gzip.open(read_lens_path_tmp, 'wt') as f:
         f.write('\n'.join(map(str, read_lens)))
+
     read_lens_path_tmp.rename(read_lens_path)
 
 
@@ -113,7 +116,7 @@ def save_pileup(pr, pileup_path, seq_error_path, null_err_rate_path):
     pileup_path_tmp = pileup_path.with_name(pileup_path.name + '.tmp')
     with gzip.open(pileup_path_tmp, 'wb') as f:
         for m in pr.base_frequencies.keys():
-            bfs = {b: base64.b64encode(a) for b, a in pr.base_frequencies[m].items()}
+            bfs = {b: base64.b64encode(pr.base_frequencies[m][i]) for i, b in enumerate(ACTG)}
             er = base64.b64encode(pr.avg_error_rates[m])
             line = b'\t'.join([m.encode()] + [bfs[b] for b in ACTG] + [er]) + b'\n'
             f.write(line)
@@ -149,7 +152,7 @@ def load_pileup(pileup_path, null_err_rate_path):
             bf = {}
             m, bf['A'], bf['C'], bf['T'], bf['G'], er = line.strip().split(b'\t')
             m = m.decode()
-            base_frequencies[m] = {b: np.frombuffer(base64.decodebytes(x), dtype=np.uint16) for b, x in bf.items()}
+            base_frequencies[m] = np.array([np.frombuffer(base64.decodebytes(bf[b]), dtype=np.uint16) for b in ACTG])
             avg_error_rates[m] = np.frombuffer(base64.decodebytes(er), dtype=np.float64)
             marker_to_length[m] = len(avg_error_rates[m])
 
@@ -190,7 +193,7 @@ def load_pileup(pileup_path, null_err_rate_path):
 def markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_to_ext, clade_to_n_markers_db, config):
     """
 
-    :param dict[str, dict[str, npt.NDArray]] base_frequencies:
+    :param dict[str, npt.NDArray] base_frequencies:
     :param dict[str, str] marker_to_clade_db:
     :param dict[str, Sequence[str]] marker_to_ext:
     :param dict[str, int] clade_to_n_markers_db:
@@ -213,7 +216,7 @@ def markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_t
     markers_filtered = markers_non_quasi + markers_quasi_filtered
 
     # Filter markers for breadth
-    marker_to_breadth = {m: (np.array([base_frequencies[m][b] for b in ACTG]).sum(axis=0) > 0).mean()
+    marker_to_breadth = {m: (base_frequencies[m].sum(axis=0) > 0).mean()
                          for m in markers_filtered}
     markers_present = [m for m, breadth in marker_to_breadth.items() if breadth >= config['min_marker_breadth']]
 
@@ -230,7 +233,7 @@ def markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_t
 
 
 def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, marker_to_clade_db, marker_to_ext,
-                               clade_to_markers_db, reconstruct_genotypes):
+                               clade_to_markers_db):
     """
 
     :param pathlib.Path output_dir:
@@ -242,12 +245,10 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
     :param dict[str, str] marker_to_clade_db:
     :param dict[str, Sequence[str]] marker_to_ext:
     :param dict[str, Sequence[str]] clade_to_markers_db:
-    :param bool reconstruct_genotypes:
     :return:
     """
 
-    if reconstruct_genotypes:
-        assert sam_file is not None
+    assert sam_file is not None
 
 
     avg_read_len: float = np.mean(read_lens)
@@ -271,7 +272,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
         err_rates = {}
         marker_to_length_sgb = {}
         for m in clade_markers_present:
-            bfs[m] = np.array([pr.base_frequencies[m][b] for b in ACTG])
+            bfs[m] = pr.base_frequencies[m]
 
             le = bfs[m].shape[1]
             marker_to_length_sgb[m] = le
@@ -306,98 +307,97 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
             mask = (afs > 0.5) | polyallelic_significant_masks[m]  # major base or significant polyallelic position
             bfm_filtered = bfs_m.copy()
             bfm_filtered[~mask] = 0
-            bfs_filtered[m] = dict(zip(ACTG, bfm_filtered))
+            bfs_filtered[m] = bfm_filtered
 
 
-        if reconstruct_genotypes:
-            loci_rows = []
-            for m in clade_markers_present:
-                for pos in range(pr.marker_to_length[m]):
-                    bfs_m = np.array([pr.base_frequencies[m][b][pos] for b in ACTG])
-                    base_coverage = bfs_m.sum()
-                    max_frequency = bfs_m.max()
+        loci_rows = []
+        for m in clade_markers_present:
+            for pos in range(pr.marker_to_length[m]):
+                bfs_m = pr.base_frequencies[m][:, pos]
+                base_coverage = bfs_m.sum()
+                max_frequency = bfs_m.max()
 
-                    if base_coverage < config['min_output_base_coverage']:
-                        continue
+                if base_coverage < config['min_output_base_coverage']:
+                    continue
 
-                    pos_err_rate = err_rates[m][pos]
-                    allelism = np.count_nonzero(bfs_m > 0)
-                    polyallelic_significant = polyallelic_significant_masks[m][pos]
-                    biallelic_significant = (allelism == 2) and polyallelic_significant
-                    filtered = position_mask[m][pos]
+                pos_err_rate = err_rates[m][pos]
+                allelism = np.count_nonzero(bfs_m > 0)
+                polyallelic_significant = polyallelic_significant_masks[m][pos]
+                biallelic_significant = (allelism == 2) and polyallelic_significant
+                filtered = position_mask[m][pos]
 
-                    loci_rows.append({
-                        'marker': m,
-                        'pos': pos + 1,
-                        'error_rate': pos_err_rate,
-                        'base_frequencies': bfs_m,
-                        'base_coverage': base_coverage,
-                        'max_frequency': max_frequency,
-                        'allelism': allelism,
-                        'filtered': filtered,
-                        'polyallelic_significant': polyallelic_significant,
-                        'biallelic_significant': biallelic_significant,
-                    })
+                loci_rows.append({
+                    'marker': m,
+                    'pos': pos + 1,
+                    'error_rate': pos_err_rate,
+                    'base_frequencies': bfs_m,
+                    'base_coverage': base_coverage,
+                    'max_frequency': max_frequency,
+                    'allelism': allelism,
+                    'filtered': filtered,
+                    'polyallelic_significant': polyallelic_significant,
+                    'biallelic_significant': biallelic_significant,
+                })
 
-            df_loci_sgb = pd.DataFrame(loci_rows)
-            output_dir_per_sgb = output_dir / 'per_sgb_data'
-            if global_flags.debug:
-                info_debug(sgb_id, 'Saving debug files')
-                output_dir_per_sgb.mkdir(parents=True, exist_ok=True)
-                df_loci_sgb.to_csv(output_dir_per_sgb / f'df_loci_{sgb_id}.tsv', sep='\t', index=False)
+        df_loci_sgb = pd.DataFrame(loci_rows)
+        output_dir_per_sgb = output_dir / 'per_sgb_data'
+        if global_flags.debug:
+            info_debug(sgb_id, 'Saving debug files')
+            output_dir_per_sgb.mkdir(parents=True, exist_ok=True)
+            df_loci_sgb.to_csv(output_dir_per_sgb / f'df_loci_{sgb_id}.tsv', sep='\t', index=False)
 
-            df_loci_sgb_filtered = df_loci_sgb.query('filtered').copy()
-            del df_loci_sgb
+        df_loci_sgb_filtered = df_loci_sgb.query('filtered').copy()
+        del df_loci_sgb
 
-            if global_flags.debug:
-                result_row['est_err_rate'] = 1 - df_loci_sgb_filtered['max_frequency'].sum() / \
-                                             df_loci_sgb_filtered['base_coverage'].sum()
-
-
-            if len(df_loci_sgb_filtered) == 0:
-                warning(f'No loci left after filtering. Skipping SGB {sgb_id}, {output_dir.name}')
-                continue
+        if global_flags.debug:
+            result_row['est_err_rate'] = 1 - df_loci_sgb_filtered['max_frequency'].sum() / \
+                                         df_loci_sgb_filtered['base_coverage'].sum()
 
 
-            if result_row['multi_strain']:
-                info_debug(sgb_id, 'Creating and merging linkage')
-                df_loci_biallelic_significant = df_loci_sgb_filtered.query('biallelic_significant')
-                sgb_linkage = calculate_linkage(df_loci_biallelic_significant, sam_file,
-                                                config)  # (m1, p1, m2, p2) => (b1 + b2) => count
-                merging_results_before, merging_results = linkage_merging(df_loci_biallelic_significant, sgb_linkage,
-                                                                          config)
-                sgb_nps = merging_results[0]
-                info_debug(sgb_id, 'Fitting model')
-                fit_model(sgb_id, df_loci_sgb_filtered, result_row, config)
-            else:
-                sgb_nps = []
-                merging_results_before = ([], None)
+        if len(df_loci_sgb_filtered) == 0:
+            warning(f'No loci left after filtering. Skipping SGB {sgb_id}, {output_dir.name}')
+            continue
 
 
-            info_debug(sgb_id, 'Generating genotype by maximizing per-position probabilities')
-            consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch = \
-                compute_genotypes(df_loci_sgb_filtered, sgb_nps, result_row, marker_to_length_sgb)
+        if result_row['multi_strain']:
+            info_debug(sgb_id, 'Creating and merging linkage')
+            df_loci_biallelic_significant = df_loci_sgb_filtered.query('biallelic_significant')
+            sgb_linkage = calculate_linkage(df_loci_biallelic_significant, sam_file,
+                                            config)  # (m1, p1, m2, p2) => (b1 + b2) => count
+            merging_results_before, merging_results = linkage_merging(df_loci_biallelic_significant, sgb_linkage,
+                                                                      config)
+            sgb_nps = merging_results[0]
+            info_debug(sgb_id, 'Fitting model')
+            fit_model(sgb_id, df_loci_sgb_filtered, result_row, config)
+        else:
+            sgb_nps = []
+            merging_results_before = ([], None)
 
-            strain_resolved_markers_sgb = [{
-                'marker': m,
-                'sequence_maj': consensuses_major[m].decode(),
-                'sequence_min': consensuses_minor[m].decode(),
-                'log_p_maj': qualities_major[m],
-                'log_p_min': qualities_minor[m],
-                'polyallelic_significant': polyallelic_significant_masks[m],
-                'log_probas_switch': log_probas_switch[m],
-            } for m in consensuses_major.keys()]
 
-            if global_flags.debug:
-                info_debug('Saving strain resolved markers')
-                with open(output_dir_per_sgb / f'strain_resolved_markers_{sgb_id}.pic', 'wb') as f:
-                    pickle.dump(strain_resolved_markers_sgb, f)
+        info_debug(sgb_id, 'Generating genotype by maximizing per-position probabilities')
+        consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch = \
+            compute_genotypes(df_loci_sgb_filtered, sgb_nps, result_row, marker_to_length_sgb)
 
-            consensuses_maj_sgb, consensuses_min_sgb = get_strainphlan_markers(strain_resolved_markers_sgb, result_row,
-                                                                               merging_results_before, avg_read_len,
-                                                                               config)
-            consensuses_maj.update(consensuses_maj_sgb)
-            consensuses_min.update(consensuses_min_sgb)
+        strain_resolved_markers_sgb = [{
+            'marker': m,
+            'sequence_maj': consensuses_major[m].decode(),
+            'sequence_min': consensuses_minor[m].decode(),
+            'log_p_maj': qualities_major[m],
+            'log_p_min': qualities_minor[m],
+            'polyallelic_significant': polyallelic_significant_masks[m],
+            'log_probas_switch': log_probas_switch[m],
+        } for m in consensuses_major.keys()]
+
+        if global_flags.debug:
+            info_debug('Saving strain resolved markers')
+            with open(output_dir_per_sgb / f'strain_resolved_markers_{sgb_id}.pic', 'wb') as f:
+                pickle.dump(strain_resolved_markers_sgb, f)
+
+        consensuses_maj_sgb, consensuses_min_sgb = get_strainphlan_markers(strain_resolved_markers_sgb, result_row,
+                                                                           merging_results_before, avg_read_len,
+                                                                           config)
+        consensuses_maj.update(consensuses_maj_sgb)
+        consensuses_min.update(consensuses_min_sgb)
 
     df_results = pd.DataFrame.from_dict(result_rows, orient='index')
 
@@ -405,7 +405,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
 
 
 def save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results, consensuses_maj,
-                               consensuses_min, bfs_filtered, pileup_filtered_path, reconstruct_genotypes):
+                               consensuses_min, bfs_filtered, pileup_filtered_path):
     """
 
     :param pathlib.Path output_results:
@@ -415,44 +415,46 @@ def save_reconstructed_markers(output_results, output_major, output_minor, db_na
     :param pd.DataFrame df_results:
     :param dict consensuses_maj:
     :param dict consensuses_min:
-    :param dict[str, dict[str, np.ndarray]] bfs_filtered:
+    :param dict[str, np.ndarray] bfs_filtered:
     :param pathlib.Path pileup_filtered_path:
-    :param bool reconstruct_genotypes:
     :return:
     """
 
-    if reconstruct_genotypes:
-        consensuses_maj = list(consensuses_maj.values())
-        consensuses_min = list(consensuses_min.values())
 
-        with bz2.open(output_minor, 'wt') as f:
-            json.dump({'database_name': db_name, 'consensus_markers': consensuses_min}, f, indent=2)
+    # Reconstructed genotypes
+    consensuses_maj = list(consensuses_maj.values())
+    consensuses_min = list(consensuses_min.values())
 
-        with bz2.open(output_major, 'wt') as f:
-            json.dump({'database_name': db_name, 'consensus_markers': consensuses_maj}, f, indent=2)
+    with bz2.open(output_minor, 'wt') as f:
+        json.dump({'database_name': db_name, 'consensus_markers': consensuses_min}, f, indent=2)
 
+    with bz2.open(output_major, 'wt') as f:
+        json.dump({'database_name': db_name, 'consensus_markers': consensuses_maj}, f, indent=2)
+
+
+    # Results dataframe
     df_results.to_csv(output_results, sep='\t')
 
 
+    # Filtered pileup
+    # TODO: save also metadata like the database
     pileup_path_tmp = pileup_filtered_path.with_name(pileup_filtered_path.name + '.tmp')
-    with gzip.open(pileup_path_tmp, 'wb') as f:
-        for m in bfs_filtered.keys():
-            bfs = {b: base64.b64encode(a) for b, a in bfs_filtered[m].items()}
-            line = b'\t'.join([m.encode()] + [bfs[b] for b in ACTG]) + b'\n'
-            f.write(line)
+    with zipfile.ZipFile(pileup_path_tmp, 'w', compression=zipfile.ZIP_BZIP2) as f:
+        for m, bfs in bfs_filtered.items():
+            with f.open(m, 'w') as fm:
+                np.save(fm, bfs)
 
     pileup_path_tmp.rename(pileup_filtered_path)
 
 
 
-def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, output_suffix, marker_to_clade,
+def run(sample_path, output_dir, config, save_bam_file, reuse, db_name, output_suffix, marker_to_clade,
         marker_to_ext, clade_to_markers):
     """
 
     :param pathlib.Path sample_path:
     :param pathlib.Path output_dir:
     :param dict config:
-    :param str target:
     :param bool save_bam_file:
     :param str reuse:
     :param str db_name:
@@ -471,19 +473,23 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, 
 
     output_dir = output_dir / sample_name
 
-    pileup_path_before = output_dir / 'pileup_nonfilt.tsv.gz'
-    pileup_path_after = output_dir / 'pileup.tsv.gz'
-    pileup_path_filtered = output_dir / 'pileup_filtered.tsv.gz'
-    read_lens_path = output_dir / 'read_lengths.txt.gz'
-    null_err_rate_path_before = output_dir / 'null_err_rate_nonfilt.txt'
-    null_err_rate_path_after = output_dir / 'null_err_rate.txt'
-    seq_error_path_before = output_dir / 'seq_error_profile_nonfilt.csv'
-    seq_error_path_after = output_dir / 'seq_error_profile.csv'
+    # Main outputs
     bam_path = output_dir / f'{sample_name}.sorted.bam'
     bai_path = bam_path.with_suffix(bam_path.suffix + '.bai')
     output_results = output_dir / 'results.tsv'
     output_major = output_dir / f'{sample_name}_major{output_suffix}.json.bz2'
     output_minor = output_dir / f'{sample_name}_minor{output_suffix}.json.bz2'
+    output_allele_counts = output_dir / 'allele_counts.zip'
+
+    # Debug outputs
+    pileup_path_before = output_dir / 'full_pileup_nonfilt.tsv.gz'
+    pileup_path_after = output_dir / 'full_pileup_filt.tsv.gz'
+    read_lens_path = output_dir / 'read_lengths.txt.gz'
+    null_err_rate_path_before = output_dir / 'null_err_rate_nonfilt.txt'
+    null_err_rate_path_after = output_dir / 'null_err_rate.txt'
+    seq_error_path_before = output_dir / 'seq_error_profile_nonfilt.csv'
+    seq_error_path_after = output_dir / 'seq_error_profile.csv'
+
 
     info(f'Starting sample {sample_name}')
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -495,102 +501,41 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, 
     dirs_to_remove = []
 
 
-    pileup_target_files = [pileup_path_before, pileup_path_after, null_err_rate_path_before,
-                           null_err_rate_path_after]  # files to consider the step to be satisfied
-    bam_target_files = [bam_path, bai_path, read_lens_path]  # files to consider the step to be satisfied
-    pileup_output_files_pf = [pileup_path_before, pileup_path_after, null_err_rate_path_before,
-                              null_err_rate_path_after, read_lens_path]  # files to be able to reuse this step
-    pileup_output_files_rm = pileup_output_files_pf + [bam_path, bai_path]
-    pileup_filtered_target_files = [output_results, pileup_path_filtered]  # files to consider the step to be satisfied
-    rm_target_files = [output_results, output_major, output_minor]  # files to consider the step to be satisfied
-    target_files = {
-        'pileup': pileup_target_files,
-        'filtered_pileup': pileup_filtered_target_files,
-        'reconstructed_markers': rm_target_files,
-    }
+    bam_target_files = [bam_path, bai_path, read_lens_path]
+    pileup_target_files = [pileup_path_before, pileup_path_after, null_err_rate_path_before, null_err_rate_path_after] \
+                          + bam_target_files
 
-    def meta_step_pileup():
-        if reuse in ['all', 'bam', 'pileup'] and all(map(pathlib.Path.is_file, bam_target_files)):
-            info(f'Reusing existing preprocessed BAM file for sample {sample_name}')
-            sam_file_ = load_bam(bam_path)
-            read_lens_ = load_read_lens(read_lens_path)
-        else:
-            info(f'Preprocessing the BAM file for sample {sample_name}')
-            sam_file_, read_lens_ = step_bam(sample_path, bam_path, bai_path, output_dir, db_name, config)
-            save_bam(read_lens_path, read_lens_)
+    if reuse in ['bam', 'pileup'] and all(map(pathlib.Path.is_file, bam_target_files)):
+        info(f'Loading existing preprocessed BAM file for sample {sample_name}')
+        sam_file = load_bam(bam_path)
+        read_lens = load_read_lens(read_lens_path)
+    else:
+        info(f'Preprocessing the BAM file for sample {sample_name}')
+        sam_file, read_lens = step_bam(sample_path, bam_path, bai_path, output_dir, db_name, config)
+        save_bam(read_lens_path, read_lens)
 
-        if sam_file_ is None:
-            read_lens_ = None
-            pr_after_ = None
-        else:
-            info(f'Calculating pileup for sample {sample_name}')
-            pr_before_, pr_after_ = run_pileup(sam_file_, config)
+    if sam_file is None:
+        return False
+
+    if reuse in ['pileup'] and all(map(pathlib.Path.is_file, pileup_target_files)):
+        info(f'Loading existing pileup for sample {sample_name}')
+        pr_after = load_pileup(pileup_path_after, null_err_rate_path_after)
+    else:
+        info(f'Calculating pileup for sample {sample_name}')
+        pr_before, pr_after = run_pileup(sam_file, config)
+        if global_flags.debug:
             info_debug('Saving pileup')
-            save_pileup(pr_before_, pileup_path_before, seq_error_path_before, null_err_rate_path_before)
-            save_pileup(pr_after_, pileup_path_after, seq_error_path_after, null_err_rate_path_after)
-
-        return sam_file_, read_lens_, pr_after_
+            save_pileup(pr_before, pileup_path_before, seq_error_path_before, null_err_rate_path_before)
+            save_pileup(pr_after, pileup_path_after, seq_error_path_after, null_err_rate_path_after)
 
 
-    if target == 'pileup':
-        if reuse in ['all', 'pileup'] and all(map(pathlib.Path.is_file, target_files[target])):
-            info(f'Pileup for sample {sample_name} is already present, nothing to do')
-            # return True
-        else:
-            sam_file, *_ = meta_step_pileup()
-            if sam_file is None:
-                return False
-    elif target == 'filtered_pileup':
-        if reuse == 'all' and all(map(pathlib.Path.is_file, target_files[target])):
-            info(f'Filtered pileup for sample {sample_name} is already present, nothing to do.')
-            # return True
-        else:
-            if reuse in ['all', 'pileup'] and all(map(pathlib.Path.is_file, pileup_output_files_pf)):
-                info(f'Loading existing pileup for sample {sample_name}')
-                pr = load_pileup(pileup_path_after, null_err_rate_path_after)
-                read_lens = load_read_lens(read_lens_path)
-                sam_file = None
-            else:
-                sam_file, read_lens, pr = meta_step_pileup()
-                if sam_file is None:
-                    return False
+    info(f'Running marker reconstruction for sample {sample_name}')
+    df_results, bfs_filtered, consensuses_maj, consensuses_min = \
+        step_reconstructed_markers(output_dir, config, sam_file, pr_after, read_lens, marker_to_clade, marker_to_ext,
+                                   clade_to_markers)
 
-            info(f'Computing filtered pileup for sample {sample_name}')
-            df_results, bfs_filtered, consensuses_maj, consensuses_min = \
-                step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, marker_to_clade, marker_to_ext,
-                                           clade_to_markers, reconstruct_genotypes=False)
-
-            save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results,
-                                       consensuses_maj, consensuses_min, bfs_filtered, pileup_path_filtered,
-                                       reconstruct_genotypes=False)
-
-    elif target == 'reconstructed_markers':
-        if reuse == 'all' and all(map(pathlib.Path.is_file, target_files[target])):
-            info(f'Reconstructed markers for sample {sample_name} are already present, nothing to do.')
-            # return True
-        else:
-            if reuse in ['all', 'pileup'] and all(map(pathlib.Path.is_file, pileup_output_files_rm)):
-                info(f'Loading existing pileup for sample {sample_name}')
-                sam_file = load_bam(bam_path)
-                read_lens = load_read_lens(read_lens_path)
-                if sam_file is None:
-                    return False
-                pr = load_pileup(pileup_path_after, null_err_rate_path_after)
-            else:
-                sam_file, read_lens, pr = meta_step_pileup()
-
-                if sam_file is None:
-                    return False
-
-
-            info(f'Running marker reconstruction for sample {sample_name}')
-            df_results, bfs_filtered, consensuses_maj, consensuses_min = \
-                step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, marker_to_clade, marker_to_ext,
-                                           clade_to_markers, reconstruct_genotypes=True)
-
-            save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results,
-                                       consensuses_maj, consensuses_min, bfs_filtered, pileup_path_filtered,
-                                       reconstruct_genotypes=True)
+    save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results,
+                               consensuses_maj, consensuses_min, bfs_filtered, output_allele_counts)
 
 
     info(f'Cleaning intermediate files for sample {sample_name}')

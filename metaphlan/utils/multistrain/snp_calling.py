@@ -2,6 +2,10 @@ from collections import Counter, defaultdict, OrderedDict
 from dataclasses import dataclass
 
 import numpy as np
+
+DTYPE_ERROR_RATES = np.float64
+
+DTPYE_BASE_FREQUENCY = np.uint16
 import numpy.typing as npt
 import pandas as pd
 import scipy.stats as sps
@@ -12,6 +16,7 @@ from ...utils import info, info_debug, warning
 
 ACTGactg = 'ACTGactg'
 ACTG = 'ACTG'
+ACTG_to_i = dict(zip(ACTG, range(len(ACTG))))
 
 BAM_FUNMAP = 4
 BAM_FSECONDARY = 256
@@ -112,11 +117,11 @@ def run_pileup_inner(sam_file, config, drop_read_positions=None):
 
         if marker not in base_frequencies:
             le = marker_to_length[marker]
-            base_frequencies[marker] = {b: np.zeros(le, np.uint16) for b in ACTG}
-            avg_error_rates[marker] = np.zeros(le, np.float64)
+            base_frequencies[marker] = np.zeros((4, le), DTPYE_BASE_FREQUENCY)
+            avg_error_rates[marker] = np.zeros(le, DTYPE_ERROR_RATES)
 
         for b in base_frequency.keys():
-            base_frequencies[marker][b][pos] = base_frequency[b]
+            base_frequencies[marker][ACTG_to_i[b], pos] = base_frequency[b]
         avg_error_rates[marker][pos] = avg_error_rate
 
         if base_coverage >= config['seq_error_stats_min_cov']:
