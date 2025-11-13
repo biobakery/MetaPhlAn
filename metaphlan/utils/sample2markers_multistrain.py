@@ -37,6 +37,7 @@ class ArgTypes:
     reuse: str
     save_bam_file: bool
     debug: bool
+    output_suffix: str
 
 
 
@@ -67,6 +68,7 @@ def read_params():
                    help="Whether to keep the preprocessed BAM file")
     p.add_argument('--debug', action='store_true', default=False,
                    help="Store intermediate files for debugging")
+    p.add_argument('--output_suffix', type=str, default='', help="Suffix to append to json file names.")
 
     return p
 
@@ -140,7 +142,8 @@ def main():
     clade_to_markers = mp_db_controller.get_clade2markers()
 
 
-    ss_args = [(sample_path, args.output_dir, config, args.target, args.save_bam_file, args.reuse, db_name)
+    ss_args = [(sample_path, args.output_dir, config, args.target, args.save_bam_file, args.reuse, db_name,
+                args.output_suffix)
                for sample_path in args.input]
 
     n_threads = min(args.threads, len(ss_args))

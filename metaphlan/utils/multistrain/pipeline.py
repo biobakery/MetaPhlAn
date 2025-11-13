@@ -215,13 +215,16 @@ def markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_t
     # Filter markers for breadth
     marker_to_breadth = {m: (np.array([base_frequencies[m][b] for b in ACTG]).sum(axis=0) > 0).mean()
                          for m in markers_filtered}
-    markers_present = set([m for m, breadth in marker_to_breadth.items() if breadth >= config['min_marker_breadth']])
+    markers_present = [m for m, breadth in marker_to_breadth.items() if breadth >= config['min_marker_breadth']]
 
     # Filter clades / SGBs with enough markers
     clades_to_n_markers_present = Counter([marker_to_clade_db[m] for m in markers_present])
     clades_present = [clade for clade, c in clades_to_n_markers_present.items()
                       if c >= config['min_markers_abs']
                       and c / clade_to_n_markers_db[clade] >= config['min_markers_rel']]
+
+    # Keep only markers from kept clades
+    markers_present = set([m for m in markers_present if marker_to_clade_db[m] in clades_present])
 
     return markers_present, clades_present
 
@@ -262,8 +265,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
         info_debug(sgb_id, 'Preparing loci')
 
         clade_markers_present = [m for m in clade_to_markers_db[sgb_id] if m in markers_present]
-        if len(clade_markers_present) == 0:
-            continue
+        assert len(clade_markers_present) > 0
 
         bfs = {}
         err_rates = {}
@@ -295,14 +297,13 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
         else:
             result_row['multi_strain'] = False
             info_debug(sgb_id, 'is not multistrain')
-            result_row['multi_strain'] = False
 
         for m in clade_markers_present:
             bfs_m = bfs[m]
             # replace with zeros minor alleles that are not in polyallelic significant positions
             with np.errstate(invalid='ignore'):  # 0/0 will be NaN which will produce False down the line
                 afs = bfs_m / bfs_m.sum(axis=0)
-            mask = (afs > 0.5) | polyallelic_significant_masks[m]
+            mask = (afs > 0.5) | polyallelic_significant_masks[m]  # major base or significant polyallelic position
             bfm_filtered = bfs_m.copy()
             bfm_filtered[~mask] = 0
             bfs_filtered[m] = dict(zip(ACTG, bfm_filtered))
@@ -444,7 +445,7 @@ def save_reconstructed_markers(output_results, output_major, output_minor, db_na
 
 
 
-def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, marker_to_clade,
+def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, output_suffix, marker_to_clade,
         marker_to_ext, clade_to_markers):
     """
 
@@ -455,6 +456,7 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, 
     :param bool save_bam_file:
     :param str reuse:
     :param str db_name:
+    :param str output_suffix:
     :param dict[str, str] marker_to_clade:
     :param dict[str, Sequence[str]] marker_to_ext:
     :param dict clade_to_markers:
@@ -480,8 +482,8 @@ def run(sample_path, output_dir, config, target, save_bam_file, reuse, db_name, 
     bam_path = output_dir / f'{sample_name}.sorted.bam'
     bai_path = bam_path.with_suffix(bam_path.suffix + '.bai')
     output_results = output_dir / 'results.tsv'
-    output_major = output_dir / f'{sample_name}_major.json.bz2'
-    output_minor = output_dir / f'{sample_name}_minor.json.bz2'
+    output_major = output_dir / f'{sample_name}_major{output_suffix}.json.bz2'
+    output_minor = output_dir / f'{sample_name}_minor{output_suffix}.json.bz2'
 
     info(f'Starting sample {sample_name}')
     output_dir.mkdir(parents=True, exist_ok=True)
