@@ -13,6 +13,7 @@ import numpy.typing as npt
 import pandas as pd
 import pysam
 
+from .utils import MetaphlanDBInfo
 from ...utils import info, error, warning, info_debug, global_flags
 from . import utils
 from .genotype_resolving import compute_genotypes
@@ -190,29 +191,27 @@ def load_pileup(pileup_path, null_err_rate_path):
                         contexts)
 
 
-def markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_to_ext, clade_to_n_markers_db, config):
+def markers_and_species_filtering(base_frequencies, mp_db_info, config):
     """
 
     :param dict[str, npt.NDArray] base_frequencies:
-    :param dict[str, str] marker_to_clade_db:
-    :param dict[str, Sequence[str]] marker_to_ext:
-    :param dict[str, int] clade_to_n_markers_db:
+    :param MetaphlanDBInfo mp_db_info:
     :param dict config:
     :return:
     """
-    markers_without_clade = [m for m in base_frequencies.keys() if m not in marker_to_clade_db]
+    markers_without_clade = [m for m in base_frequencies.keys() if m not in mp_db_info.marker_to_clade]
     if len(markers_without_clade) > 0:
         raise Exception(f'There are {len(markers_without_clade)} markers without a clade:'
                         f' {utils.shorten_text(",".join(markers_without_clade))}')
 
     # Filter quasi markers with external hits (using >= 1 hit threshold)
     all_markers = sorted(base_frequencies.keys())
-    clade_to_n_markers = Counter([marker_to_clade_db[m] for m in all_markers])
-    markers_non_quasi = [m for m in all_markers if len(marker_to_ext[m]) == 0]
-    markers_quasi = [m for m in all_markers if len(marker_to_ext[m]) > 0]
+    clade_to_n_markers = Counter([mp_db_info.marker_to_clade for m in all_markers])
+    markers_non_quasi = [m for m in all_markers if len(mp_db_info.marker_to_ext[m]) == 0]
+    markers_quasi = [m for m in all_markers if len(mp_db_info.marker_to_ext[m]) > 0]
     markers_quasi_filtered = [m for m in markers_quasi
-                              if not any(clade_to_n_markers[ext_sgb] / clade_to_n_markers_db[ext_sgb] >=
-                                         config['quasi_marker_frac'] for ext_sgb in marker_to_ext[m])]
+                              if not any(clade_to_n_markers[ext_sgb] / mp_db_info.clade_to_n_markers[ext_sgb] >=
+                                         config['quasi_marker_frac'] for ext_sgb in mp_db_info.marker_to_ext[m])]
     markers_filtered = markers_non_quasi + markers_quasi_filtered
 
     # Filter markers for breadth
@@ -221,19 +220,18 @@ def markers_and_species_filtering(base_frequencies, marker_to_clade_db, marker_t
     markers_present = [m for m, breadth in marker_to_breadth.items() if breadth >= config['min_marker_breadth']]
 
     # Filter clades / SGBs with enough markers
-    clades_to_n_markers_present = Counter([marker_to_clade_db[m] for m in markers_present])
+    clades_to_n_markers_present = Counter([mp_db_info.marker_to_clade[m] for m in markers_present])
     clades_present = [clade for clade, c in clades_to_n_markers_present.items()
                       if c >= config['min_markers_abs']
-                      and c / clade_to_n_markers_db[clade] >= config['min_markers_rel']]
+                      and c / mp_db_info.clade_to_n_markers[clade] >= config['min_markers_rel']]
 
     # Keep only markers from kept clades
-    markers_present = set([m for m in markers_present if marker_to_clade_db[m] in clades_present])
+    markers_present = set([m for m in markers_present if mp_db_info.marker_to_clade[m] in clades_present])
 
     return markers_present, clades_present
 
 
-def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, marker_to_clade_db, marker_to_ext,
-                               clade_to_markers_db):
+def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mp_db_info):
     """
 
     :param pathlib.Path output_dir:
@@ -241,10 +239,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
     :param sam_file:
     :param PileupResult pr:
     :param Sequence[int] read_lens:
-    :param dict[str, str] marker_to_clade_db:
-    :param dict[str, str] marker_to_clade_db:
-    :param dict[str, Sequence[str]] marker_to_ext:
-    :param dict[str, Sequence[str]] clade_to_markers_db:
+    :param MetaphlanDBInfo mp_db_info:
     :return:
     """
 
@@ -253,10 +248,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
 
     avg_read_len: float = np.mean(read_lens)
 
-    clade_to_n_markers_db = {k: len(v) for k, v in clade_to_markers_db.items()}
-
-    markers_present, clades_present = markers_and_species_filtering(pr.base_frequencies, marker_to_clade_db,
-                                                                    marker_to_ext, clade_to_n_markers_db, config)
+    markers_present, clades_present = markers_and_species_filtering(pr.base_frequencies, mp_db_info, config)
 
     consensuses_maj = {}
     consensuses_min = {}
@@ -265,7 +257,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
     for sgb_id in clades_present:
         info_debug(sgb_id, 'Preparing loci')
 
-        clade_markers_present = [m for m in clade_to_markers_db[sgb_id] if m in markers_present]
+        clade_markers_present = [m for m in mp_db_info.clade_to_markers[sgb_id] if m in markers_present]
         assert len(clade_markers_present) > 0
 
         bfs = {}
@@ -291,7 +283,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mark
 
         if 'n_markers_polyallelic_significant' in result_row \
                 and result_row['n_markers_polyallelic_significant'] >= config['multistrain_min_markers_abs'] \
-                and result_row['n_markers_polyallelic_significant'] / clade_to_n_markers_db[sgb_id] \
+                and result_row['n_markers_polyallelic_significant'] / mp_db_info.clade_to_n_markers[sgb_id] \
                 >= config['multistrain_min_markers_rel']:
             result_row['multi_strain'] = True
             info_debug(sgb_id, 'is multistrain')
@@ -448,8 +440,7 @@ def save_reconstructed_markers(output_results, output_major, output_minor, db_na
 
 
 
-def run(sample_path, output_dir, config, save_bam_file, reuse, db_name, output_suffix, marker_to_clade,
-        marker_to_ext, clade_to_markers):
+def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, mp_db_info):
     """
 
     :param pathlib.Path sample_path:
@@ -457,14 +448,10 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, db_name, output_s
     :param dict config:
     :param bool save_bam_file:
     :param str reuse:
-    :param str db_name:
     :param str output_suffix:
-    :param dict[str, str] marker_to_clade:
-    :param dict[str, Sequence[str]] marker_to_ext:
-    :param dict clade_to_markers:
+    :param MetaphlanDBInfo mp_db_info:
     :return:
     """
-
 
     if sample_path.suffix == '.bz2':
         sample_name = sample_path.with_suffix('').stem
@@ -511,7 +498,7 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, db_name, output_s
         read_lens = load_read_lens(read_lens_path)
     else:
         info(f'Preprocessing the BAM file for sample {sample_name}')
-        sam_file, read_lens = step_bam(sample_path, bam_path, bai_path, output_dir, db_name, config)
+        sam_file, read_lens = step_bam(sample_path, bam_path, bai_path, output_dir, mp_db_info.db_name, config)
         save_bam(read_lens_path, read_lens)
 
     if sam_file is None:
@@ -531,10 +518,9 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, db_name, output_s
 
     info(f'Running marker reconstruction for sample {sample_name}')
     df_results, bfs_filtered, consensuses_maj, consensuses_min = \
-        step_reconstructed_markers(output_dir, config, sam_file, pr_after, read_lens, marker_to_clade, marker_to_ext,
-                                   clade_to_markers)
+        step_reconstructed_markers(output_dir, config, sam_file, pr_after, read_lens, mp_db_info)
 
-    save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results,
+    save_reconstructed_markers(output_results, output_major, output_minor, mp_db_info.db_name, df_results,
                                consensuses_maj, consensuses_min, bfs_filtered, output_allele_counts)
 
 

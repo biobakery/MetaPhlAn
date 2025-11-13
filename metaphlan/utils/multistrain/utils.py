@@ -4,10 +4,13 @@ import os
 import pathlib
 import subprocess as sp
 import shlex
+from dataclasses import dataclass
+from typing import Sequence
 
 import numpy as np
 import scipy.special as spsp
 
+from .. import StrainphlanDatabaseController
 from ...utils import error
 
 
@@ -60,7 +63,10 @@ class ArgumentType:
     def existing_dir(path):
         path = pathlib.Path(path).resolve()
         if not path.is_dir():
-            raise ap.ArgumentTypeError('The directory does not exist (%s).' % path)
+            if path.exists():
+                raise ap.ArgumentTypeError('The path exists but is not a directory (%s).' % path)
+            else:
+                raise ap.ArgumentTypeError('The directory does not exist (%s).' % path)
         return path
 
     @staticmethod
@@ -76,6 +82,12 @@ class ArgumentType:
         if path.is_file() or path.parent.resolve().is_dir():
             return path
         raise ap.ArgumentTypeError('Neither the file nor its parent exist (%s).' % path)
+
+    @classmethod
+    def file_list_of_dirs(cls, path):
+        list_of_str = cls.list_in_file(path)
+        list_of_paths = [cls.existing_dir(p) for p in list_of_str]
+        return list_of_paths
 
     @staticmethod
     def percentage(x):
@@ -95,6 +107,29 @@ class ArgumentType:
         if x <= 0:
             raise ap.ArgumentTypeError('The number must be greater than 0')
         return x
+
+
+@dataclass
+class MetaphlanDBInfo:
+    db_name: str
+    marker_to_clade: dict[str, str]
+    marker_to_ext: dict[str, Sequence[str]]
+    clade_to_markers: dict[str, Sequence[str]]
+    clade_to_n_markers: dict[str, int]
+
+    @classmethod
+    def from_mp_controller(cls, mp_db_controller):
+        """
+
+        :param StrainphlanDatabaseController mp_db_controller:
+        :return:
+        """
+        db_name = mp_db_controller.get_database_name()
+        marker_to_clade = mp_db_controller.get_markers2clade()
+        marker_to_ext = mp_db_controller.get_markers2ext()
+        clade_to_markers = mp_db_controller.get_clade2markers()
+        clade_to_n_markers = {c: len(m) for c, m in clade_to_markers.items()}
+        return cls(db_name, marker_to_clade, marker_to_ext, clade_to_markers, clade_to_n_markers)
 
 
 def cluster_get_queue_max_runs(queue):

@@ -11,7 +11,7 @@ import pathlib
 import traceback
 from typing import Sequence
 
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from ..utils import global_flags
 
@@ -22,7 +22,7 @@ except ModuleNotFoundError:
 
 from . import info
 from .multistrain.pipeline import run
-from .multistrain.utils import ArgumentType, error
+from .multistrain.utils import ArgumentType, error, MetaphlanDBInfo
 from .database_controller import StrainphlanDatabaseController
 
 
@@ -104,8 +104,7 @@ def check_samtools():
 
 def try_run(args):
     try:
-        return run(*args, marker_to_clade=try_run.marker_to_clade, marker_to_ext=try_run.marker_to_ext,
-                   clade_to_markers=try_run.clade_to_markers)
+        return run(*args, mp_db_info=try_run.mp_db_info)
     except Exception as e:
         error(f'Error running sample {args[0]}')
         error(str(e))
@@ -132,13 +131,10 @@ def main():
     mp_db_controller = StrainphlanDatabaseController(args.database)
     mp_db_controller.load_database()
     info('Getting information from the MetaPhlAn database')
-    db_name = mp_db_controller.get_database_name()
-    marker_to_clade = mp_db_controller.get_markers2clade()
-    marker_to_ext = mp_db_controller.get_markers2ext()
-    clade_to_markers = mp_db_controller.get_clade2markers()
+    mp_db_info = MetaphlanDBInfo.from_mp_controller(mp_db_controller)
 
 
-    ss_args = [(sample_path, args.output_dir, config, args.save_bam_file, args.reuse, db_name, args.output_suffix)
+    ss_args = [(sample_path, args.output_dir, config, args.save_bam_file, args.reuse, args.output_suffix)
                for sample_path in args.input]
 
     n_threads = min(args.threads, len(ss_args))
@@ -146,9 +142,7 @@ def main():
     info(f'Running on {len(ss_args)} samples using {n_threads} processes')
 
     # bind constant data to the function so that they are shared on fork (copy-on-write)
-    try_run.marker_to_clade = marker_to_clade
-    try_run.clade_to_markers = clade_to_markers
-    try_run.marker_to_ext = marker_to_ext
+    try_run.mp_db_info = mp_db_info
 
     if n_threads == 1:
         successes = [try_run(ss_arg) for ss_arg in ss_args]
