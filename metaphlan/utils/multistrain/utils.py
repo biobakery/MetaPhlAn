@@ -72,14 +72,14 @@ class ArgumentType:
     @staticmethod
     def creatable_dir(path):
         path = pathlib.Path(path).resolve()
-        if path.is_dir() or path.parent.resolve().is_dir():
+        if path.is_dir() or path.parent.is_dir():
             return path
         raise ap.ArgumentTypeError('Neither the directory nor its parent exist (%s).' % path)
 
     @staticmethod
     def creatable_file(path):
         path = pathlib.Path(path).resolve()
-        if path.is_file() or path.parent.resolve().is_dir():
+        if path.is_file() or path.parent.is_dir():
             return path
         raise ap.ArgumentTypeError('Neither the file nor its parent exist (%s).' % path)
 
@@ -87,6 +87,12 @@ class ArgumentType:
     def file_list_of_dirs(cls, path):
         list_of_str = cls.list_in_file(path)
         list_of_paths = [cls.existing_dir(p) for p in list_of_str]
+        return list_of_paths
+
+    @classmethod
+    def file_list_of_creatable_files(cls, path):
+        list_of_str = cls.list_in_file(path)
+        list_of_paths = [cls.creatable_file(p) for p in list_of_str]
         return list_of_paths
 
     @staticmethod

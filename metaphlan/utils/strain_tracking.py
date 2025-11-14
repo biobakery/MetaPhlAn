@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 import argparse as ap
 import base64
-import csv
+import json
 import multiprocessing.pool as mpp
 import pathlib
 import zipfile
@@ -10,10 +10,6 @@ from collections import defaultdict, Counter
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-
-OUTPUT_HEADER = ['sample_1', 'sample_2', 'sgb_id', 'pop_matches', 'pop_positions',
-                    'rare_matches', 'rare_positions_1', 'rare_positions_2',
-                    'rare_mathces_afs_mean', 'rare_matches_afs_std']
 
 try:
     import tomllib  # Python 3.11+
@@ -24,6 +20,13 @@ except ModuleNotFoundError:
 from . import info, error, warning
 from .database_controller import StrainphlanDatabaseController
 from .multistrain.utils import ArgumentType, MetaphlanDBInfo
+from .multistrain.strain_tracking_commons import load_sample, load_sample_parallel, load_sample_parallel_only_clades, \
+    process_samples_argument
+
+OUTPUT_HEADER = ['sample_1', 'sample_2', 'sgb_id', 'pop_matches', 'pop_positions',
+                 'rare_matches', 'rare_positions_1', 'rare_positions_2',
+                 'rare_mathces_afs_mean_1', 'rare_matches_afs_std_1',
+                 'rare_mathces_afs_mean_2', 'rare_matches_afs_std_2']
 
 
 class Arguments:
@@ -47,7 +50,7 @@ def read_params():
     group_input.add_argument('--samples', type=ArgumentType.existing_dir, nargs='+',
                              help="Paths to the multi-strain output directory (containing pileup.tsv.gz file) "
                                   "separated by space")
-    group_input.add_argument('--sample_list', type=ArgumentType.file_list_of_dirs,
+    group_input.add_argument('--sample_list', type=ArgumentType.file_list_of_creatable_files,
                              help="File with one sample per line, each line is a multi-strain directory output "
                                   "directory (containing pileup.tsv.gz file)")
 
@@ -55,9 +58,9 @@ def read_params():
     p.add_argument('--database', type=ArgumentType.existing_file, required=True,
                    help="Path to the MetaPhlAn database .pkl")
     p.add_argument('--clade', type=str, help="Restrict to only this clade")
-    p.add_argument('--config', type=ArgumentType.existing_file, help="A path to config file", required=True)
     p.add_argument('--output_dir', type=ArgumentType.creatable_dir, required=True,
                    help="Path to the output directory")
+    p.add_argument('--config', type=ArgumentType.existing_file, default=None, help="A path to config file")
     p.add_argument('--threads_cpu', type=ArgumentType.positive_int, default=1, help="Number of threads")
     p.add_argument('--threads_io', type=ArgumentType.positive_int, default=1, help="Number of threads")
 
@@ -67,6 +70,9 @@ def read_params():
 def check_params(argp: ap.ArgumentParser):
     args = argp.parse_args(namespace=Arguments())
 
+    if args.config is None:
+        args.config = pathlib.Path(__file__).parent / 'multistrain' / 'config-default.toml'
+
     if not args.output_dir.exists():
         args.output_dir.mkdir()
 
@@ -74,80 +80,6 @@ def check_params(argp: ap.ArgumentParser):
         args.samples = args.sample_list
 
     return args
-
-
-def load_sample(config, sample_dir, target_clade, mp_db_info):
-    """
-
-    :param dict config:
-    :param pathlib.Path sample_dir:
-    :param str|None target_clade:
-    :param MetaphlanDBInfo mp_db_info:
-    :return:
-    """
-    sample_name = sample_dir.name
-    pileup_path = sample_dir / 'allele_counts.zip'
-    if not pileup_path.exists():
-        error(f'Allele counts file does not exist, skipping the sample {sample_name}: {pileup_path}')
-        return None
-
-    clades_all = []
-    sample_allele_counts = {}
-    sample_marker_breadths = {}
-    with zipfile.ZipFile(pileup_path, 'r') as f:
-        for fi in f.infolist():
-            m = fi.filename
-            clade = mp_db_info.marker_to_clade[m]
-            if (target_clade is not None) and (target_clade != clade):
-                continue
-            clades_all.append(clade)
-
-            with f.open(fi, 'r') as fm:
-                sample_acs = np.load(fm)
-                sample_allele_counts[m] = sample_acs
-                sample_marker_breadths[m] = (sample_acs.sum(axis=0) > 0).mean()
-
-    clades_to_n_markers = Counter(clades_all)  # clade to number of marker with non-zero coverage
-
-    markers_filtered = sample_allele_counts.keys()
-    markers_non_quasi = [m for m in markers_filtered if len(mp_db_info.marker_to_ext[m]) == 0]
-    markers_quasi = [m for m in markers_filtered if len(mp_db_info.marker_to_ext[m]) > 0]
-    # if any external SGB has >= quasi_marker_frac non-zero markers ==> discard
-    markers_quasi_filtered = [m for m in markers_quasi
-                              if not any(clades_to_n_markers[ext_sgb] / mp_db_info.clade_to_n_markers[ext_sgb] >=
-                                         config['quasi_marker_frac']
-                                         for ext_sgb in mp_db_info.marker_to_ext[m])]
-
-    markers_filtered = markers_non_quasi + markers_quasi_filtered
-    markers_filtered = [m for m in markers_filtered if sample_marker_breadths[m] >= config['min_breadth']]
-
-    clades_to_n_filtered_markers = Counter([mp_db_info.marker_to_clade[m] for m in markers_filtered])
-
-    clades_present = set([sgb_id for sgb_id, c in clades_to_n_filtered_markers.items()
-                          if c >= config['min_markers_abs']
-                          and c / mp_db_info.clade_to_n_markers[sgb_id] >= config['min_markers_rel']])
-    markers_filtered_2 = set([m for m in markers_filtered if mp_db_info.marker_to_clade[m] in clades_present])
-
-    sample_allele_counts = {m: c for m, c in sample_allele_counts.items() if m in markers_filtered_2}
-
-    return sample_name, clades_present, sample_allele_counts
-
-
-def load_sample_parallel(sample_dir):
-    config = load_sample_parallel.config
-    mp_db_info = load_sample_parallel.mp_db_info
-
-    return load_sample(config, sample_dir, None, mp_db_info)
-
-
-def load_sample_parallel_only_clades(sample_dir):
-    res = load_sample_parallel(sample_dir)
-    if res is None:
-        return None
-
-    sample_name, clades_present, _ = res
-
-    return sample_name, clades_present
 
 
 def compute(sample_name_1, sample_name_2, clades_present_1, clades_present_2, allele_counts_1, allele_counts_2,
@@ -166,7 +98,6 @@ def compute(sample_name_1, sample_name_2, clades_present_1, clades_present_2, al
     clades_common = set(clades_present_1).intersection(clades_present_2).intersection(prevalent_clades)
     markers_common = markers_1.intersection(markers_2)
 
-    result_rows = []
     for m in markers_common:
         sgb_id = metaphlan_db.marker_to_clade[m]
         if sgb_id not in clades_common:
@@ -214,7 +145,7 @@ def compute(sample_name_1, sample_name_2, clades_present_1, clades_present_2, al
                 rare_match_afs_1[sgb_id].extend(afs1)
                 rare_match_afs_2[sgb_id].extend(afs2)
 
-
+    result_rows = []
     for sgb_id in pop_ani_n.keys():
         if ((rare_ani_d1[sgb_id] < config['min_rare_total'] and rare_ani_d2[sgb_id] < config['min_rare_total'])
             or rare_ani_n[sgb_id] < config['min_rare_matches']) and (pop_ani_d[sgb_id] < config['min_pop_aln_len']):
@@ -238,30 +169,31 @@ def compute(sample_name_1, sample_name_2, clades_present_1, clades_present_2, al
             match_afs_2.std() if len(match_afs_2) > 1 else None,
         ])
 
-        return result_rows
+    return result_rows
 
 
-def run(sample_dir_1):
+def run(sample_name_1):
     metaphlan_db = run.metaphlan_db
     prevalent_clades = run.prevalent_clades
     config = run.config
-    samples = run.samples
+    sample_name_to_ac_path = run.sample_name_to_ac_path
     rare_alleles_db = run.rare_alleles_db
 
-    r1 = load_sample(config, sample_dir_1, None, metaphlan_db)
+    ac_path_1 = sample_name_to_ac_path[sample_name_1]
+    r1 = load_sample(config, ac_path_1, None, metaphlan_db)
     if r1 is None:
         return
-    sample_name_1, clades_present_1, allele_counts_1 = r1
+    clades_present_1, allele_counts_1 = r1
 
     result_rows = []
-    for sample_dir_2 in samples:
+    for sample_name_2, ac_path_2 in sample_name_to_ac_path.items():
         # if sample_dir_2 == sample_dir_1:
         #     break  # run only the triangle, avoid self-comparisons
 
-        r2 = load_sample(config, sample_dir_2, None, metaphlan_db)
+        r2 = load_sample(config, ac_path_2, None, metaphlan_db)
         if r2 is None:
             continue
-        sample_name_2, clades_present_2, allele_counts_2 = r2
+        clades_present_2, allele_counts_2 = r2
 
         result_rows_batch = compute(sample_name_1, sample_name_2, clades_present_1, clades_present_2,
                                     allele_counts_1, allele_counts_2, rare_alleles_db, prevalent_clades,
@@ -271,13 +203,12 @@ def run(sample_dir_1):
     return result_rows
 
 
-def run_in_memory(sample_dir_1):
+def run_in_memory(sample_name_1):
     metaphlan_db = run.metaphlan_db
     prevalent_clades = run.prevalent_clades
     config = run.config
-    samples = run.samples
+    sample_name_to_ac_path = run.sample_name_to_ac_path
     rare_alleles_db = run.rare_alleles_db
-    sample_name_1 = sample_dir_1.name
 
     sample_to_clades_present = run_in_memory.sample_to_clades_present
     sample_to_allele_counts = run_in_memory.sample_to_allele_counts
@@ -287,11 +218,9 @@ def run_in_memory(sample_dir_1):
 
 
     result_rows = []
-    for sample_dir_2 in samples:
+    for sample_name_2, ac_path_2 in sample_name_to_ac_path.items():
         # if sample_dir_2 == sample_dir_1:
         #     break  # run only triangle, avoid self-comparisons and duplicates
-
-        sample_name_2 = sample_dir_2.name
 
         clades_present_2 = sample_to_clades_present[sample_name_2]
         allele_counts_2 = sample_to_allele_counts[sample_name_2]
@@ -313,21 +242,8 @@ def main():
     with open(args.config, 'rb') as f:
         config = tomllib.load(f)
 
-    sample_name_to_dir = {}
-    sample_dirs = []
-    for sample_dir in args.samples:
-        sample_name = sample_dir.name
-        ac_path = sample_dir / 'allele_counts.zip'
-        if not ac_path.exists():
-            error(f"The allele counts file does not exist for sample {sample_name}, skipping it.")
-            continue
-        sample_dirs.append(sample_dir)
-        if sample_name in sample_name_to_dir:
-            error(f'Duplicated sample name {sample_name}, exiting')
-            exit(1)
-        sample_name_to_dir[sample_name] = sample_dir
-
-    info(f'Will run strain tracking on {len(sample_dirs)} samples')
+    sample_name_to_ac_path = process_samples_argument(args.samples)
+    info(f'Will run strain tracking on {len(sample_name_to_ac_path)} samples')
 
 
     mp_db_controller = StrainphlanDatabaseController(args.database)
@@ -348,10 +264,11 @@ def main():
         sample_to_clades_present = {}
         sample_to_allele_counts = {}
         with mpp.Pool(args.threads_io) as pool:
-            for res in tqdm(pool.imap_unordered(load_sample_parallel, sample_dirs), total=len(sample_dirs)):
+            for sample_name, res in tqdm(pool.imap_unordered(load_sample_parallel, sample_name_to_ac_path.items()),
+                                         total=len(sample_name_to_ac_path)):
                 if res is None:
                     continue
-                sample_name, clades_present, sample_allele_counts = res
+                clades_present, sample_allele_counts = res
                 sample_to_clades_present[sample_name] = clades_present
                 sample_to_allele_counts[sample_name] = sample_allele_counts
     else:
@@ -359,7 +276,8 @@ def main():
         info('Counting SGB prevalence')
         sample_to_clades_present = {}
         with mpp.Pool(args.threads_io) as pool:
-            for res in tqdm(pool.imap_unordered(load_sample_parallel_only_clades, sample_dirs), total=len(sample_dirs)):
+            for res in tqdm(pool.imap_unordered(load_sample_parallel_only_clades, sample_name_to_ac_path.items()),
+                            total=len(sample_name_to_ac_path)):
                 if res is None:
                     continue
                 sample_name, clades_present = res
@@ -391,10 +309,10 @@ def main():
             f.write(f"{sample_name}\t{','.join(clades)}\n")
 
     info('Loading rare alleles database')
-    rare_alleles_db_dir = pathlib.Path(config['db_dir']) / 'allele_counts'
+    rare_alleles_db_dir = pathlib.Path(config['db_dir'])
 
     if args.clade is not None:
-        f = rare_alleles_db_dir / f'{args.clade}_allele_counts.tsv'
+        f = rare_alleles_db_dir / f'{args.clade}.zip'
         if not f.exists():
             error(f'The clade {args.clade} is not in the rare alleles database')
             return
@@ -405,25 +323,34 @@ def main():
     # TODO: better allele DB format (zip of numpy arrays)
     rare_alleles_db = {}
     prevalent_clades_rare = set()
-    for f in tqdm(fs):
-        suffix = '_allele_counts.tsv'
-        assert f.name.endswith(suffix)
-        sgb_id = f.name[:-len(suffix)]
+    for ac_path in tqdm(fs):
+        suffix = '.zip'
+        assert ac_path.name.endswith(suffix)
+        sgb_id = ac_path.name[:-len(suffix)]
         if sgb_id not in prevalent_clades:
             continue
 
         prevalent_clades_rare.add(sgb_id)
-        with f.open('rb') as ff:
-            for line in ff:
-                m, c_b64 = line.rstrip(b'\n').split(b'\t', maxsplit=1)
-                m = m.decode()
-                c_bytes = base64.decodebytes(c_b64)
-                allele_prevalences_abs = np.frombuffer(c_bytes, dtype=np.int32).reshape((4, -1))
-                tot_counts = allele_prevalences_abs.sum(axis=0)
-                with np.errstate(invalid='ignore'):  # 0/0 case will make NaN and be filtered as False below
-                    allele_prevalences_rel = allele_prevalences_abs / tot_counts
-                rare_alleles_db[m] = (allele_prevalences_rel < config['max_rare_allele_freq']) & \
-                                     (tot_counts >= config['min_db_pos_coverage'])
+        with zipfile.ZipFile(ac_path, 'r') as f:
+            for fi in f.infolist():
+                if fi.filename == 'metadata.json':
+                    with f.open(fi, 'r') as fm:
+                        metadata = json.load(fm)
+                    if 'database_name' in metadata and metadata['database_name'] != mp_db_info.db_name:
+                        raise Exception(f'Sample {sample_name} has been generated with a different MetaPhlAn database'
+                                        f' {metadata["database_name"]} and not the one provided {mp_db_info.db_name}')
+                elif fi.filename.endswith('.npy'):
+                    m = fi.filename[:-len('.npy')]
+                    with f.open(fi, 'r') as fm:
+                        allele_prevalences_abs = np.load(fm)
+                        tot_counts = allele_prevalences_abs.sum(axis=0)
+                        with np.errstate(invalid='ignore'):  # 0/0 case will make NaN and be filtered as False below
+                            allele_prevalences_rel = allele_prevalences_abs / tot_counts
+                        rare_alleles_db[m] = (allele_prevalences_rel < config['max_rare_allele_freq']) & \
+                                             (tot_counts >= config['min_db_pos_coverage'])
+                else:
+                    warning(f'Ignoring unrecognized file in the allele counts zip file {fi.filename}')
+
 
     info(f'There are {len(prevalent_clades)} prevalent SGBs out of which {len(prevalent_clades_rare)} are also '
          f'in the rare database.')
@@ -434,7 +361,7 @@ def main():
     run.metaphlan_db = mp_db_info
     run.prevalent_clades = prevalent_clades
     run.config = config
-    run.samples = sample_dirs
+    run.sample_name_to_ac_path = sample_name_to_ac_path
     run.rare_alleles_db = rare_alleles_db
 
     result_rows = []
@@ -442,23 +369,25 @@ def main():
         run_in_memory.sample_to_clades_present = sample_to_clades_present
         run_in_memory.sample_to_allele_counts = sample_to_allele_counts
         with mpp.Pool(args.threads_cpu) as pool:
-            for result_rows_batch in tqdm(pool.imap_unordered(run_in_memory, sample_dirs), total=len(sample_dirs)):
+            for result_rows_batch in tqdm(pool.imap_unordered(run_in_memory, sample_name_to_ac_path.keys()),
+                                          total=len(sample_name_to_ac_path)):
                 result_rows.extend(result_rows_batch)
     else:
         with mpp.Pool(args.threads_cpu) as pool:
-            for result_rows_batch in tqdm(pool.imap_unordered(run, sample_dirs), total=len(sample_dirs)):
+            for result_rows_batch in tqdm(pool.imap_unordered(run, sample_name_to_ac_path.keys()),
+                                          total=len(sample_name_to_ac_path)):
                 result_rows.extend(result_rows_batch)
 
 
-    info(f'Creating a dataframe with {len(result_rows)} rows')
-    df_results = pd.DataFrame(result_rows)
+    info(f'Creating a dataframe with {len(result_rows):,} rows')
+    df_results = pd.DataFrame(result_rows, columns=OUTPUT_HEADER)
 
 
     info('Saving results file as parquet')
-    df_results.to_parquet(args.output_dir / 'results.parquet')
+    df_results.to_parquet(args.output_dir / 'results.parquet', index=False)
 
     info('Saving results file as tsv')
-    df_results.to_csv(args.output_dir / 'results.tsv', sep='\t')
+    df_results.to_csv(args.output_dir / 'results.tsv.gz', sep='\t', index=False)
 
 
     info(f'Finished strain tracking. The results are stored at {args.output_dir}')

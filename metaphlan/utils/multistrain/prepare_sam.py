@@ -183,3 +183,11 @@ def prepare_sam(input_path, output_bam_path, output_dir, db_name, config):
 
 
     return read_lens
+
+
+def get_read_lens_from_bam(sam_file):
+    read_lens = []
+    for row in sam_file.fetch():
+        read_lens.append(row.qlen)
+
+    return read_lens

@@ -1,6 +1,7 @@
 import base64
 import bz2
 import gzip
+import io
 import json
 import pathlib
 import pickle
@@ -20,7 +21,7 @@ from .genotype_resolving import compute_genotypes
 from .get_strainphlan_markers import get_strainphlan_markers
 from .linkage import calculate_linkage, linkage_merging
 from .model_fitting import fit_model
-from .prepare_sam import prepare_sam
+from .prepare_sam import prepare_sam, get_read_lens_from_bam
 from .snp_calling import run_pileup, PileupResult, filter_loci_snp_call
 
 
@@ -206,7 +207,7 @@ def markers_and_species_filtering(base_frequencies, mp_db_info, config):
 
     # Filter quasi markers with external hits (using >= 1 hit threshold)
     all_markers = sorted(base_frequencies.keys())
-    clade_to_n_markers = Counter([mp_db_info.marker_to_clade for m in all_markers])
+    clade_to_n_markers = Counter([mp_db_info.marker_to_clade[m] for m in all_markers])
     markers_non_quasi = [m for m in all_markers if len(mp_db_info.marker_to_ext[m]) == 0]
     markers_quasi = [m for m in all_markers if len(mp_db_info.marker_to_ext[m]) > 0]
     markers_quasi_filtered = [m for m in markers_quasi
@@ -397,7 +398,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mp_d
 
 
 def save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results, consensuses_maj,
-                               consensuses_min, bfs_filtered, pileup_filtered_path):
+                               consensuses_min, bfs_filtered, allele_counts_file):
     """
 
     :param pathlib.Path output_results:
@@ -408,7 +409,7 @@ def save_reconstructed_markers(output_results, output_major, output_minor, db_na
     :param dict consensuses_maj:
     :param dict consensuses_min:
     :param dict[str, np.ndarray] bfs_filtered:
-    :param pathlib.Path pileup_filtered_path:
+    :param pathlib.Path allele_counts_file:
     :return:
     """
 
@@ -428,15 +429,20 @@ def save_reconstructed_markers(output_results, output_major, output_minor, db_na
     df_results.to_csv(output_results, sep='\t')
 
 
-    # Filtered pileup
-    # TODO: save also metadata like the database
-    pileup_path_tmp = pileup_filtered_path.with_name(pileup_filtered_path.name + '.tmp')
-    with zipfile.ZipFile(pileup_path_tmp, 'w', compression=zipfile.ZIP_BZIP2) as f:
+    # Allele counts
+    allele_counts_metadata = {
+        'database_name': db_name
+    }
+    pileup_path_tmp = allele_counts_file.with_name(allele_counts_file.name + '.tmp')
+    with zipfile.ZipFile(pileup_path_tmp, 'w', compression=zipfile.ZIP_DEFLATED) as f:
+        with f.open('metadata.json', 'w') as fm:
+            json.dump(allele_counts_metadata, io.TextIOWrapper(fm))
+
         for m, bfs in bfs_filtered.items():
-            with f.open(m, 'w') as fm:
+            with f.open(m + '.npy', 'w') as fm:
                 np.save(fm, bfs)
 
-    pileup_path_tmp.rename(pileup_filtered_path)
+    pileup_path_tmp.rename(allele_counts_file)
 
 
 
@@ -463,15 +469,16 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, mp
     # Main outputs
     bam_path = output_dir / f'{sample_name}.sorted.bam'
     bai_path = bam_path.with_suffix(bam_path.suffix + '.bai')
-    output_results = output_dir / 'results.tsv'
-    output_major = output_dir / f'{sample_name}_major{output_suffix}.json.bz2'
-    output_minor = output_dir / f'{sample_name}_minor{output_suffix}.json.bz2'
-    output_allele_counts = output_dir / 'allele_counts.zip'
+    read_lens_path = output_dir / f'{sample_name}.read_lengths.txt.gz'
+
+    results_path = output_dir / f'{sample_name}.results.tsv'
+    output_major_path = output_dir / f'{sample_name}.major{output_suffix}.json.bz2'
+    output_minor_path = output_dir / f'{sample_name}.minor{output_suffix}.json.bz2'
+    output_allele_counts_path = output_dir / f'{sample_name}.allele_counts.zip'
 
     # Debug outputs
     pileup_path_before = output_dir / 'full_pileup_nonfilt.tsv.gz'
     pileup_path_after = output_dir / 'full_pileup_filt.tsv.gz'
-    read_lens_path = output_dir / 'read_lengths.txt.gz'
     null_err_rate_path_before = output_dir / 'null_err_rate_nonfilt.txt'
     null_err_rate_path_after = output_dir / 'null_err_rate.txt'
     seq_error_path_before = output_dir / 'seq_error_profile_nonfilt.csv'
@@ -484,20 +491,24 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, mp
     if global_flags.debug or save_bam_file:
         files_to_remove = []
     else:
-        files_to_remove = [bam_path, bai_path]
+        files_to_remove = [bam_path, bai_path, read_lens_path]
     dirs_to_remove = []
 
 
-    bam_target_files = [bam_path, bai_path, read_lens_path]
+    bam_target_files = [bam_path, bai_path]
     pileup_target_files = [pileup_path_before, pileup_path_after, null_err_rate_path_before, null_err_rate_path_after] \
                           + bam_target_files
 
     if reuse in ['bam', 'pileup'] and all(map(pathlib.Path.is_file, bam_target_files)):
         info(f'Loading existing preprocessed BAM file for sample {sample_name}')
         sam_file = load_bam(bam_path)
-        read_lens = load_read_lens(read_lens_path)
+        if read_lens_path.is_file():
+            read_lens = load_read_lens(read_lens_path)
+        else:
+            info('Getting read lengths from BAM file')
+            read_lens = get_read_lens_from_bam(sam_file)
     else:
-        info(f'Preprocessing the BAM file for sample {sample_name}')
+        info(f'Preprocessing the intput SAM file for sample {sample_name}')
         sam_file, read_lens = step_bam(sample_path, bam_path, bai_path, output_dir, mp_db_info.db_name, config)
         save_bam(read_lens_path, read_lens)
 
@@ -520,8 +531,8 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, mp
     df_results, bfs_filtered, consensuses_maj, consensuses_min = \
         step_reconstructed_markers(output_dir, config, sam_file, pr_after, read_lens, mp_db_info)
 
-    save_reconstructed_markers(output_results, output_major, output_minor, mp_db_info.db_name, df_results,
-                               consensuses_maj, consensuses_min, bfs_filtered, output_allele_counts)
+    save_reconstructed_markers(results_path, output_major_path, output_minor_path, mp_db_info.db_name, df_results,
+                               consensuses_maj, consensuses_min, bfs_filtered, output_allele_counts_path)
 
 
     info(f'Cleaning intermediate files for sample {sample_name}')
