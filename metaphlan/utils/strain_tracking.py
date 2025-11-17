@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 import argparse as ap
-import base64
 import json
 import multiprocessing.pool as mpp
 import pathlib
@@ -33,6 +32,8 @@ class Arguments:
     samples: list[pathlib.Path]
     sample_list: pathlib.Path
     clade: str
+    min_allele_cov: int|None
+    database_rare_alleles: pathlib.Path
     database: pathlib.Path
     in_memory: bool
     config: pathlib.Path
@@ -41,23 +42,25 @@ class Arguments:
     threads_io: int
 
 
-
 def read_params():
     p = ap.ArgumentParser(description="Strain tracking using rare alleles population ANI",
                           formatter_class=ap.ArgumentDefaultsHelpFormatter)
 
     group_input = p.add_mutually_exclusive_group(required=True)
     group_input.add_argument('--samples', type=ArgumentType.existing_dir, nargs='+',
-                             help="Paths to the multi-strain output directory (containing pileup.tsv.gz file) "
+                             help="Paths to the multi-strain output directory (containing .rare_alleles.zip file) "
                                   "separated by space")
     group_input.add_argument('--sample_list', type=ArgumentType.file_list_of_creatable_files,
                              help="File with one sample per line, each line is a multi-strain directory output "
                                   "directory (containing pileup.tsv.gz file)")
 
     p.add_argument('--in_memory', action='store_true', help="Whether to pre-load the data in-memory (pay attention!)")
+    p.add_argument('--database_rare_alleles', type=ArgumentType.existing_dir, required=True,
+                   help="Path to the database of rare alleles (directory)")
     p.add_argument('--database', type=ArgumentType.existing_file, required=True,
                    help="Path to the MetaPhlAn database .pkl")
     p.add_argument('--clade', type=str, help="Restrict to only this clade")
+    p.add_argument('--min_allele_cov', type=int, default=None, help="Minimum allele coverage to consider")
     p.add_argument('--output_dir', type=ArgumentType.creatable_dir, required=True,
                    help="Path to the output directory")
     p.add_argument('--config', type=ArgumentType.existing_file, default=None, help="A path to config file")
@@ -67,11 +70,11 @@ def read_params():
     return p
 
 
-def check_params(argp: ap.ArgumentParser):
+def check_params_config(argp: ap.ArgumentParser):
     args = argp.parse_args(namespace=Arguments())
 
     if args.config is None:
-        args.config = pathlib.Path(__file__).parent / 'multistrain' / 'config-default.toml'
+        args.config = pathlib.Path(__file__).parent / 'multistrain' / 'config-default-strain-tracking.toml'
 
     if not args.output_dir.exists():
         args.output_dir.mkdir()
@@ -79,7 +82,13 @@ def check_params(argp: ap.ArgumentParser):
     if args.samples is None:
         args.samples = args.sample_list
 
-    return args
+    with open(args.config, 'rb') as f:
+        config = tomllib.load(f)
+
+    if args.min_allele_cov is not None:
+        config['min_allele_cov'] = args.min_allele_cov
+
+    return args, config
 
 
 def compute(sample_name_1, sample_name_2, clades_present_1, clades_present_2, allele_counts_1, allele_counts_2,
@@ -90,8 +99,8 @@ def compute(sample_name_1, sample_name_2, clades_present_1, clades_present_2, al
     pop_ani_n = Counter()
     pop_ani_d = Counter()
     rare_ani_n = Counter()
-    rare_ani_d1 = Counter()
-    rare_ani_d2 = Counter()
+    rare_ani_d_1 = Counter()
+    rare_ani_d_2 = Counter()
     rare_match_afs_1 = defaultdict(list)
     rare_match_afs_2 = defaultdict(list)
 
@@ -127,8 +136,8 @@ def compute(sample_name_1, sample_name_2, clades_present_1, clades_present_2, al
             rare_d_1 = np.logical_or.reduce(ac1p_rare, axis=0) & d2_pop  # rare in 1 and covered in 2
             rare_d_2 = np.logical_or.reduce(ac2p_rare, axis=0) & d1_pop  # rare in 2 and covered in 1
 
-            rare_ani_d1[sgb_id] += np.count_nonzero(rare_d_1)
-            rare_ani_d2[sgb_id] += np.count_nonzero(rare_d_2)
+            rare_ani_d_1[sgb_id] += np.count_nonzero(rare_d_1)
+            rare_ani_d_2[sgb_id] += np.count_nonzero(rare_d_2)
 
             mask_rare_matches = np.logical_or.reduce(ac1p_rare & ac2p_rare, axis=0)
             n_rare_matches = np.count_nonzero(mask_rare_matches)
@@ -147,12 +156,16 @@ def compute(sample_name_1, sample_name_2, clades_present_1, clades_present_2, al
 
     result_rows = []
     for sgb_id in pop_ani_n.keys():
-        if ((rare_ani_d1[sgb_id] < config['min_rare_total'] and rare_ani_d2[sgb_id] < config['min_rare_total'])
-            or rare_ani_n[sgb_id] < config['min_rare_matches']) and (pop_ani_d[sgb_id] < config['min_pop_aln_len']):
+        if ((rare_ani_d_1[sgb_id] < config['min_rare_total'] and rare_ani_d_2[sgb_id] < config['min_rare_total'])
+           or rare_ani_n[sgb_id] < config['min_rare_matches']) and (pop_ani_d[sgb_id] < config['min_pop_aln_len']):
             continue
 
         match_afs_1 = np.array(rare_match_afs_1[sgb_id])
+        match_afs_mean_1 = match_afs_1.mean() if len(match_afs_1) > 0 else None
+        match_afs_std_1 = match_afs_1.std() if len(match_afs_1) > 1 else None
         match_afs_2 = np.array(rare_match_afs_2[sgb_id])
+        match_afs_mean_2 = match_afs_2.mean() if len(match_afs_2) > 0 else None
+        match_afs_std_2 = match_afs_2.std() if len(match_afs_2) > 1 else None
 
         result_rows.append([
             sample_name_1,
@@ -161,12 +174,27 @@ def compute(sample_name_1, sample_name_2, clades_present_1, clades_present_2, al
             pop_ani_n[sgb_id],
             pop_ani_d[sgb_id],
             rare_ani_n[sgb_id],
-            rare_ani_d1[sgb_id],
-            rare_ani_d2[sgb_id],
-            match_afs_1.mean() if len(match_afs_1) > 0 else None,
-            match_afs_1.std() if len(match_afs_1) > 1 else None,
-            match_afs_2.mean() if len(match_afs_2) > 0 else None,
-            match_afs_2.std() if len(match_afs_2) > 1 else None,
+            rare_ani_d_1[sgb_id],
+            rare_ani_d_2[sgb_id],
+            match_afs_mean_1,
+            match_afs_std_1,
+            match_afs_mean_2,
+            match_afs_std_2,
+        ])
+
+        result_rows.append([
+            sample_name_2,
+            sample_name_1,
+            sgb_id,
+            pop_ani_n[sgb_id],
+            pop_ani_d[sgb_id],
+            rare_ani_n[sgb_id],
+            rare_ani_d_2[sgb_id],
+            rare_ani_d_1[sgb_id],
+            match_afs_mean_2,
+            match_afs_std_2,
+            match_afs_mean_1,
+            match_afs_std_1,
         ])
 
     return result_rows
@@ -187,8 +215,8 @@ def run(sample_name_1):
 
     result_rows = []
     for sample_name_2, ac_path_2 in sample_name_to_ac_path.items():
-        # if sample_dir_2 == sample_dir_1:
-        #     break  # run only the triangle, avoid self-comparisons
+        if sample_name_2 == sample_name_1:
+            break  # run only the triangle, avoid self-comparisons
 
         r2 = load_sample(config, ac_path_2, None, metaphlan_db)
         if r2 is None:
@@ -219,8 +247,8 @@ def run_in_memory(sample_name_1):
 
     result_rows = []
     for sample_name_2, ac_path_2 in sample_name_to_ac_path.items():
-        # if sample_dir_2 == sample_dir_1:
-        #     break  # run only triangle, avoid self-comparisons and duplicates
+        if sample_name_2 == sample_name_1:
+            break  # run only triangle, avoid self-comparisons and duplicates
 
         clades_present_2 = sample_to_clades_present[sample_name_2]
         allele_counts_2 = sample_to_allele_counts[sample_name_2]
@@ -237,11 +265,10 @@ def main():
     info('Starting strain tracking')
 
     argp = read_params()
-    args = check_params(argp)
+    args, config = check_params_config(argp)
 
-    with open(args.config, 'rb') as f:
-        config = tomllib.load(f)
 
+    info('Checking input samples')
     sample_name_to_ac_path = process_samples_argument(args.samples)
     info(f'Will run strain tracking on {len(sample_name_to_ac_path)} samples')
 
@@ -260,7 +287,7 @@ def main():
 
 
     if args.in_memory:
-        info('Loading samples into memory')
+        info(f'Loading samples into memory using {args.threads_io} thread(s)')
         sample_to_clades_present = {}
         sample_to_allele_counts = {}
         with mpp.Pool(args.threads_io) as pool:
@@ -273,7 +300,7 @@ def main():
                 sample_to_allele_counts[sample_name] = sample_allele_counts
     else:
         sample_to_allele_counts = None
-        info('Counting SGB prevalence')
+        info(f'Counting SGB prevalence using {args.threads_io} thread(s)')
         sample_to_clades_present = {}
         with mpp.Pool(args.threads_io) as pool:
             for res in tqdm(pool.imap_unordered(load_sample_parallel_only_clades, sample_name_to_ac_path.items()),
@@ -282,7 +309,6 @@ def main():
                     continue
                 sample_name, clades_present = res
                 sample_to_clades_present[sample_name] = clades_present
-
 
 
     clade_to_samples = defaultdict(list)
@@ -303,13 +329,8 @@ def main():
         info(f'There are {len(prevalent_clades)} prevalent SGBs')
 
 
-    with open(args.output_dir / 'sample_to_clades.tsv', 'w') as f:
-        f.write("sample_name\tclades\n")
-        for sample_name, clades in sample_to_clades_present.items():
-            f.write(f"{sample_name}\t{','.join(clades)}\n")
-
     info('Loading rare alleles database')
-    rare_alleles_db_dir = pathlib.Path(config['db_dir'])
+    rare_alleles_db_dir = args.database_rare_alleles
 
     if args.clade is not None:
         f = rare_alleles_db_dir / f'{args.clade}.zip'
@@ -320,7 +341,6 @@ def main():
     else:
         fs = list(rare_alleles_db_dir.iterdir())
 
-    # TODO: better allele DB format (zip of numpy arrays)
     rare_alleles_db = {}
     prevalent_clades_rare = set()
     for ac_path in tqdm(fs):
@@ -357,7 +377,7 @@ def main():
 
 
 
-    info('Calculating matches')
+    info(f'Calculating all-vs-all matches using {args.threads_cpu} thread(s)')
     run.metaphlan_db = mp_db_info
     run.prevalent_clades = prevalent_clades
     run.config = config

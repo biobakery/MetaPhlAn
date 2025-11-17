@@ -27,7 +27,9 @@ def process_samples_argument(samples_list):
 
     if len(sample_name_to_ac_path) == 0:
         error("No samples to run on, exiting")
-        return
+        exit(1)
+
+    return sample_name_to_ac_path
 
 
 def load_sample(config, ac_path, target_clade, mp_db_info):

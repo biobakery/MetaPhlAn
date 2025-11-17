@@ -32,6 +32,7 @@ from .multistrain.strain_tracking_commons import load_sample, load_sample_parall
 class Arguments:
     samples: list[pathlib.Path]
     sample_list: pathlib.Path
+    database_rare_alleles: pathlib.Path
     database: pathlib.Path
     config: pathlib.Path
     clean: bool
@@ -47,6 +48,8 @@ def read_params():
                              help="Paths to the allele counts files")
     group_input.add_argument('--sample_list', type=ArgumentType.file_list_of_dirs,
                              help="File with one sample per line, each line is a allele counts file")
+    p.add_argument('--database_rare_alleles', type=ArgumentType.existing_dir, required=True,
+                   help="Path to the database of rare alleles (directory)")
     p.add_argument('--database', type=ArgumentType.existing_file, required=True,
                    help="Path to the MetaPhlAn database .pkl")
     p.add_argument('--config', type=ArgumentType.existing_file, help="A path to config file", required=True)
@@ -84,7 +87,7 @@ def count_alleles_shared(arg):
         with sgb_to_lock[sgb_id]:
             a_np = np.frombuffer(allele_counts_shared_raw, offset=marker_to_offset[m],
                                  count=metaphlan_db.marker_to_len[m]*4, dtype=np.int32).reshape((4, -1))
-            a_np += (ac >= config['min_allele_cov'])
+            a_np += (ac >= config['min_allele_cov_training'])
 
 
 def main():
@@ -94,7 +97,7 @@ def main():
     with open(args.config, 'rb') as f:
         config = tomllib.load(f)
 
-    db_dir = pathlib.Path(config["db_dir"])
+    db_dir = args.database_rare_alleles
     db_dir.mkdir(parents=True, exist_ok=True)
 
 

@@ -1,0 +1,22 @@
+# Params to change
+min_allele_cov = 1
+
+# Input and output filtering
+min_cohort_sgb_prevalence = 2
+min_pop_aln_len = 1000
+min_rare_matches = 0
+min_rare_total = 1
+
+# Rare alleles definition
+min_db_pos_coverage = 100
+max_rare_allele_freq = 0.01
+
+# Rare alleles training
+min_allele_cov_training = 1
+min_sgb_prevalence_training = 100
+
+# Marker filtering and species calling
+min_breadth = 0.1
+quasi_marker_frac = 0.33
+min_markers_abs = 1
+min_markers_rel = 0.2

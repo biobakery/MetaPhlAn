@@ -232,15 +232,16 @@ def markers_and_species_filtering(base_frequencies, mp_db_info, config):
     return markers_present, clades_present
 
 
-def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mp_db_info):
+def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mp_db_info, allele_counts_only):
     """
-
     :param pathlib.Path output_dir:
     :param dict config:
     :param sam_file:
     :param PileupResult pr:
     :param Sequence[int] read_lens:
     :param MetaphlanDBInfo mp_db_info:
+    :param bool allele_counts_only:
+
     :return:
     """
 
@@ -303,94 +304,94 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mp_d
             bfs_filtered[m] = bfm_filtered
 
 
-        loci_rows = []
-        for m in clade_markers_present:
-            for pos in range(pr.marker_to_length[m]):
-                bfs_m = pr.base_frequencies[m][:, pos]
-                base_coverage = bfs_m.sum()
-                max_frequency = bfs_m.max()
+        if not allele_counts_only:
+            loci_rows = []
+            for m in clade_markers_present:
+                for pos in range(pr.marker_to_length[m]):
+                    bfs_m = pr.base_frequencies[m][:, pos]
+                    base_coverage = bfs_m.sum()
+                    max_frequency = bfs_m.max()
 
-                if base_coverage < config['min_output_base_coverage']:
-                    continue
+                    if base_coverage < config['min_output_base_coverage']:
+                        continue
 
-                pos_err_rate = err_rates[m][pos]
-                allelism = np.count_nonzero(bfs_m > 0)
-                polyallelic_significant = polyallelic_significant_masks[m][pos]
-                biallelic_significant = (allelism == 2) and polyallelic_significant
-                filtered = position_mask[m][pos]
+                    pos_err_rate = err_rates[m][pos]
+                    allelism = np.count_nonzero(bfs_m > 0)
+                    polyallelic_significant = polyallelic_significant_masks[m][pos]
+                    biallelic_significant = (allelism == 2) and polyallelic_significant
+                    filtered = position_mask[m][pos]
 
-                loci_rows.append({
-                    'marker': m,
-                    'pos': pos + 1,
-                    'error_rate': pos_err_rate,
-                    'base_frequencies': bfs_m,
-                    'base_coverage': base_coverage,
-                    'max_frequency': max_frequency,
-                    'allelism': allelism,
-                    'filtered': filtered,
-                    'polyallelic_significant': polyallelic_significant,
-                    'biallelic_significant': biallelic_significant,
-                })
+                    loci_rows.append({
+                        'marker': m,
+                        'pos': pos + 1,
+                        'error_rate': pos_err_rate,
+                        'base_frequencies': bfs_m,
+                        'base_coverage': base_coverage,
+                        'max_frequency': max_frequency,
+                        'allelism': allelism,
+                        'filtered': filtered,
+                        'polyallelic_significant': polyallelic_significant,
+                        'biallelic_significant': biallelic_significant,
+                    })
 
-        df_loci_sgb = pd.DataFrame(loci_rows)
-        output_dir_per_sgb = output_dir / 'per_sgb_data'
-        if global_flags.debug:
-            info_debug(sgb_id, 'Saving debug files')
-            output_dir_per_sgb.mkdir(parents=True, exist_ok=True)
-            df_loci_sgb.to_csv(output_dir_per_sgb / f'df_loci_{sgb_id}.tsv', sep='\t', index=False)
+            df_loci_sgb = pd.DataFrame(loci_rows)
+            output_dir_per_sgb = output_dir / 'per_sgb_data'
+            if global_flags.debug:
+                info_debug(sgb_id, 'Saving debug files')
+                output_dir_per_sgb.mkdir(parents=True, exist_ok=True)
+                df_loci_sgb.to_csv(output_dir_per_sgb / f'df_loci_{sgb_id}.tsv', sep='\t', index=False)
 
-        df_loci_sgb_filtered = df_loci_sgb.query('filtered').copy()
-        del df_loci_sgb
+            df_loci_sgb_filtered = df_loci_sgb.query('filtered').copy()
+            del df_loci_sgb
 
-        if global_flags.debug:
-            result_row['est_err_rate'] = 1 - df_loci_sgb_filtered['max_frequency'].sum() / \
-                                         df_loci_sgb_filtered['base_coverage'].sum()
-
-
-        if len(df_loci_sgb_filtered) == 0:
-            warning(f'No loci left after filtering. Skipping SGB {sgb_id}, {output_dir.name}')
-            continue
+            if global_flags.debug:
+                result_row['est_err_rate'] = 1 - df_loci_sgb_filtered['max_frequency'].sum() / \
+                                             df_loci_sgb_filtered['base_coverage'].sum()
 
 
-        if result_row['multi_strain']:
-            info_debug(sgb_id, 'Creating and merging linkage')
-            df_loci_biallelic_significant = df_loci_sgb_filtered.query('biallelic_significant')
-            sgb_linkage = calculate_linkage(df_loci_biallelic_significant, sam_file,
-                                            config)  # (m1, p1, m2, p2) => (b1 + b2) => count
-            merging_results_before, merging_results = linkage_merging(df_loci_biallelic_significant, sgb_linkage,
-                                                                      config)
-            sgb_nps = merging_results[0]
-            info_debug(sgb_id, 'Fitting model')
-            fit_model(sgb_id, df_loci_sgb_filtered, result_row, config)
-        else:
-            sgb_nps = []
-            merging_results_before = ([], None)
+            if len(df_loci_sgb_filtered) == 0:
+                warning(f'No loci left after filtering. Skipping SGB {sgb_id}, {output_dir.name}')
+                continue
+
+            if result_row['multi_strain']:
+                info_debug(sgb_id, 'Creating and merging linkage')
+                df_loci_biallelic_significant = df_loci_sgb_filtered.query('biallelic_significant')
+                sgb_linkage = calculate_linkage(df_loci_biallelic_significant, sam_file,
+                                                config)  # (m1, p1, m2, p2) => (b1 + b2) => count
+                merging_results_before, merging_results = linkage_merging(df_loci_biallelic_significant, sgb_linkage,
+                                                                          config)
+                sgb_nps = merging_results[0]
+                info_debug(sgb_id, 'Fitting model')
+                fit_model(sgb_id, df_loci_sgb_filtered, result_row, config)
+            else:
+                sgb_nps = []
+                merging_results_before = ([], None)
 
 
-        info_debug(sgb_id, 'Generating genotype by maximizing per-position probabilities')
-        consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch = \
-            compute_genotypes(df_loci_sgb_filtered, sgb_nps, result_row, marker_to_length_sgb)
+            info_debug(sgb_id, 'Generating genotype by maximizing per-position probabilities')
+            consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch = \
+                compute_genotypes(df_loci_sgb_filtered, sgb_nps, result_row, marker_to_length_sgb)
 
-        strain_resolved_markers_sgb = [{
-            'marker': m,
-            'sequence_maj': consensuses_major[m].decode(),
-            'sequence_min': consensuses_minor[m].decode(),
-            'log_p_maj': qualities_major[m],
-            'log_p_min': qualities_minor[m],
-            'polyallelic_significant': polyallelic_significant_masks[m],
-            'log_probas_switch': log_probas_switch[m],
-        } for m in consensuses_major.keys()]
+            strain_resolved_markers_sgb = [{
+                'marker': m,
+                'sequence_maj': consensuses_major[m].decode(),
+                'sequence_min': consensuses_minor[m].decode(),
+                'log_p_maj': qualities_major[m],
+                'log_p_min': qualities_minor[m],
+                'polyallelic_significant': polyallelic_significant_masks[m],
+                'log_probas_switch': log_probas_switch[m],
+            } for m in consensuses_major.keys()]
 
-        if global_flags.debug:
-            info_debug('Saving strain resolved markers')
-            with open(output_dir_per_sgb / f'strain_resolved_markers_{sgb_id}.pic', 'wb') as f:
-                pickle.dump(strain_resolved_markers_sgb, f)
+            if global_flags.debug:
+                info_debug('Saving strain resolved markers')
+                with open(output_dir_per_sgb / f'strain_resolved_markers_{sgb_id}.pic', 'wb') as f:
+                    pickle.dump(strain_resolved_markers_sgb, f)
 
-        consensuses_maj_sgb, consensuses_min_sgb = get_strainphlan_markers(strain_resolved_markers_sgb, result_row,
-                                                                           merging_results_before, avg_read_len,
-                                                                           config)
-        consensuses_maj.update(consensuses_maj_sgb)
-        consensuses_min.update(consensuses_min_sgb)
+            consensuses_maj_sgb, consensuses_min_sgb = get_strainphlan_markers(strain_resolved_markers_sgb, result_row,
+                                                                               merging_results_before, avg_read_len,
+                                                                               config)
+            consensuses_maj.update(consensuses_maj_sgb)
+            consensuses_min.update(consensuses_min_sgb)
 
     df_results = pd.DataFrame.from_dict(result_rows, orient='index')
 
@@ -398,7 +399,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mp_d
 
 
 def save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results, consensuses_maj,
-                               consensuses_min, bfs_filtered, allele_counts_file):
+                               consensuses_min, bfs_filtered, allele_counts_file, allele_counts_only):
     """
 
     :param pathlib.Path output_results:
@@ -410,19 +411,21 @@ def save_reconstructed_markers(output_results, output_major, output_minor, db_na
     :param dict consensuses_min:
     :param dict[str, np.ndarray] bfs_filtered:
     :param pathlib.Path allele_counts_file:
+    :param bool allele_counts_only:
     :return:
     """
 
 
     # Reconstructed genotypes
-    consensuses_maj = list(consensuses_maj.values())
-    consensuses_min = list(consensuses_min.values())
+    if not allele_counts_only:
+        consensuses_maj = list(consensuses_maj.values())
+        consensuses_min = list(consensuses_min.values())
 
-    with bz2.open(output_minor, 'wt') as f:
-        json.dump({'database_name': db_name, 'consensus_markers': consensuses_min}, f, indent=2)
+        with bz2.open(output_minor, 'wt') as f:
+            json.dump({'database_name': db_name, 'consensus_markers': consensuses_min}, f, indent=2)
 
-    with bz2.open(output_major, 'wt') as f:
-        json.dump({'database_name': db_name, 'consensus_markers': consensuses_maj}, f, indent=2)
+        with bz2.open(output_major, 'wt') as f:
+            json.dump({'database_name': db_name, 'consensus_markers': consensuses_maj}, f, indent=2)
 
 
     # Results dataframe
@@ -446,7 +449,7 @@ def save_reconstructed_markers(output_results, output_major, output_minor, db_na
 
 
 
-def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, mp_db_info):
+def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, allele_counts_only, mp_db_info):
     """
 
     :param pathlib.Path sample_path:
@@ -455,6 +458,7 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, mp
     :param bool save_bam_file:
     :param str reuse:
     :param str output_suffix:
+    :param bool allele_counts_only:
     :param MetaphlanDBInfo mp_db_info:
     :return:
     """
@@ -529,10 +533,11 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, mp
 
     info(f'Running marker reconstruction for sample {sample_name}')
     df_results, bfs_filtered, consensuses_maj, consensuses_min = \
-        step_reconstructed_markers(output_dir, config, sam_file, pr_after, read_lens, mp_db_info)
+        step_reconstructed_markers(output_dir, config, sam_file, pr_after, read_lens, mp_db_info, allele_counts_only)
 
     save_reconstructed_markers(results_path, output_major_path, output_minor_path, mp_db_info.db_name, df_results,
-                               consensuses_maj, consensuses_min, bfs_filtered, output_allele_counts_path)
+                               consensuses_maj, consensuses_min, bfs_filtered, output_allele_counts_path,
+                               allele_counts_only)
 
 
     info(f'Cleaning intermediate files for sample {sample_name}')

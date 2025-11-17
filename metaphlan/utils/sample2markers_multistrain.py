@@ -31,9 +31,9 @@ class ArgTypes:
     input_list: pathlib.Path | None
     output_dir: pathlib.Path
     database: pathlib.Path
+    allele_counts_only: bool
     threads: int
     config: pathlib.Path
-    target: str
     reuse: str
     save_bam_file: bool
     debug: bool
@@ -55,6 +55,8 @@ def read_params():
                    help="Path to the output directory")
     p.add_argument('-d', '--database', type=ArgumentType.existing_file, required=True,
                    help="Path to the MetaPhlAn database pkl file")
+    p.add_argument('--allele_counts_only', action='store_true',
+                   help="Don't run genotype reconstruction, only allele counts")
     p.add_argument('-t', '--threads', type=ArgumentType.positive_int, default=1, help="Number of threads")
     # TODO: config or arguments?
     p.add_argument('--config', type=ArgumentType.existing_file, default=None, help="Path to a config file")
@@ -134,7 +136,8 @@ def main():
     mp_db_info = MetaphlanDBInfo.from_mp_controller(mp_db_controller)
 
 
-    ss_args = [(sample_path, args.output_dir, config, args.save_bam_file, args.reuse, args.output_suffix)
+    ss_args = [(sample_path, args.output_dir, config, args.save_bam_file, args.reuse, args.output_suffix,
+                args.allele_counts_only)
                for sample_path in args.input]
 
     n_threads = min(args.threads, len(ss_args))
