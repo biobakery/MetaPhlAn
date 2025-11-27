@@ -3,6 +3,15 @@ __author__ = 'Michal Puncochar (michal.puncochar@unitn.it)'
 __version__ = '4.1.1'
 __date__ = '4 Nov 2024'
 
+import os
+
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+os.environ['GOTO_NUM_THREADS'] = '1'
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['NUMEXPR_NUM_THREADS'] = '1'
+os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
+
 
 import subprocess as sp
 import argparse as ap
@@ -115,6 +124,8 @@ def try_run(args):
 
 
 def main():
+    # prevent OpenBLAS inside MASH from creating multiple threads https://pythonspeed.com/articles/concurrency-control/
+    # we parallelize it ourselves
     info('Starting sample2markers multi-strain version')
 
     check_samtools()

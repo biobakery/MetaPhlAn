@@ -31,13 +31,14 @@ OUTPUT_HEADER = ['sample_1', 'sample_2', 'sgb_id', 'pop_matches', 'pop_positions
 class Arguments:
     samples: list[pathlib.Path]
     sample_list: pathlib.Path
-    clade: str
-    min_allele_cov: int|None
+    in_memory: bool
     database_rare_alleles: pathlib.Path
     database: pathlib.Path
-    in_memory: bool
-    config: pathlib.Path
+    clade: str
+    min_allele_cov: int|None
     output_dir: pathlib.Path
+    skip_input_check: bool
+    config: pathlib.Path
     threads_cpu: int
     threads_io: int
 
@@ -50,7 +51,7 @@ def read_params():
     group_input.add_argument('--samples', type=ArgumentType.existing_dir, nargs='+',
                              help="Paths to the multi-strain output directory (containing .rare_alleles.zip file) "
                                   "separated by space")
-    group_input.add_argument('--sample_list', type=ArgumentType.file_list_of_creatable_files,
+    group_input.add_argument('--sample_list', type=ArgumentType.file_list_of_paths,
                              help="File with one sample per line, each line is a multi-strain directory output "
                                   "directory (containing pileup.tsv.gz file)")
 
@@ -63,6 +64,7 @@ def read_params():
     p.add_argument('--min_allele_cov', type=int, default=None, help="Minimum allele coverage to consider")
     p.add_argument('--output_dir', type=ArgumentType.creatable_dir, required=True,
                    help="Path to the output directory")
+    p.add_argument('--skip_input_check', action='store_true', help="Skip checking input files")
     p.add_argument('--config', type=ArgumentType.existing_file, default=None, help="A path to config file")
     p.add_argument('--threads_cpu', type=ArgumentType.positive_int, default=1, help="Number of threads")
     p.add_argument('--threads_io', type=ArgumentType.positive_int, default=1, help="Number of threads")
@@ -269,7 +271,7 @@ def main():
 
 
     info('Checking input samples')
-    sample_name_to_ac_path = process_samples_argument(args.samples)
+    sample_name_to_ac_path = process_samples_argument(args.samples, check=not args.skip_input_check)
     info(f'Will run strain tracking on {len(sample_name_to_ac_path)} samples')
 
 
@@ -406,8 +408,8 @@ def main():
     info('Saving results file as parquet')
     df_results.to_parquet(args.output_dir / 'results.parquet', index=False)
 
-    info('Saving results file as tsv')
-    df_results.to_csv(args.output_dir / 'results.tsv.gz', sep='\t', index=False)
+    # info('Saving results file as tsv')
+    # df_results.to_csv(args.output_dir / 'results.tsv.gz', sep='\t', index=False)
 
 
     info(f'Finished strain tracking. The results are stored at {args.output_dir}')

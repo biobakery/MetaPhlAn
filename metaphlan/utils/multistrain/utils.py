@@ -90,9 +90,9 @@ class ArgumentType:
         return list_of_paths
 
     @classmethod
-    def file_list_of_creatable_files(cls, path):
+    def file_list_of_paths(cls, path):
         list_of_str = cls.list_in_file(path)
-        list_of_paths = [cls.creatable_file(p) for p in list_of_str]
+        list_of_paths = [pathlib.Path(p) for p in list_of_str]
         return list_of_paths
 
     @staticmethod

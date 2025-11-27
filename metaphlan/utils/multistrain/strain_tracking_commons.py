@@ -8,7 +8,7 @@ from .utils import MetaphlanDBInfo
 from .. import error, warning
 
 
-def process_samples_argument(samples_list):
+def process_samples_argument(samples_list, check):
     sample_name_to_ac_path = {}
     for ac_path in samples_list:
         suffix = '.allele_counts.zip'
@@ -16,10 +16,9 @@ def process_samples_argument(samples_list):
             error(f'The path {ac_path} does not seem to be allele counts file, skipping it.')
             continue
         sample_name = ac_path.name[:-len(suffix)]
-        if not ac_path.exists():
+        if check and not ac_path.exists():
             error(f"The allele counts file does not exist for sample {sample_name}, skipping it.")
             continue
-        # sample_dirs.append(sample_dir)
         if sample_name in sample_name_to_ac_path:
             error(f'Duplicated sample name {sample_name}, exiting')
             exit(1)
@@ -47,7 +46,7 @@ def load_sample(config, ac_path, target_clade, mp_db_info):
         return None
 
     clades_all = []
-    sample_allele_counts = {}
+    sample_allele_counts: dict[str, np.ndarray] = {}
     sample_marker_breadths = {}
     with zipfile.ZipFile(ac_path, 'r') as f:
         for fi in f.infolist():
@@ -107,12 +106,25 @@ def load_sample_parallel(arg):
 
 
 def load_sample_parallel_only_clades(arg):
-    sample_name, allele_counts_path = arg
-
-    res = load_sample_parallel(allele_counts_path)
+    # Don't return the allele counts to avoid un/pickling across threads
+    sample_name, res = load_sample_parallel(arg)
     if res is None:
         return None
 
     clades_present, _ = res
 
     return sample_name, clades_present
+
+
+def load_sample_parallel_only_clades_and_marker_lens(arg):
+    # Don't return the allele counts to avoid un/pickling across threads
+    sample_name, res = load_sample_parallel(arg)
+    if res is None:
+        return None
+
+    clades_present, sample_acs = res
+
+    marker_to_len = {m: ac.shape[1] for m, ac in sample_acs.items()}
+
+    return sample_name, clades_present, marker_to_len
+
