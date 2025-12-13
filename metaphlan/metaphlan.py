@@ -1990,7 +1990,7 @@ def read_params(args):
     arg('--force', action='store_true',
         help="Force profiling of the input file by removing the mapout file")
     arg('--db_dir', metavar="METAPHLAN_DB", type=str, default=DEFAULT_DB_FOLDER,
-        help=("Folder containing the MetaPhlAn database. You can specify the location by exporting the DEFAULT_DB_FOLDER variable in the shell (old --bowtie2db option)."
+        help=("Folder containing the MetaPhlAn database (old --bowtie2db option). Alternatively, you can specify the location by exporting the METAPHLAN_DB_DIR variable in the shell."
               "[default "+DEFAULT_DB_FOLDER+"]\n"))
     arg('-x', '--index', type=str, default='latest',
         help=("Specify the id of the database version to use. "
