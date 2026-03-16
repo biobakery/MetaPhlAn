@@ -3,10 +3,10 @@
 
 fix_pairend = true  # whether to fix pair end information from metaphlan output, requires SAM in input
 dedup_stats = false  # whether to run samtools rmdup to mark and count duplicate reads. Needs to have fix_paired set to true
-remove_viral_hits = true  # keeping the viral hits is not tested
+remove_viral_hits = true  # strain reconstruction and tracking of viral SGBs is not tested
 
 # read mapping filtering
-min_mapping_quality = 1  # minimum mapQ
+min_mapping_quality = 5  # minimum mapQ
 filter_indels = true  # remove indel alignments
 filter_duplicates = false  # works only if dedup stats is set to true
 min_read_pident = 90  # minimum percentage of identity to keep a read

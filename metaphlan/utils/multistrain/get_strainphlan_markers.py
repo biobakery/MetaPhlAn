@@ -28,6 +28,10 @@ def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_res
     snp_rate_d = 0
     polyallelic_masked = 0
     p_switch = 0
+    avg_quality_min_n = 0
+    avg_quality_maj_n = 0
+    avg_quality_min_d = 0
+    avg_quality_maj_d = 0
     p_switch_d = 0
     consensuses_sgb_maj = {}
     consensuses_sgb_min = {}
@@ -44,6 +48,10 @@ def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_res
         sequence_min = ''.join(b if q >= config['min_output_quality'] else '-' for b, q in zip(srm['sequence_min'], q_min))
 
         polyallelic_masked += sum(ps and b == '-' for b, ps in zip(sequence_maj, srm['polyallelic_significant']))
+        avg_quality_min_n += np.exp(np.logaddexp.reduce([log_p for b, log_p in zip(sequence_min, srm['log_p_min']) if b != '-']))
+        avg_quality_min_d += len(sequence_min) - sequence_min.count('-')
+        avg_quality_maj_n += np.exp(np.logaddexp.reduce([log_p for b, log_p in zip(sequence_maj, srm['log_p_maj']) if b != '-']))
+        avg_quality_maj_d += len(sequence_maj) - sequence_maj.count('-')
         p_switch += np.exp(np.logaddexp.reduce([log_p for b, log_p in zip(sequence_maj, srm['log_probas_switch']) if b != '-']))
         p_switch_d += len(sequence_maj) - sequence_maj.count('-')
 
@@ -74,12 +82,16 @@ def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_res
 
 
     snp_rate_reconstructed = snp_rate_n / snp_rate_d if snp_rate_d > 0 else 0
+    avg_quality_min = avg_quality_min_n / avg_quality_min_d if avg_quality_min_d > 0 else None
+    avg_quality_maj = avg_quality_maj_n / avg_quality_maj_d if avg_quality_maj_d > 0 else None
 
     result_row.update({
         'snp_rate_reconstructed': snp_rate_reconstructed,
         'polyallelic_masked': polyallelic_masked,
         'p_switch': p_switch,
         'p_switch_d': p_switch_d,
+        'avg_quality_maj': avg_quality_maj,
+        'avg_quality_min': avg_quality_min,
     })
 
     if result_row['multi_strain'] and result_row['r_fit_var'] is not None and result_row['snp_rate_var'] is not None:
@@ -142,14 +154,18 @@ def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_res
                 and pred_precision_support >= config['min_precision_support'] \
                 and (np.isnan(config['max_snp_rate_var']) or 0 <= snp_rate_var <= config['max_snp_rate_var']) \
                 and (np.isnan(config['max_r_var']) or 0 <= r_var <= config['max_r_var']):
+            output_minor_strain = True
             consensuses_min = consensuses_sgb_min
         else:
+            output_minor_strain = False
             consensuses_min = {}
+
 
         result_row.update({
             'pred_recall': pred_recall,
             'pred_precision': pred_precision,
             'pred_precision_support': pred_precision_support,
+            'output_minor_strain': output_minor_strain,
         })
     else:
         consensuses_min = {}

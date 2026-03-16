@@ -503,7 +503,7 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, al
     pileup_target_files = [pileup_path_before, pileup_path_after, null_err_rate_path_before, null_err_rate_path_after] \
                           + bam_target_files
 
-    if reuse in ['bam', 'pileup'] and all(map(pathlib.Path.is_file, bam_target_files)):
+    if reuse in ['bam', 'pileup', 'all'] and all(map(pathlib.Path.is_file, bam_target_files)):
         info(f'Loading existing preprocessed BAM file for sample {sample_name}')
         sam_file = load_bam(bam_path)
         if read_lens_path.is_file():
@@ -519,7 +519,7 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, al
     if sam_file is None:
         return False
 
-    if reuse in ['pileup'] and all(map(pathlib.Path.is_file, pileup_target_files)):
+    if reuse in ['pileup', 'all'] and all(map(pathlib.Path.is_file, pileup_target_files)):
         info(f'Loading existing pileup for sample {sample_name}')
         pr_after = load_pileup(pileup_path_after, null_err_rate_path_after)
     else:
