@@ -77,7 +77,7 @@ def get_strainphlan_markers(strain_resolved_markers_sgb, result_row, merging_res
 
     result_row.update({
         'snp_rate_reconstructed': snp_rate_reconstructed,
-        'polyallelic_masked': polyallelic_masked,
+        'n_positions_polyallelic_masked': polyallelic_masked,
         'p_switch': p_switch,
         'p_switch_d': p_switch_d,
     })

@@ -226,7 +226,7 @@ def run_pileup(sam_file, config):
                 warning(f'Will not use the following positions of the reads, '
                         f'there might be adapter contamination '
                         f'or other issue with sequencing: {list(drop_read_positions)}')
-                pr_after = run_pileup_inner(sam_file, config, drop_read_positions)
+                pr_after = run_pileup_inner(sam_file, config, set(drop_read_positions))
         else:
             info_debug('Not dropping any read positions, not enough support')
 
@@ -241,7 +241,7 @@ def mask_iqr(x, q25, q75):
         return np.zeros(x.shape, dtype=bool)
 
 
-def fit_nb(q50, avg_read_len_i, z, p_t):
+def fit_nb(q50, avg_read_len_i, p_t):
     if q50 is None:
         return None, None
 
@@ -252,6 +252,11 @@ def fit_nb(q50, avg_read_len_i, z, p_t):
     b = 50 / 3 - 50 * q50s
     c = -1
     ks = (-b + np.sqrt(b ** 2 - 4 * a * c)) / 2 / a
+
+    # parametrize z (overdispersion, i.e. variance:mean ratio) with coverage
+    mean = ks[-1]
+    cv = 0.2031 # coefficient of variation
+    z = cv**2 * mean + 1.4587 # for mean = 1, z = 1.5
 
     # get Negative binomial parameters, z is the variance:mean ratio
     rs = ks / (z - 1)
@@ -292,8 +297,11 @@ def filter_loci_snp_call(bfs, err_rates, avg_read_len, config):
     :return:
     """
     result_row = {}
+    result_row['n_markers_present'] = len(bfs)
 
     base_coverages = {m: bf.sum(axis=0) for m, bf in bfs.items()}
+    result_row['n_positions_total'] = sum((np.count_nonzero(bc) for bc in base_coverages.values()))
+    
     avg_read_len_i = int(avg_read_len)
     assert avg_read_len_i > 0
 
@@ -310,20 +318,23 @@ def filter_loci_snp_call(bfs, err_rates, avg_read_len, config):
             q75 = np.quantile(base_coverage_fit, .75)
 
 
-    min_cs, max_cs = fit_nb(q50, avg_read_len_i, config['outlier_coverage_overdispersion'], config['outlier_coverage_p'])
+    min_cs, max_cs = fit_nb(q50, avg_read_len_i, config['outlier_coverage_p'])
     position_mask = {m: mask_nb(bc, min_cs, max_cs) for m, bc in base_coverages.items()}
     outlier_coverage = sum(np.count_nonzero(~x) for x in position_mask.values()) /\
                        sum(len(x) for x in position_mask.values())
     marker_to_outlier_coverage = {m: (~x).mean() for m, x in position_mask.items()}
     markers_outlier_covered = set((m for m, oc in marker_to_outlier_coverage.items()
                                    if oc > config['outlier_coverage_marker']))
+    # mask all positions of outlier covered markers
+    for m in markers_outlier_covered:
+        position_mask[m][:] = False
 
 
-    result_row['coverage_25'] = q25
-    result_row['coverage_50'] = q50
-    result_row['coverage_75'] = q75
-    result_row['outlier_coverage'] = outlier_coverage
-    result_row['outlier_covered_markers'] = len(markers_outlier_covered)
+    result_row['coverage_25th'] = q25
+    result_row['coverage_50th'] = q50
+    result_row['coverage_75th'] = q75
+    result_row['perc_positions_outlier_covered'] = outlier_coverage
+    result_row['n_markers_outlier_covered'] = len(markers_outlier_covered)
 
 
     if config['trim_marker_ends'] > 0:
@@ -334,16 +345,14 @@ def filter_loci_snp_call(bfs, err_rates, avg_read_len, config):
 
     marker_covered_positions = [np.count_nonzero(bc[position_mask[m]]) for m, bc in base_coverages.items()]
 
-    result_row['n_markers_total'] = len(bfs)
-    result_row['n_positions_total'] = sum((np.count_nonzero(bc) for bc in base_coverages.values()))
-    result_row['n_positions_filtered'] = sum(marker_covered_positions)
-    result_row['n_markers_filtered'] = np.count_nonzero(marker_covered_positions)
+    result_row['n_positions_retained'] = sum(marker_covered_positions)
+    result_row['n_markers_retained'] = result_row['n_markers_present'] - result_row['n_markers_outlier_covered']
 
     allelism = {m: (bf > 0).sum(axis=0) for m, bf in bfs.items()}
     allelism_filtered = {m: a * position_mask[m] for m, a in allelism.items()}
-    result_row['n_biallelic_total'] = sum((np.count_nonzero(a == 2) for a in allelism_filtered.values()))
-    result_row['n_triallelic_total'] = sum((np.count_nonzero(a == 3) for a in allelism_filtered.values()))
-    result_row['n_quadallelic_total'] = sum((np.count_nonzero(a == 4) for a in allelism_filtered.values()))
+    result_row['n_positions_biallelic'] = sum((np.count_nonzero(a == 2) for a in allelism_filtered.values()))
+    result_row['n_positions_triallelic'] = sum((np.count_nonzero(a == 3) for a in allelism_filtered.values()))
+    result_row['n_positions_quadallelic'] = sum((np.count_nonzero(a == 4) for a in allelism_filtered.values()))
 
 
     # Polyallelism test with FDR
@@ -398,7 +407,7 @@ def filter_loci_snp_call(bfs, err_rates, avg_read_len, config):
     #         mask_sig_polyallelic_full[polyallelic_mask] = mask_sig_polyallelic
     #     polyallelic_significant_masks[m] = mask_sig_polyallelic_full
 
-    result_row['n_polyallelic_significant'] = sum((psm.sum() for psm in polyallelic_significant_masks.values()))
-    result_row['n_markers_polyallelic_significant'] = sum((psm.sum() > 0 for psm in polyallelic_significant_masks.values()))
+    result_row['n_positions_significantly_polyallelic'] = sum((psm.sum() for psm in polyallelic_significant_masks.values()))
+    result_row['n_markers_significantly_polyallelic'] = sum((psm.sum() > 0 for psm in polyallelic_significant_masks.values()))
 
     return result_row, position_mask, polyallelic_significant_masks

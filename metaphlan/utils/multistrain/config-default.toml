@@ -35,10 +35,10 @@ min_markers_rel = 0.2  # minimum fraction of available markers in DB to keep the
 
 
 # Loci filtering
-outlier_coverage_overdispersion = 1.5  # ratio of variance to mean
+#outlier_coverage_overdispersion = 1.5  # ratio of variance to mean
 outlier_coverage_p = 1e-3
 trim_marker_ends = 0  # how many positions to trim from the end of the markers
-outlier_coverage_marker = 0.3  # the fraction of positions with outlier coverage to discard the whole marker
+outlier_coverage_marker = 0.2  # the fraction of positions with outlier coverage to discard the whole marker
 q_uniformity_alpha = 0.05  # the alpha q value for the uniformity test for the marker to be reported (note that it's still kept)
 
 

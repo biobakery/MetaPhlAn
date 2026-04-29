@@ -283,9 +283,9 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mp_d
 
         result_rows[sgb_id] = result_row
 
-        if 'n_markers_polyallelic_significant' in result_row \
-                and result_row['n_markers_polyallelic_significant'] >= config['multistrain_min_markers_abs'] \
-                and result_row['n_markers_polyallelic_significant'] / mp_db_info.clade_to_n_markers[sgb_id] \
+        if 'n_markers_significantly_polyallelic' in result_row \
+                and result_row['n_markers_significantly_polyallelic'] >= config['multistrain_min_markers_abs'] \
+                and result_row['n_markers_significantly_polyallelic'] / mp_db_info.clade_to_n_markers[sgb_id] \
                 >= config['multistrain_min_markers_rel']:
             result_row['multi_strain'] = True
             info_debug(sgb_id, 'is multistrain')
@@ -390,6 +390,10 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mp_d
             consensuses_maj_sgb, consensuses_min_sgb = get_strainphlan_markers(strain_resolved_markers_sgb, result_row,
                                                                                merging_results_before, avg_read_len,
                                                                                config)
+            
+            result_row['n_markers_reconstructed_major'] = len(consensuses_maj_sgb)
+            result_row['n_markers_reconstructed_minor'] = len(consensuses_min_sgb)
+
             consensuses_maj.update(consensuses_maj_sgb)
             consensuses_min.update(consensuses_min_sgb)
 
