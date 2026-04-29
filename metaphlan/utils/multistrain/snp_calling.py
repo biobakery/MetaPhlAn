@@ -97,7 +97,7 @@ def run_pileup_inner(sam_file, config, drop_read_positions=None):
                   if b in ACTGactg]
 
         if drop_read_positions is not None:
-            bqppur = [(b, q, p, pu, r) for b, q, p, pu, r in bqppur if (r, p) not in drop_read_positions]
+            bqppur = [(b, q, p, pu, r) for b, q, p, pu, r in bqppur if (r, p) not in set(drop_read_positions)]
 
         if not bqppur:  # not covered position
             continue

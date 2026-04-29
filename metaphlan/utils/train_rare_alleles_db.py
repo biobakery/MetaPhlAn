@@ -93,7 +93,7 @@ def count_alleles_shared(arg):
         with sgb_to_lock[sgb_id]:
             a_np = np.frombuffer(allele_counts_shared_raw, offset=marker_to_offset[m],
                                  count=marker_to_len[m]*4, dtype=np.int32).reshape((4, -1))
-            a_np += (ac >= config['min_allele_cov_training'])
+            a_np += (ac >= config['min_allele_cov'])
 
 
 def main():

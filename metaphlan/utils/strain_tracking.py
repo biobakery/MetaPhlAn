@@ -49,11 +49,11 @@ def read_params():
 
     group_input = p.add_mutually_exclusive_group(required=True)
     group_input.add_argument('--samples', type=ArgumentType.existing_dir, nargs='+',
-                             help="Paths to the multi-strain output directory (containing .rare_alleles.zip file) "
+                             help="Paths to the multi-strain output directory (containing .allele_counts.zip file) "
                                   "separated by space")
     group_input.add_argument('--sample_list', type=ArgumentType.file_list_of_paths,
                              help="File with one sample per line, each line is a multi-strain directory output "
-                                  "directory (containing pileup.tsv.gz file)")
+                                  "directory (containing .allele_counts.zip file)")
 
     p.add_argument('--in_memory', action='store_true', help="Whether to pre-load the data in-memory (pay attention!)")
     p.add_argument('--database_rare_alleles', type=ArgumentType.existing_dir, required=True,
@@ -337,41 +337,43 @@ def main():
     if args.clade is not None:
         f = rare_alleles_db_dir / f'{args.clade}.zip'
         if not f.exists():
-            error(f'The clade {args.clade} is not in the rare alleles database')
-            return
-        fs = [f]
+            warning(f'The clade {args.clade} is not in the rare alleles database')
+            fs = []
+        else:
+            fs = [f]
     else:
         fs = list(rare_alleles_db_dir.iterdir())
 
     rare_alleles_db = {}
     prevalent_clades_rare = set()
-    for ac_path in tqdm(fs):
-        suffix = '.zip'
-        assert ac_path.name.endswith(suffix)
-        sgb_id = ac_path.name[:-len(suffix)]
-        if sgb_id not in prevalent_clades:
-            continue
+    if len(fs) > 0:
+        for ac_path in tqdm(fs):
+            suffix = '.zip'
+            assert ac_path.name.endswith(suffix)
+            sgb_id = ac_path.name[:-len(suffix)]
+            if sgb_id not in prevalent_clades:
+                continue
 
-        prevalent_clades_rare.add(sgb_id)
-        with zipfile.ZipFile(ac_path, 'r') as f:
-            for fi in f.infolist():
-                if fi.filename == 'metadata.json':
-                    with f.open(fi, 'r') as fm:
-                        metadata = json.load(fm)
-                    if 'database_name' in metadata and metadata['database_name'] != mp_db_info.db_name:
-                        raise Exception(f'Sample {sample_name} has been generated with a different MetaPhlAn database'
-                                        f' {metadata["database_name"]} and not the one provided {mp_db_info.db_name}')
-                elif fi.filename.endswith('.npy'):
-                    m = fi.filename[:-len('.npy')]
-                    with f.open(fi, 'r') as fm:
-                        allele_prevalences_abs = np.load(fm)
-                        tot_counts = allele_prevalences_abs.sum(axis=0)
-                        with np.errstate(invalid='ignore'):  # 0/0 case will make NaN and be filtered as False below
-                            allele_prevalences_rel = allele_prevalences_abs / tot_counts
-                        rare_alleles_db[m] = (allele_prevalences_rel < config['max_rare_allele_freq']) & \
-                                             (tot_counts >= config['min_db_pos_coverage'])
-                else:
-                    warning(f'Ignoring unrecognized file in the allele counts zip file {fi.filename}')
+            prevalent_clades_rare.add(sgb_id)
+            with zipfile.ZipFile(ac_path, 'r') as f:
+                for fi in f.infolist():
+                    if fi.filename == 'metadata.json':
+                        with f.open(fi, 'r') as fm:
+                            metadata = json.load(fm)
+                        if 'database_name' in metadata and metadata['database_name'] != mp_db_info.db_name:
+                            raise Exception(f'Sample {sample_name} has been generated with a different MetaPhlAn database'
+                                            f' {metadata["database_name"]} and not the one provided {mp_db_info.db_name}')
+                    elif fi.filename.endswith('.npy'):
+                        m = fi.filename[:-len('.npy')]
+                        with f.open(fi, 'r') as fm:
+                            allele_prevalences_abs = np.load(fm)
+                            tot_counts = allele_prevalences_abs.sum(axis=0)
+                            with np.errstate(invalid='ignore'):  # 0/0 case will make NaN and be filtered as False below
+                                allele_prevalences_rel = allele_prevalences_abs / tot_counts
+                            rare_alleles_db[m] = (allele_prevalences_rel < config['max_rare_allele_freq']) & \
+                                                 (tot_counts >= config['min_db_pos_coverage'])
+                    else:
+                        warning(f'Ignoring unrecognized file in the allele counts zip file {fi.filename}')
 
 
     info(f'There are {len(prevalent_clades)} prevalent SGBs out of which {len(prevalent_clades_rare)} are also '
