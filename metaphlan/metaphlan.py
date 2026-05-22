@@ -1400,7 +1400,7 @@ class RelativeAbundanceAnalysis(MetaphlanAnalysis):
                     outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped)*100, self.rounding)),""]) + "\n" )                   
                 clade2abundance = self.get_clade2abundance()
                 if len(clade2abundance) == 0 and not self.unclassified_estimation:
-                    outf.write( "\t".join(["UNCLASSIFIED", "-1", str(100), "", ""]) + "\n" )
+                    outf.write( "\t".join(["UNCLASSIFIED", "-1", str(100), ""]) + "\n" )
                 for clade, values in clade2abundance.items():
                     taxid, relab = values
                     if not self.use_group_representative:
