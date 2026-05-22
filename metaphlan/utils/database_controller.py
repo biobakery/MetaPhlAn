@@ -375,9 +375,9 @@ class MetaphlanDatabaseController():
         except PermissionError as e:
             error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, os.path.join(self.db_dir, self.index + "*.bt2l")))
 
-        # remove partial FASTA file except for ViralDB
+        # remove partial FASTA file (SGB.fna) except for ViralDB and full DB (needed for long-reads!)
         for fna_file in iglob(os.path.join(self.db_dir, self.index + "*.fna")):
-            if not fna_file.endswith('_VSG.fna'): # and not fna_file.endswith('{}.fna'.format(self.index)):
+            if not fna_file.endswith('_VSG.fna') and not fna_file.endswith('{}.fna'.format(self.index)):
                 info('Removing uncompressed databases {}'.format(fna_file), init_new_line = True)
                 os.remove(fna_file)
                 
@@ -404,10 +404,10 @@ class MetaphlanDatabaseController():
         except Exception as e:
             error("Fatal error running '{}'\nError message: '{}'\n\n".format(' '.join(bt2_cmd), e), exit = True)
 
-        if self.verbose:
-            info('Removing fasta file: {}'.format(fna_file), init_new_line = True)
-
-        os.remove(fna_file)
+        # do not remove, needed for minimap indexing for long-reads
+        #if self.verbose: 
+        #    info('Removing fasta file: {}'.format(fna_file), init_new_line = True)
+        #os.remove(fna_file)
 
     def __init__(self, args):
         self.verbose = args.verbose
