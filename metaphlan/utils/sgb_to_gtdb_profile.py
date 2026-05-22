@@ -6,10 +6,10 @@ __date__    = '21 Oct 2025'
 import os
 import time
 import argparse as ap
-'''try:
+try:
     from .util_fun import info, error
 except ImportError:
-    from util_fun import info, error'''
+    from util_fun import info, error
 
 GTDB_ASSIGNMENT_FILE = os.path.join(os.path.dirname(os.path.abspath(
     __file__)), "mpa_vJan25_CHOCOPhlAnSGB_202503_SGB2GTDB.tsv")
@@ -99,11 +99,11 @@ def get_gtdb_profile(mpa_profile, gtdb_profile):
 def main():
     t0 = time.time()
     args = read_params()
-    #info("Start execution")
+    info("Start execution")
     check_params(args)
     get_gtdb_profile(args.input, args.output)
     exec_time = time.time() - t0
-    #info("Finish execution ({} seconds)".format(round(exec_time, 2)))
+    info("Finish execution ({} seconds)".format(round(exec_time, 2)))
 
 
 if __name__ == "__main__":
