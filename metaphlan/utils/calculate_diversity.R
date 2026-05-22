@@ -162,12 +162,12 @@ if (opt$diversity == "beta"){
   
   # Bray-Curtis
   if (opt$metric == "bray-curtis"){
-    mat <- rbiom::beta.div(as.matrix(mpa_table), method="bray-curtis", weighted=TRUE)
+    mat <- rbiom::bdiv_matrix(as.matrix(mpa_table), bdiv="bray-curtis", weighted=TRUE)
   }
   
   # Jaccard
   if (opt$metric == "jaccard"){
-    mat <- rbiom::beta.div(as.matrix(mpa_table), method="jaccard", weighted=FALSE)
+    mat <- rbiom::bdiv_matrix(as.matrix(mpa_table), bdiv="jaccard", weighted=FALSE)
   }
   
   # Unifrac
@@ -213,10 +213,10 @@ if (opt$diversity == "beta"){
     }
     
     if (opt$metric == "weighted-unifrac"){
-      mat <- rbiom::beta.div(as.matrix(filt_mpa_table), tree=filt_tree, method="unifrac", weighted=TRUE)
+      mat <- rbiom::bdiv_matrix(as.matrix(filt_mpa_table), tree=filt_tree, bdiv="unifrac", weighted=TRUE)
       
     } else if (opt$metric == "unweighted-unifrac"){
-      mat <- rbiom::beta.div(as.matrix(filt_mpa_table), tree=filt_tree, method="unifrac", weighted=FALSE)
+      mat <- rbiom::bdiv_matrix(as.matrix(filt_mpa_table), tree=filt_tree, bdiv="unifrac", weighted=FALSE)
     } 
     
   }
@@ -229,7 +229,7 @@ if (opt$diversity == "beta"){
 
     if (opt$metric == "aitchison"){
       # Aitchison
-      mat <- rbiom::beta.div(mat, method="euclidean", weighted=TRUE)
+      mat <- rbiom::bdiv_matrix(mat, bdiv="euclidean", weighted=TRUE)
     }
   }
   

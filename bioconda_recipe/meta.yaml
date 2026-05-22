@@ -45,7 +45,7 @@ requirements:
     - r-base >=4
     - r-essentials
     - r-optparse
-    - r-rbiom
+    - r-rbiom >= 3.1.0
     - r-ape
     - r-compositions
     - r-biocmanager
