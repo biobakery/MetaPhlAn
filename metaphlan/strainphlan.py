@@ -643,6 +643,8 @@ def read_params():
 
     p.add_argument('-r', '--references', type=str, nargs='+', default=[],
                    help="The reference genomes")
+    p.add_argument('--reference_list', type=str, default=None,
+                   help="A file containing one reference path per line")
     p.add_argument('-c', '--clade', type=str, default=None,
                    help="The clade to investigate")
     p.add_argument('-o', '--output_dir', type=str, required=True,
@@ -747,7 +749,19 @@ def check_params(args):
         info(f'  Found {len(args.samples)} samples in the specified input file')
     else:
         args.samples = get_input_samples(args.samples)
-    args.references = get_input_samples(args.references)
+    if args.reference_list is not None:
+        args.references = []
+        with open(args.reference_list) as f:
+            for line in f:
+                pth = line.strip()
+                if not pth:
+                    continue
+                if not os.path.exists(pth):
+                    error('The reference file "{}" does not exist'.format(pth), exit=True)
+                args.references.append(pth)
+        info(f'  Found {len(args.references)} references in the specified input file')
+    else:
+        args.references = get_input_samples(args.references)
 
     if len(args.samples) + len(args.references) < 4:
         error('The main inputs samples + references are less than 4', exit=True)
