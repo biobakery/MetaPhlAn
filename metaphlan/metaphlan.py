@@ -2227,6 +2227,8 @@ def check_params(args):
         error("The --subsampling_seed parameter is not accepted. It should contain an integer number or \"random\".", exit=True)
     if args.inp and ',' in args.inp and not args.mapout:
         error("--mapout needs to be specified when multiple FASTQ or FASTA files (comma separated) are provided", exit=True)
+    if not args.mapout and not args.no_map:
+        error("Specify with --mapout where you want to save the intermediate mapping file or use --no_map not to save it", init_new_line = True, exit = True)
     if args.mapout and os.path.exists(args.mapout) and not args.force and not args.profile_vsc:
         error("Mapping output file detected: {}.\n Please use it as input or remove it if you want to re-perform the BowTie2 run".format(args.mapout), exit=True)
     if args.input_type == 'sam' and not args.nreads and not args.long_reads:
@@ -2240,7 +2242,7 @@ def check_params(args):
     if args.force and args.input_type not in ['fastq', 'fasta']:
         warning("The --force parameter can only be used with FASTA or FASTQ input formats, --force option will be ignored", init_new_line = True)
         args.force = False       
-    if args.force and os.path.exists(args.mapout):
+    if args.force and args.mapout and os.path.exists(args.mapout):
         os.remove(args.mapout)
         warning("Previous mapping output file has been removed from: {}".format(args.mapout)) 
     if args.profile_vsc and args.input_type == 'mapout':
