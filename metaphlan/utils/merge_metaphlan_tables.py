@@ -27,11 +27,11 @@ def merge(aaastrIn, ostm, gtdb):
         if not headers:
             print(f"merge_metaphlan_tables: file {f} has no headers with metaphlan version or is improperly formatted.")
             return
-        listmpaVersion.add(headers[0])
+        listmpaVersion.add(headers[0].split('\t')[0])
         names = headers[-1].split('#')[1].strip().split('\t')
 
         if len(listmpaVersion) > 1:
-            print('merge_metaphlan_tables: profiles from differrent versions of MetaPhlAn, please profile your '
+            print('merge_metaphlan_tables: profiles from different versions of MetaPhlAn, please profile your '
                   'samples using the same MetaPhlAn version.\n')
             return
             
@@ -40,6 +40,8 @@ def merge(aaastrIn, ostm, gtdb):
                                        name=os.path.splitext(os.path.basename(f))[0].replace('_profile', '')))
 
     merged_tables = pd.concat([merged_tables, pd.concat(profiles_list, axis=1).fillna(0)], axis=1).fillna(0)
+    separator = '|' if not gtdb else ';'
+    merged_tables = merged_tables.sort_index(key=lambda idx: idx.str.split(separator).str.len())
     ostm.write(list(listmpaVersion)[0]+'\n')
     merged_tables.to_csv(ostm, sep='\t')
 
