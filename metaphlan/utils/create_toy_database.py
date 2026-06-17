@@ -33,7 +33,7 @@ def read_params():
     requiredNamed.add_argument('--out_name', type=str, default=None, help="The name for the new MetaPhlAn database")   
     optionalNamed = p.add_argument_group('optional arguments')
     optionalNamed.add_argument('--db_dir', metavar="METAPHLAN_DB", type=str, default=DEFAULT_DB_FOLDER,
-        help=("Folder containing the MetaPhlAn database. You can specify the location by exporting the DEFAULT_DB_FOLDER variable in the shell."))
+        help=("Folder containing the MetaPhlAn database. You can specify the location by exporting the METAPHLAN_DB_DIR variable in the shell."))
     optionalNamed.add_argument('--index', type=str, default=INDEX,
         help=("Specify the id of the database version to use. If \"latest\", MetaPhlAn will get the latest version."))
     optionalNamed.add_argument("-h", "--help", action="help", help="Show this help message and exit")
