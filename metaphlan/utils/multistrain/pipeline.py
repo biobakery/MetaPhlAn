@@ -440,9 +440,11 @@ def save_reconstructed_markers(output_results, output_major, output_minor, db_na
     # Allele counts
     allele_counts_metadata = {
         'database_name': db_name,
-        'row_convention': ACTG,
-        'min_base_quality': config['min_base_quality'],
-        'min_mapping_quality': config['min_mapping_quality']
+        'base_order': ACTG,
+        'min_mapping_quality': config['min_mapping_quality'],
+        'min_read_pident': config['min_read_pident'],
+        'min_base_coverage': config['min_base_coverage'],
+        'min_base_quality': config['min_base_quality']
     }
     pileup_path_tmp = allele_counts_file.with_name(allele_counts_file.name + '.tmp')
     with zipfile.ZipFile(pileup_path_tmp, 'w', compression=zipfile.ZIP_DEFLATED) as f:
