@@ -403,7 +403,7 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mp_d
 
 
 def save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results, consensuses_maj,
-                               consensuses_min, bfs_filtered, allele_counts_file, allele_counts_only):
+                               consensuses_min, bfs_filtered, allele_counts_file, allele_counts_only, config):
     """
 
     :param pathlib.Path output_results:
@@ -416,6 +416,7 @@ def save_reconstructed_markers(output_results, output_major, output_minor, db_na
     :param dict[str, np.ndarray] bfs_filtered:
     :param pathlib.Path allele_counts_file:
     :param bool allele_counts_only:
+    :param dict config:
     :return:
     """
 
@@ -438,7 +439,10 @@ def save_reconstructed_markers(output_results, output_major, output_minor, db_na
 
     # Allele counts
     allele_counts_metadata = {
-        'database_name': db_name
+        'database_name': db_name,
+        'row_convention': ACTG,
+        'min_base_quality': config['min_base_quality'],
+        'min_mapping_quality': config['min_mapping_quality']
     }
     pileup_path_tmp = allele_counts_file.with_name(allele_counts_file.name + '.tmp')
     with zipfile.ZipFile(pileup_path_tmp, 'w', compression=zipfile.ZIP_DEFLATED) as f:
@@ -541,7 +545,7 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, al
 
     save_reconstructed_markers(results_path, output_major_path, output_minor_path, mp_db_info.db_name, df_results,
                                consensuses_maj, consensuses_min, bfs_filtered, output_allele_counts_path,
-                               allele_counts_only)
+                               allele_counts_only, config)
 
 
     info(f'Cleaning intermediate files for sample {sample_name}')
