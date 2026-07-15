@@ -6,8 +6,8 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Claudia Mengoni (claudia.mengoni@unitn.it), '
               'Linda Cova (linda.cova@unitn.it)')
-__version__ = '4.2.4'
-__date__    = '21 Oct 2025'
+__version__ = '4.2.5'
+__date__    = '13 Jul 2026'
 
 
 import time
@@ -2227,7 +2227,7 @@ def check_params(args):
         error("The --subsampling_seed parameter is not accepted. It should contain an integer number or \"random\".", exit=True)
     if args.inp and ',' in args.inp and not args.mapout:
         error("--mapout needs to be specified when multiple FASTQ or FASTA files (comma separated) are provided", exit=True)
-    if not args.mapout and not args.no_map:
+    if not args.install and not args.mapout and not args.no_map:
         error("Specify with --mapout where you want to save the intermediate mapping file or use --no_map not to save it", init_new_line = True, exit = True)
     if args.mapout and os.path.exists(args.mapout) and not args.force and not args.profile_vsc:
         error("Mapping output file detected: {}.\n Please use it as input or remove it if you want to re-perform the BowTie2 run".format(args.mapout), exit=True)

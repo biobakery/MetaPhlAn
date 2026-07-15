@@ -1,6 +1,6 @@
 __author__ = 'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it)'
-__version__ = '4.2.4'
-__date__    = '21 Oct 2025'
+__version__ = '4.2.5'
+__date__    = '13 Jul 2026'
 
 import json
 import os

@@ -1,3 +1,17 @@
+## Version 4.2.5 (Jul 13th, 2026)
+### Fixes
+* [MetaPhlAn] Fix: formatting bug when unclassified estimation is used [#26f2b8a](https://github.com/biobakery/MetaPhlAn/commit/26f2b8a4d96fd2923a7de0b00947ed61e9f8029b)
+* [MetaPhlAn] Fix: removal of fasta file after downloading [#f967cb9](https://github.com/biobakery/MetaPhlAn/commit/f967cb96df8e8cc1dd832f5695507ac8bf087dec)
+* [MetaPhlAn] Fix: update of rbiom function in calculate_diversity.R [#b388de5](https://github.com/biobakery/MetaPhlAn/commit/b388de5a4ea26b7157365f1718fa90bc826bdc88) 
+* [MetaPhlAn] Fix: parameter check when neither `--mapout` nor `--no_map` are provided [#95a80f2](https://github.com/biobakery/MetaPhlAn/commit/95a80f2d71e664af6512722db79e12972e3cd42a)
+
+### Improvements
+* [StrainPhlAn] Optimize: print clades for large sample size [#bb17299](https://github.com/biobakery/MetaPhlAn/commit/bb17299e4b327933298bff1eaab1a50a1bf752dc)
+* [StrainPhlAn] Add: `--sample_list` allow to input file with list of paths [#bb17299](https://github.com/biobakery/MetaPhlAn/commit/bb17299e4b327933298bff1eaab1a50a1bf752dc)
+* [StrainPhlAn] Add: `--references_list` allow to input file with list of paths [#d3b4669](https://github.com/biobakery/MetaPhlAn/commit/d3b4669e7dec06ef5f011536851ace86daddf2cb)
+* [MetaPhlAn] Optimize: `sgb_to_gtdb.py` is more robust and can now take as input merged profiles using the flag `--merged_profiles`. Automatic detection of the correct gtdb conversion file and possibility to provide it as input with `--gtdb_assignment_file` [#82131d1](https://github.com/biobakery/MetaPhlAn/commit/82131d1891c27167f7c31cd8a832001b10581a5c) and [#558cd9](https://github.com/biobakery/MetaPhlAn/commit/7558cd931aabe0d627a3ece7eac638600880fa36)
+
+
 ## Version 4.2.4 (Oct 21st, 2025)
 ### Fixes
 * [MetaPhlAn] Fix NameError in conditional rounding
