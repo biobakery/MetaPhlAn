@@ -10,7 +10,7 @@ if sys.version_info[0] < 3:
     sys.stdout.write('MetaPhlAn requires Python 3 or higher. Please update you Python installation')
 
 setuptools.setup(
-    name='MetaPhlAn',
+    name='metaphlan',
     version='4.2.5',
     author='Claudia Mengoni',
     author_email='claudia.mengoni@unitn.it',
