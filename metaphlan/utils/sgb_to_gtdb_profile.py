@@ -103,16 +103,31 @@ def normalize_abundances(abundances, merged_profiles, unclassified_fraction=0):
 
     def normalize_vector(values, target):
         total = sum(values)
-        rounded = [round(target * value / total, 5) for value in values] if total else list(values)
+        if total == 0:
+            return [0.0] * len(values)
+        rounded = [round(target * v / total, 5) for v in values]
         correction = round(target - sum(rounded), 5)
-        if rounded:
-            rounded[-1] = round(rounded[-1] + correction, 5)
+        if rounded and abs(correction) > 0:
+            idx = max(range(len(rounded)), key=lambda i: rounded[i])
+            rounded[idx] = round(rounded[idx] + correction, 5)
+        # clamp negatives and renormalize to preserve target
+        negatives = [r for r in rounded if r < 0]
+        if negatives:
+            rounded = [max(0.0, r) for r in rounded]
+            s = sum(rounded)
+            if s == 0:
+                # distribute target evenly
+                return [round(target / len(rounded), 5) for _ in rounded]
+            return [round(target * r / s, 5) for r in rounded]
         return rounded
 
     if merged_profiles:
-        if not unclassified_fraction:
-            unclassified_fraction = [0.0] * len(next(iter(abundances.values())))
-
+        if unclassified_fraction in (None, 0):
+            first_taxon = next(iter(abundances['s'].values()), None)
+            if first_taxon is None:
+                return abundances
+            unclassified_fraction = [0.0] * len(first_taxon)
+            
         targets = [100 - x for x in unclassified_fraction]
         columns = list(zip(*abundances.values()))
         normalized_columns = [normalize_vector(list(column), target) for column, target in zip(columns, targets)]
