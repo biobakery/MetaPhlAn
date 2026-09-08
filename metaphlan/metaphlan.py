@@ -88,6 +88,12 @@ class TaxClade:
         return "|".join(fullname[1:])
     
     
+    def _is_egb_clade(self):
+        """Returns True when the current clade should use the EGB-specific quantile."""
+        if self.name.split('__')[-1].startswith('EGB'):
+            return True
+        return False
+
     def normalize_coverage(self, rat_nreads):
         """Normalizes the clade coverage based on the selected stat
 
@@ -95,8 +101,9 @@ class TaxClade:
             rat_nreads (list): the list of the filtered markers as a tuple marker length and number of reads mapping
         """
         rat_nreads = sorted(rat_nreads, key = lambda x: x[1])  
-        rat_v,nreads_v = zip(*rat_nreads)                
-        quant = int(self.stat_q * len(rat_nreads))
+        rat_v,nreads_v = zip(*rat_nreads)
+        q = self.stat_q_egb if self._is_egb_clade() and self.stat_q_egb is not None else self.stat_q
+        quant = int(q * len(rat_nreads))
         ql,qr,qn = (quant, -quant, quant)       
         if self.stat == 'avg_g' or (not qn and self.stat in ['wavg_g','tavg_g']):
             self.coverage = sum(nreads_v) / float(sum(rat_v))
@@ -201,6 +208,7 @@ class TaxClade:
         
     stat = None
     stat_q = None
+    stat_q_egb = None
     perc_nonzero = None
     avoid_disqm = None        
     markers2lens = None
@@ -334,7 +342,7 @@ class TaxTree:
             clade2profiles[clade.get_full_name()] = normalized_counts
         return clade2profiles
 
-    def __init__(self, database_pkl, ignore_markers, stat, stat_q, perc_nonzero, avoid_disqm, avg_read_length):
+    def __init__(self, database_pkl, ignore_markers, stat, stat_q, stat_q_egb, perc_nonzero, avoid_disqm, avg_read_length):
         self.mpa = database_pkl
         self.ignore_markers = ignore_markers
         self.root = TaxClade('root', 0) #if not long_reads else TaxClade_longreads('root', 0)
@@ -346,6 +354,7 @@ class TaxTree:
         self.build_tree()
         TaxClade.stat = stat
         TaxClade.stat_q = stat_q
+        TaxClade.stat_q_egb = stat_q_egb
         TaxClade.perc_nonzero = perc_nonzero
         TaxClade.avoid_disqm = avoid_disqm
         TaxClade.markers2lens = self.markers2lens
@@ -1534,7 +1543,7 @@ class Metaphlan:
     def build_taxonomy_tree(self):
         """Build the MetaPhlAn taxonomy tree"""
         self.tree = TaxTree(self.database_controller.database_pkl, self.ignore_markers,
-                       self.stat, self.stat_q, self.perc_nonzero, self.avoid_disqm, self.avg_read_length) #, self.long_reads)
+                       self.stat, self.stat_q, self.stat_q_egb, self.perc_nonzero, self.avoid_disqm, self.avg_read_length) #, self.long_reads)
             
     def separate_reads2markers(self, reads2markers):
         """Separates the viral hits from the reads to markers dictionary
@@ -1939,6 +1948,7 @@ class Metaphlan:
         self.no_map = args.no_map
         self.stat = args.stat
         self.stat_q = args.stat_q
+        self.stat_q_egb = args.stat_q_egb
         self.ignore_markers = self.get_markers_to_ignore(args.ignore_markers)
         self.avoid_disqm = args.avoid_disqm
         self.subsampling = args.subsampling
@@ -2059,6 +2069,9 @@ def read_params(args):
         help="Do not profile unknown SGBs (together with --sgb option)")
     arg('--stat_q', metavar="", type=float, default=0.2, help="Quantile value for the robust average\n"
         "[default 0.2]")
+    arg('--stat_q_egb', metavar="", type=float, default=None,
+        help="Quantile value for the robust average applied only to eukaryotes'\n"
+        "[default: same as --stat_q]")
     arg('--perc_nonzero', metavar="", type=float, default=0.33, help="Percentage of markers with a non zero relative abundance for misidentify a species\n"
         "[default 0.33]")
     arg('--ignore_markers', type=str, default=None,
@@ -2275,6 +2288,8 @@ def check_params(args):
             args.inp = args.forward + ',' + args.reverse
     if not args.long_reads and not args.split_reads and not args.mapping_subsampling and args.subsampling and args.subsampling < 10000:
         warning("The specified subsampling is below the recommended minimum of 10,000 reads.", init_new_line = True) 
+    if args.stat_q_egb is None:
+        args.stat_q_egb = args.stat_q
     if args.min_mapq_val is None:
         args.min_mapq_val = 50 if args.long_reads else 5
     if args.vsc_breadth is None:
