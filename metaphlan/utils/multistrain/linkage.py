@@ -229,8 +229,11 @@ def generate_graph(nodes, edges):
 def linkage_merging(df_loci_sgb, sgb_linkage, config):
     nodes, node_pairs = generate_node_pairs(df_loci_sgb.set_index(['marker', 'pos']))
     g = generate_graph(nodes, sgb_linkage)
-    results_before_merging = [node_pairs, g.copy()]
 
+    if not config['linkage_graph_merging']:
+        return [node_pairs, g], [node_pairs, g]
+
+    results_before_merging = [node_pairs, g.copy()]
     node_pairs_merged = []
 
     np1 = None

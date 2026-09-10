@@ -50,7 +50,8 @@ polymorphism_q_alpha = 1e-5  # the maximum FDR-corrected p-value (q-value) in th
 multistrain_min_markers_abs = 1
 multistrain_min_markers_rel = 0.2
 
-# likag graph merging
+# linkage graph merging
+linkage_graph_merging = false # whether to force physically linked (from reads) polyallelic alleles to stay together in the genotype reconstruction model. Recommended off by default
 max_w_across = 0
 min_w_along = 1
 
