@@ -1458,6 +1458,8 @@ class RelativeAbundanceReadStatsAnalysis(MetaphlanAnalysis):
         with out_stream as outf:
             self.write_common_headers(outf)
             outf.write( "#Estimated {} mapped to known clades: {}\n".format(unit, int(self.mapped)))
+            if unit == 'reads':
+                outf.write( "#Average read length {}\n".format(self.avg_read_length) )
             outf.write( "\t".join( ["#clade_name","clade_taxid","relative_abundance","coverage","estimated_number_of_{}_from_the_clade".format(unit) ]) +"\n" )
             if self.unclassified_estimation:
                 outf.write( "\t".join(["UNCLASSIFIED", "-1", str(round((1-self.fraction_mapped)*100, self.rounding)),"-", str(self.total_metagenome - self.mapped)]) + "\n" )                   
@@ -1555,7 +1557,7 @@ class Metaphlan:
             (dict, dict): tuple of dictionaries for the SGBs/EUKs and viral contigs
         """
         ## changed to work with dict
-        return {r: m for r, m in reads2markers.items() if ('SGB' in m[0] or 'EUK' in m[0]) and not 'VDB' in m[0]}, {r: m for r, m in reads2markers.items() if 'VDB' in m[0] and not ('SGB' in m[0] or 'EUK' in m[0])}
+        return {r: m for r, m in reads2markers.items() if ('SGB' in m[0] or 'EUK' in m[0] or 'EGB' in m[0]) and not 'VDB' in m[0]}, {r: m for r, m in reads2markers.items() if 'VDB' in m[0] and not ('SGB' in m[0] or 'EUK' in m[0] or 'EGB' in m[0])}
 
     def make_gen_fastq(self, reader):
         """Read fastq file in chunks
