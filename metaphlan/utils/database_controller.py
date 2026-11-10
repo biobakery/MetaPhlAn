@@ -4,6 +4,7 @@ import bz2
 import time
 import sys
 import hashlib
+import shlex
 import urllib.request
 import tarfile
 from glob import glob, iglob
@@ -248,25 +249,88 @@ class MetaphlanDatabaseController():
         
         Returns:
             str: the index of the database"""
-        # check if the database is already present locally 
-        if not self.force_download:
-            if self.check_database():
-                return self.index
-        
-        # not enough database files present locally and offline option is on
-        if self.offline:
-            error("The database cannot be downloaded with the --offline option activated and some database files for {} are missing in {}".format(self.index, self.db_dir), init_new_line = True, exit = True)
+        # check if the database is already present locally
+        if self.force_download or not self.check_database():
+            # not enough database files present locally and offline option is on
+            if self.offline:
+                error("The database cannot be downloaded with the --offline option activated and some database files for {} are missing in {}".format(self.index, self.db_dir), init_new_line = True, exit = True)
 
-        # database not present, download and install
-        info("MetaPhlAn database not present or partially present in {}. \n Downloading database\n Please note due to the size this might take a few minutes.".format(self.db_dir), init_new_line = True)
-        self.install_database()      
-        info("Download complete.", init_new_line = True)
+            # database not present, download and install
+            info("MetaPhlAn database not present or partially present in {}. \n Downloading database\n Please note due to the size this might take a few minutes.".format(self.db_dir), init_new_line = True)
+            self.install_database()
+            info("Download complete.", init_new_line = True)
 
-        # check if the database is installed
-        if self.check_database():
-            return self.index
-        else:
-            error('Database installation failed. Please try again the installation in --verbose mode', init_new_line = True, exit = True)
+            # check if the database is installed
+            if not self.check_database():
+                error('Database installation failed. Please try again the installation in --verbose mode', init_new_line = True, exit = True)
+
+            # minimap2 indexes built from the previous FASTA are now stale
+            for old_mmi in glob(os.path.join(self.db_dir, self.index + "_*.mmi")):
+                warning('Removing minimap2 index built from the previous database: {}'.format(old_mmi), init_new_line = True)
+                os.remove(old_mmi)
+
+        # long-reads index is built only at install time (metaphlan --install --long_reads),
+        # never during profiling, so parallel profiling jobs cannot race to build it
+        if self.install and self.long_reads:
+            self.install_mm2_index()
+
+        return self.index
+
+    def get_mm2_index_path(self):
+        """Path of the minimap2 index for the selected presets (one .mmi per --minimap2_ps string)
+
+        Returns:
+            str: the path of the .mmi file"""
+        return os.path.join(self.db_dir, self.index + self.mm2_ps_str + ".mmi")
+
+    def get_mm2_install_cmd(self):
+        """Command the user should run to build the minimap2 index for the current settings
+
+        Returns:
+            str: the shell command"""
+        cmd = ['metaphlan', '--install', '--long_reads', '--db_dir', self.db_dir, '--index', self.index]
+        if self.minimap2_exe != 'minimap2':
+            cmd += ['--minimap2_exe', self.minimap2_exe]
+        # presets start with '-', so pass them as --minimap2_ps='...' to keep argparse happy
+        return ' '.join(shlex.quote(c) for c in cmd) + ' --minimap2_ps=' + shlex.quote(' '.join(self.mm2_ps_list))
+
+    def install_mm2_index(self):
+        """Build the minimap2 index for long reads if not already present
+
+        Returns:
+            str: the path of the .mmi file"""
+        mmi_index = self.get_mm2_index_path()
+        if os.path.isfile(mmi_index) and os.path.getsize(mmi_index) > 0:
+            info('Minimap2 index found ({})'.format(mmi_index), init_new_line = True)
+            return mmi_index
+
+        fna_file = os.path.join(self.db_dir, self.index + ".fna")
+        if not os.path.isfile(fna_file):
+            error('The FASTA file needed to build the minimap2 index was not found: {}\n'
+                  'The database was probably installed by a MetaPhlAn version that removes it. Re-download it with:\n'
+                  '  {} --force_download'.format(fna_file, self.get_mm2_install_cmd()), init_new_line = True, exit = True)
+
+        try:
+            subp.check_call([self.minimap2_exe, "-h"], stdout=subp.DEVNULL)
+        except Exception as e:
+            error('OSError: "{}"\nFatal error running minimap2 at {}. Please check minimap2 installation and path'.format(e, self.minimap2_exe), exit=True)
+
+        # write to a temporary name and rename at the end: an interrupted or failed
+        # build never leaves a partial .mmi that later runs would accept
+        tmp_index = '{}.tmp.{}'.format(mmi_index, os.getpid())
+        mm2_cmd = [self.minimap2_exe] + self.mm2_ps_list + ["-v", "0", "-I", "20G", "-d", tmp_index, fna_file]
+        info('Building minimap2 index {} (presets: {})\n Please note due to the size this might take a while.'.format(mmi_index, ' '.join(self.mm2_ps_list)), init_new_line = True)
+        try:
+            subp.run(mm2_cmd, check=True)
+            os.chmod(tmp_index, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
+            os.replace(tmp_index, mmi_index)
+        except Exception as e:
+            if os.path.exists(tmp_index):
+                os.remove(tmp_index)
+            error("Fatal error building the minimap2 index with '{}'\nError message: '{}'\n\n".format(' '.join(mm2_cmd), e), exit = True)
+
+        info('Minimap2 index installed ({})'.format(mmi_index), init_new_line = True)
+        return mmi_index
     
     def get_index(self):
         """Get the index of the database"""
@@ -421,6 +485,10 @@ class MetaphlanDatabaseController():
         self.bowtie2_build = args.bowtie2_build
         self.long_reads = args.long_reads
         self.profile_vsc = args.profile_vsc
+        self.install = args.install
+        self.minimap2_exe = args.minimap2_exe if args.minimap2_exe else 'minimap2'
+        self.mm2_ps_list = args.minimap2_ps.strip().split()
+        self.mm2_ps_str = args.minimap2_ps.strip().replace(" ","").replace(",","_").replace("-","_")
 
 class StrainphlanDatabaseController():
     def load_database(self, verbose=True):

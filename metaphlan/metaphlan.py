@@ -958,51 +958,20 @@ class Minimap2Controller(MappingController):
     def set_nbases(self, value):
         self.nbases = value
 
-    def build_mm2_index(self): 
-        """Build mm2 index with the selected parameters"""
-        # Check fasta file
-        fna_file = os.path.join(self.db_dir, self.index + ".fna")
-        if not glob(fna_file):
-            error('No Metaphlan database found at: {} to build the minimap index'.format(fna_file), exit=True)
-                            
-        # Build mm2 index
+    def check_mm2_database(self):
+        """Checks that the minimap2 index for the selected presets is installed.
+        The index is never built here: it is built once by `metaphlan --install --long_reads`,
+        so that parallel profiling runs do not all try to build it at the same time."""
+        mmi_index = self.database_controller.get_mm2_index_path()
+
+        if not (os.path.isfile(mmi_index) and os.path.getsize(mmi_index) > 0):
+            error('Minimap2 index for long reads not found: {}\n'
+                  'Build it once (before launching parallel jobs) with:\n'
+                  '  {}'.format(mmi_index, self.database_controller.get_mm2_install_cmd()), init_new_line = True, exit = True)
+
         if self.verbose:
-            info('Building minimap2 index for parameters:{}'.format(self.mm2_ps_str.replace("_"," -")), init_new_line = True)
-        mmi_index = os.path.join(self.db_dir, self.index + self.mm2_ps_str + ".mmi")
-        # mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-d", mmi_index, fna_file]
-        mm2_cmd = [self.minimap2_exe]+self.mm2_ps_list+["-v","0","-I","20G","-d", mmi_index, fna_file]
-
-        try:
-            subp.run(mm2_cmd)
-        except Exception as e:
-            error("Fatal error running '{}'\nError message: '{}'\n\n".format(' '.join(mm2_cmd), e), exit = True)
-
-        # check mm2 index        
-        try:
-            os.chmod(mmi_index, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH)  # change permissions to 664
-        except PermissionError as e:
-            error('PermissionError: "{}"\nCannot change permission for {}. Make sure the files are readable.'.format(e, mmi_index), exit=True)
-
-        return mmi_index
-
-    def check_mm2_database(self): 
-        """Checks the presence and consistency of the mpa database"""
-        mmi_index = os.path.join(self.db_dir, self.index + self.mm2_ps_str + ".mmi")
-
-        if not glob(mmi_index):
-            ## check minimap2 
-            try:
-                subp.check_call([self.minimap2_exe, "-h"], stdout=subp.DEVNULL)
-            except Exception as e:
-                error('OSError: "{}"\nFatal error running minimap2 at {}. Please check minimap2 installation and path'.format(e,self.minimap2_exe), exit=True)
-            ## build the index
-            self.db_dir = self.build_mm2_index()
-
-        elif os.path.getsize(mmi_index) < (30*10**9):
-            warning('Small minimap index found at: {}, please check and remove if needed'.format(mmi_index), init_new_line = True)
-        else:
-            info("Minimap2 index found")
-            self.db_dir = mmi_index
+            info("Minimap2 index found ({})".format(mmi_index), init_new_line = True)
+        self.db_dir = mmi_index
 
     def init_mapping_arguments(self):
         """Automatically set the mapping arguments"""
@@ -2173,7 +2142,8 @@ def read_params(args):
     arg('-2', type=str, default=None, metavar='REVERSE_READS', dest='reverse',
         help="Specify the fastq file with reverse reads of the input metagenomes. Reads are assumed to be in the same order in the forward and reverse files! [default None]")
     arg('--install', action='store_true',
-        help="Only checks if the MetaPhlAn DB is installed and installs it if not. All other parameters are ignored.")
+        help="Only checks if the MetaPhlAn DB is installed and installs it if not. All other parameters are ignored,\n"
+             "except --long_reads (also builds the minimap2 index for the --minimap2_ps presets and --minimap2_exe).")
     arg('--offline', action='store_true',
         help="If used, MetaPhlAn will not check for new database updates.")
     arg('--force_download', action='store_true',
