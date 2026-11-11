@@ -32,15 +32,18 @@ def execute(cmd):
     if cmd['stdout']:
         out_f = open(cmd['stdout'], 'w')
     exec_res = sb.run(cmd['command_line'], stdin=inp_f, stdout=out_f)
-    if exec_res.returncode == 1:
-        error("An error was ocurred executing a external tool, exiting...", exit=True)
-        print(exec_res.stdout)
-        print('===')
-        print(exec_res.stderr)
     if cmd['stdin']:
         inp_f.close()
     if cmd['stdout']:
         out_f.close()
+    # any non-zero exit code is a failure (e.g. 137 when killed for out-of-memory), not only 1.
+    # stderr is not captured, so the tool's own messages are already on the terminal
+    if exec_res.returncode != 0:
+        error("An error occurred executing an external tool (exit code {}):\n  {}".format(
+            exec_res.returncode, ' '.join(cmd['command_line'])), exit=False)
+        if exec_res.stdout:
+            error('stdout:\n{}'.format(exec_res.stdout.decode(errors='replace')), exit=False)
+        error("Exiting", exit=True)
 
 
 def build_bowtie2_db(input_fasta, output_database):

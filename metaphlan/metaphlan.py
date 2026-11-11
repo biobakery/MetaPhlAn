@@ -424,16 +424,20 @@ class VSCController():
         
         if bamHandle:
             bamHandle.close()
-        
-        self.create_vsc_report(VSC_report)
 
-    def create_vsc_report(self, VSC_report):
+        report_columns = ['M-Group/Cluster', 'genomeName', 'len', 'breadth_of_coverage'] + \
+                         (['mapping_reads_count', 'RPKM'] if rpkm else []) + \
+                         ['depth_of_coverage_mean', 'depth_of_coverage_median']
+        self.create_vsc_report(VSC_report, report_columns)
+
+    def create_vsc_report(self, VSC_report, report_columns):
         """Create a report of the VSC that mapped"""
         with open(self.vsc_out,'w') as outf:
             outf.write('#{}\n'.format(self.index))
             outf.write('#{}\n'.format(' '.join(sys.argv)))
             outf.write('#SampleID\t{}\n'.format(self.sample_id))
-            vsc_out_df = pd.DataFrame.from_dict(VSC_report).query('breadth_of_coverage >= {}'.format(self.vsc_breadth))
+            # explicit columns so that an empty report (no viral hits) still has them and can be filtered/merged
+            vsc_out_df = pd.DataFrame(VSC_report, columns=report_columns).query('breadth_of_coverage >= {}'.format(self.vsc_breadth))
             vsc_out_df = self.filter_vsc_report(vsc_out_df)
             vsc_info_df = pd.read_table(self.vsc_vinfo, sep='\t')
             vsc_out_df = vsc_out_df.merge(vsc_info_df, on='M-Group/Cluster').sort_values(by='breadth_of_coverage', ascending=False).set_index('M-Group/Cluster')
@@ -483,8 +487,10 @@ class VSC_bt2_controller(VSCController):
         mCluster = o[2]
         mGroup = o[2].split('|')[2].split('-')[0]
                             
+        # SAM stores reverse-strand reads reverse-complemented (and their qualities reversed):
+        # restore the original orientation only for those, keep forward reads as they are
         if (hex(int(o[1]) & 0x10) == '0x0'): #front read
-            rr=SeqRecord(Seq(o[9]),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
+            rr=SeqRecord(Seq(o[9]),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10]]}, id=o[0])
         else:
             rr=SeqRecord(Seq(o[9]).reverse_complement(),letter_annotations={'phred_quality':[ord(_)-33 for _ in o[10][::-1]]}, id=o[0])
         if o[10] == "*":
@@ -620,10 +626,47 @@ class VSC_mm2_controller(VSCController):
         """
         return vsc_df.loc[vsc_df.groupby('M-Group/Cluster')['depth_of_coverage_mean'].idxmax()].reset_index(drop=True)
     
+    def add_sq_headers(self):
+        """Adds @SQ lines for the viral markers hit to the viral SAM
+
+        minimap2 --sam-hit-only writes no @SQ lines, and samtools cannot read a SAM without them.
+        Marker lengths are taken from the viral FASTA (<index>_VSG.fna)."""
+        header, alignments, refs = [], [], set()
+        with open(self.vscSamFile) as samfile:
+            for line in samfile:
+                if line.startswith('@'):
+                    header.append(line)
+                else:
+                    alignments.append(line)
+                    refs.add(line.split('\t', 3)[2])
+        if any(h.startswith('@SQ') for h in header) or not refs:
+            return
+        if not os.path.exists(self.vsc_fna):
+            error('Viral markers FASTA not found: {}\nIt is needed by --profile_vsc with --long_reads.'.format(self.vsc_fna), init_new_line=True, exit=True)
+        lengths, name = {}, None
+        with open(self.vsc_fna) as fna:
+            for line in fna:
+                if line.startswith('>'):
+                    name = line[1:].split()[0]
+                    if name in refs:
+                        lengths[name] = 0
+                elif name in lengths:
+                    lengths[name] += len(line.rstrip('\n'))
+        missing = refs - set(lengths)
+        if missing:
+            error('{} viral markers in the mapping are not in {} (e.g. {})'.format(len(missing), self.vsc_fna, next(iter(missing))), init_new_line=True, exit=True)
+        hd = [h for h in header if h.startswith('@HD')]
+        with open(self.vscSamFile, 'w') as samfile:
+            samfile.writelines(hd)
+            samfile.writelines('@SQ\tSN:{}\tLN:{}\n'.format(r, lengths[r]) for r in sorted(refs))
+            samfile.writelines(h for h in header if not h.startswith('@HD'))
+            samfile.writelines(alignments)
+
     def run_analysis(self, total_metagenome):
         """All the steps to run analysis on VSC"""
         self.infer_sam_input_type()
         self.check_vsc_files()
+        self.add_sq_headers()
         self.vsc_samtools()
         self.vsc_parsing(rpkm=False)
 
@@ -703,12 +746,16 @@ class MappingController:
         if self.no_map:
             self.mapout = tempfile.NamedTemporaryFile(dir=self.tmp_dir).name
         elif self.mapout is None:
-            if self.inp is None:
+            # comma-separated inputs (e.g. -1/-2 with --subsampling_paired): name the mapout
+            # after the first file, since "R1,R2" is not a path that can be checked or used
+            first_inp = self.inp.split(',')[0] if self.inp else None
+            if first_inp is None:
                 self.mapout = 'stdin_map.mapout.txt'
-            elif stat.S_ISFIFO(os.stat(self.inp).st_mode):
+            elif stat.S_ISFIFO(os.stat(first_inp).st_mode):
                 self.mapout = 'fifo_map.mapout.txt'
             else:
-                self.mapout = 'fifo_map.mapout.txt'.format(self.inp)
+                # one mapout per input (next to it), so runs on different inputs do not overwrite each other
+                self.mapout = '{}.mapout.txt'.format(first_inp)
     
     def __init__(self, args, index):
         self.inp = args.inp
@@ -1528,7 +1575,8 @@ class Metaphlan:
         ## changed to work with dict
         return {r: m for r, m in reads2markers.items() if ('SGB' in m[0] or 'EUK' in m[0] or 'EGB' in m[0]) and not 'VDB' in m[0]}, {r: m for r, m in reads2markers.items() if 'VDB' in m[0] and not ('SGB' in m[0] or 'EUK' in m[0] or 'EGB' in m[0])}
 
-    def make_gen_fastq(self, reader):
+    @staticmethod
+    def make_gen_fastq(reader):
         """Read fastq file in chunks
         
         Args:
@@ -1539,18 +1587,21 @@ class Metaphlan:
             yield b
             b = reader(1024 * 1024)
 
-    def rawpycount(self, filename, intype):
-        """Counts lines in a fastq file
-        
+    @staticmethod
+    def rawpycount(filename, intype):
+        """Counts lines in a fastq file.
+        Static so that execute_pool pickles only the function, not the whole
+        Metaphlan object (which holds the loaded database).
+
         Args:
             filename (str): the file name
             intype (str): the input type
-        
+
         Returns:
             int: the number of bases
         """
         f = bz2.BZ2File(filename, 'rb') if filename.endswith(".bz2") else gzip.open(filename, 'rb') if filename.endswith('.gz') else open(filename, 'rb')
-        f_gen = self.make_gen_fastq(f.read)
+        f_gen = Metaphlan.make_gen_fastq(f.read)
         total_metagenome = sum( buf.count(b'\n') for buf in f_gen) if intype == 'fastq' else sum( buf.count(b'>') for buf in f_gen)
         f.close()
         return int(total_metagenome/4) if intype == 'fastq' else int(total_metagenome)
