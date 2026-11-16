@@ -14,6 +14,7 @@ import argparse as ap
 import io
 import os
 import re
+import sys
 import tempfile
 import time
 from collections import defaultdict
@@ -441,6 +442,8 @@ class Strainphlan:
             info_file.write("Number of references after filtering: {}\n".format(n_refs))
             info_file.write("PhyloPhlan phylogenetic precision mode: {}\n".format(self.phylophlan_mode))
             info_file.write("Number of processes used: {}\n".format(self.nprocs))
+            if self.phylophlan_controller.tree_note:
+                info_file.write("Tree: {}\n".format(self.phylophlan_controller.tree_note))
 
 
     def detect_clades(self):
@@ -625,6 +628,7 @@ class Strainphlan:
         self.nprocs = args.nprocs
         self.tmp_dir = args.output_dir if args.tmp is None else args.tmp
         self.phylophlan_controller = Phylophlan3Controller(args)
+        self.phylophlan_mode = self.phylophlan_controller.phylophlan_mode
 
 
 def read_params():
@@ -643,7 +647,8 @@ def read_params():
     input_g = p.add_mutually_exclusive_group(required=True)
     input_g.add_argument('-s', '--samples', type=str, nargs='+',
                          help="The reconstructed markers for each sample (json.bz2 or pkl), can also be a directory "
-                              "containing the samples")
+                              "(e.g. the sample2markers output folder): its .json(.bz2) / .pkl(.bz2) files, also in "
+                              "subfolders, are used")
     input_g.add_argument('--sample_list', type=str, help="A file containing on each row a path to a sample "
                                                          "(json.bz2 or pkl")
 
@@ -675,8 +680,9 @@ def read_params():
                    help="Threshold defining the minimum breadth of coverage for the markers")
     p.add_argument('--polymorphism_perc', type=int, default=None,
                    help="Threshold defining the maximum percentage of polymorphic sites in a marker to be considered ")
-    p.add_argument('--phylophlan_mode', choices=['accurate', 'fast'], default='fast',
-                   help="The presets for fast or accurate phylogenetic analysis")
+    p.add_argument('--phylophlan_mode', choices=['accurate', 'fast'], default=None,
+                   help="The presets for fast or accurate phylogenetic analysis (default: fast, or the mode given in "
+                        "--phylophlan_params)")
     p.add_argument('--phylophlan_configuration', type=str, default=None,
                    help="The PhyloPhlAn configuration file")
     p.add_argument('--tmp', type=str, default=None,
@@ -684,7 +690,10 @@ def read_params():
     p.add_argument('--mutation_rates', action='store_true', default=False,
                    help="If specified, StrainPhlAn will produce a mutation rates table for each of the aligned markers"
                         " and a summary table for the concatenated MSA. This operation can take long time to finish")
-    p.add_argument('--phylophlan_params', type=str, default=None, help="Additional phylophlan parameters")
+    p.add_argument('--phylophlan_params', type=str, default=None,
+                   help="Additional PhyloPhlAn parameters, e.g. \"--gap_perc_threshold 0.5\"; they replace StrainPhlAn's "
+                        "values for the same options (logged). --fast/--accurate set the precision mode. Input/output "
+                        "locations and the configuration file cannot be changed here")
     p.add_argument('--print_clades_only', action='store_true', default=False,
                    help="If specified, StrainPhlAn will only print the potential clades and stop the execution")
     p.add_argument('--non_interactive', action='store_true', default=False,
@@ -698,7 +707,13 @@ def read_params():
                    version="StrainPhlAn version {} ({})".format(__version__, __date__),
                    help="Prints the current StrainPhlAn version and exit")
 
-    return p.parse_args()
+    # a --phylophlan_params value starting with '-' would be read as an option: pass it as --phylophlan_params=VALUE
+    argv = sys.argv[1:]
+    for i in range(len(argv) - 1):
+        if argv[i] == '--phylophlan_params':
+            argv[i:i + 2] = ['--phylophlan_params=' + argv[i + 1]]
+            break
+    return p.parse_args(argv)
 
 
 def get_input_samples(args_samples):
@@ -707,8 +722,14 @@ def get_input_samples(args_samples):
         if os.path.isfile(s):
             samples.append(s)
         elif os.path.isdir(s):
-            dir_files = [os.path.join(s, f) for f in os.listdir(s)]
-            samples.extend([f for f in dir_files if os.path.isfile(f)])
+            # consensus-marker files anywhere below the folder: sample2markers writes one subfolder per sample, next
+            # to other outputs (results.tsv, allele_counts.zip) that are not strainphlan input
+            # (symbolic links to files or folders are followed; broken links are skipped)
+            for root, dirs, files in os.walk(s, followlinks=True):
+                dirs.sort()
+                samples.extend(os.path.join(root, f) for f in sorted(files)
+                               if f.endswith(('.json', '.json.bz2', '.pkl', '.pkl.bz2'))
+                               and os.path.isfile(os.path.join(root, f)))
         elif not os.path.exists(s):
             error(f'Sample file/folder {s} does not exist', exit=True)
         else:
@@ -769,6 +790,7 @@ def check_params(args):
 
 
 def main():
+    fix_hash_seed()  # reproducible sample order in PhyloPhlAn's alignment, hence the same RAxML tree
     t0 = time.time()
     args = read_params()
     check_params(args)

@@ -8,91 +8,96 @@ from ...utils import error
 
 ACTG = 'ACTG'
 
+# ==============================================================================================
+# Read linkage between significant biallelic sites
+# ==============================================================================================
 def calculate_linkage(df_loci_sgb, sam_file, config):
-    sgb_linkage = defaultdict(lambda: defaultdict(set))  # (m1,p1,m2,p2) => (b1 + b2) => set of read names
+    """(marker1, pos1, marker2, pos2) -> {base1 + base2: read names}, from reads (and mate pairs) covering both
+    sites with base quality >= min_base_quality. Only the significant sites inside each read are inspected."""
+    sgb_linkage = defaultdict(lambda: defaultdict(set))
     sgb_markers = df_loci_sgb['marker'].unique()
-    df_loci_sgb = df_loci_sgb.set_index(['marker', 'pos'])
-    sgb_loci = set(df_loci_sgb.index)
+    min_bq = config['min_base_quality']
 
+    # significant positions per marker (1-based, sorted)
+    site_pos = {m: np.sort(df_loci_sgb.loc[df_loci_sgb['marker'] == m, 'pos'].to_numpy(dtype=np.int64))
+                for m in sgb_markers}
 
     paired_reads = defaultdict(list)
     for marker in sgb_markers:
         for read in sam_file.fetch(marker):
-            # filter reads by flags and mapQ
             if read.is_unmapped | read.is_qcfail | read.is_secondary:
                 continue
-
             if config['filter_duplicates'] and read.is_duplicate:
                 continue
-
             if read.mapping_quality < config['min_mapping_quality']:
                 continue
-
             paired_reads[read.qname].append(read)
 
     for read_pair_name, reads in paired_reads.items():
         if len(reads) > 2:
             error(f"Something wrong with paired-end, more than two ({len(reads)}) mates found with name {read_pair_name}")
             continue
-
-        # If mapping to the same marker, one should be forward and one reverse
         if len(reads) == 2 and (reads[0].reference_name == reads[1].reference_name) \
                 and not (reads[0].is_forward ^ reads[1].is_forward):
             continue
 
-        covered_loci_by_pair = set()
-        marker_pos_to_seq = defaultdict(dict)
-
-        for read in reads:  # iterate the mates in the pair (one or two reads)
-            # get positions, bases and base qualities
+        # per mate: {(marker, pos): base} at significant positions with base quality >= threshold
+        mate_obs = []
+        for read in reads:
             marker = read.reference_name
-            ref_pos = read.get_reference_positions(full_length=True)
-            read_seq = read.query_alignment_sequence
-            read_quals = read.query_qualities
+            sp_ = site_pos[marker]
+            ct = read.cigartuples
+            qual = read.query_qualities
+            obs = {}
+            if ct is not None and len(ct) == 1 and ct[0][0] == 0 and qual is not None \
+                    and read.query_length == ct[0][1]:
+                # one M operation with SEQ and QUAL
+                start = read.reference_start
+                L = ct[0][1]
+                lo = np.searchsorted(sp_, start + 1, 'left')
+                hi = np.searchsorted(sp_, start + L, 'right')
+                if hi > lo:
+                    seq = read.query_alignment_sequence
+                    for p in sp_[lo:hi]:
+                        p = int(p)
+                        o = p - 1 - start
+                        if qual[o] >= min_bq:
+                            obs[(marker, p)] = seq[o]
+            else:  # any other read: aligned pairs from pysam, restricted to significant sites
+                ref_pos = read.get_reference_positions(full_length=True)
+                read_seq = read.query_alignment_sequence
+                read_quals = read.query_qualities
 
-            assert len(ref_pos) == len(read_seq)
-            assert len(read_quals) == len(read_seq)
+                assert len(ref_pos) == len(read_seq)
+                assert len(read_quals) == len(read_seq)
 
-            # increment pos by 1 and filter for base quality and gaps (not neccessary to filter as we run intersection with the filtered loci?)
-            pbq = [(p + 1, b, q) for p, b, q in zip(ref_pos, read_seq, read_quals) if
-                   q >= config['min_base_quality'] and p is not None]
-            if not pbq:
-                continue  # no position with enough quality or not mapped to ref (gap or overhang?)
+                sset = set(int(x) for x in sp_)
+                for p, b, q in zip(ref_pos, read_seq, read_quals):
+                    if p is not None and q >= min_bq and (p + 1) in sset:
+                        obs[(marker, p + 1)] = b
+            mate_obs.append(obs)
 
-            ref_pos, read_seq, read_quals = zip(*pbq)
-
-            marker_ref_pos = [(marker, pos) for pos in ref_pos]
-
-            covered_loci_set = sgb_loci.intersection(set(marker_ref_pos))  # only covered polymorphic loci
-            covered_loci_by_pair.update(covered_loci_set)
-
-            for pos, b in zip(ref_pos, read_seq):
-                if pos in marker_pos_to_seq[marker]:
-                    if marker_pos_to_seq[marker][pos] != b:  # the mates don't agree => drop the position
-                        marker_pos_to_seq[marker][pos] = '-'
+        covered = {}
+        if len(mate_obs) == 1:
+            covered = mate_obs[0]
+        else:
+            a, b = mate_obs
+            covered = dict(a)
+            for k, v in b.items():
+                if k in covered:
+                    if covered[k] != v:
+                        covered[k] = None  # mates disagree -> drop the site
                 else:
-                    marker_pos_to_seq[marker][pos] = b
+                    covered[k] = v
+            covered = {k: v for k, v in covered.items() if v is not None}
 
-        for marker in marker_pos_to_seq.keys():
-            for pos, b in marker_pos_to_seq[marker].items():
-                if b == '-':
-                    if (marker, pos) in covered_loci_by_pair:
-                        covered_loci_by_pair.remove((marker, pos))  # remove positions where the mates disagreed
-
-        if len(covered_loci_by_pair) < 2:
+        if len(covered) < 2:
             continue
-
-        covered_loci = sorted(covered_loci_by_pair)
-
+        covered_loci = sorted(covered)
         for (m1, p1), (m2, p2) in it.combinations(covered_loci, 2):
-            b1 = marker_pos_to_seq[m1][p1]
-            b2 = marker_pos_to_seq[m2][p2]
-            b12 = b1 + b2
-            sgb_linkage[(m1, p1, m2, p2)][b12].add(read_pair_name)
+            sgb_linkage[(m1, p1, m2, p2)][covered[(m1, p1)] + covered[(m2, p2)]].add(read_pair_name)
 
-    sgb_linkage = {k1: {k2: v2 for k2, v2 in v1.items()} for k1, v1 in sgb_linkage.items()}
-
-    return sgb_linkage  # convert defaultdict to dict
+    return {k1: {k2: v2 for k2, v2 in v1.items()} for k1, v1 in sgb_linkage.items()}
 
 
 class Node:
