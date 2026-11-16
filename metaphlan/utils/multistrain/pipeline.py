@@ -1,10 +1,8 @@
-import base64
 import bz2
 import gzip
 import io
 import json
 import pathlib
-import pickle
 import zipfile
 from collections import Counter
 from typing import Sequence
@@ -15,13 +13,13 @@ import pandas as pd
 import pysam
 
 from .utils import MetaphlanDBInfo
-from ...utils import info, error, warning, info_debug, global_flags
+from ...utils import info, error, warning, info_debug
 from . import utils
 from .genotype_resolving import compute_genotypes
 from .get_strainphlan_markers import get_strainphlan_markers
 from .linkage import calculate_linkage, linkage_merging
 from .model_fitting import fit_model
-from .prepare_sam import prepare_sam, get_read_lens_from_bam
+from .prepare_sam import prepare_sam, get_read_lens_from_bam, NoAlignments
 from .snp_calling import run_pileup, PileupResult, filter_loci_snp_call
 
 
@@ -40,8 +38,7 @@ def try_load_bam(bam_path):
     except ValueError as e:
         se = str(e)
         if 'file has no sequences defined' in se or 'file does not contain alignment data' in se:
-            error(f'There are no reads in the BAM file {bam_path}, skipping the sample')
-            return None
+            return None  # no reads; the caller writes empty outputs
         else:
             raise e
 
@@ -104,92 +101,6 @@ def load_bam(bam_path):
     sam_file = try_load_bam(bam_path)
 
     return sam_file
-
-
-def save_pileup(pr, pileup_path, seq_error_path, null_err_rate_path):
-    """
-
-    :param PileupResult pr:
-    :param pathlib.Path pileup_path:
-    :param pathlib.Path seq_error_path:
-    :param pathlib.Path null_err_rate_path:
-    :return:
-    """
-    pileup_path_tmp = pileup_path.with_name(pileup_path.name + '.tmp')
-    with gzip.open(pileup_path_tmp, 'wb') as f:
-        for m in pr.base_frequencies.keys():
-            bfs = {b: base64.b64encode(pr.base_frequencies[m][i]) for i, b in enumerate(ACTG)}
-            er = base64.b64encode(pr.avg_error_rates[m])
-            line = b'\t'.join([m.encode()] + [bfs[b] for b in ACTG] + [er]) + b'\n'
-            f.write(line)
-
-    pileup_path_tmp.rename(pileup_path)
-
-    if pr.df_seq_errors is not None:
-        seq_error_path_tmp = seq_error_path.with_name(seq_error_path.name + '.tmp')
-        pr.df_seq_errors.reset_index().to_csv(seq_error_path_tmp, index=False)
-        seq_error_path_tmp.rename(seq_error_path)
-
-    null_err_rate_path_tmp = null_err_rate_path.with_name(null_err_rate_path.name + '.tmp')
-    with open(null_err_rate_path_tmp, 'w') as f:
-        f.write('null_err_rate\t' + str(pr.null_err_rate) + '\n')
-        f.write('substitutions\t' + json.dumps(pr.substitutions) + '\n')
-        f.write('substitutions_per_position\t' + json.dumps(pr.substitutions_per_position) + '\n')
-        f.write('contexts\t' + json.dumps(pr.contexts) + '\n')
-    null_err_rate_path_tmp.rename(null_err_rate_path)
-
-
-def load_pileup(pileup_path, null_err_rate_path):
-    """
-
-    :param pathlib.Path pileup_path:
-    :param pathlib.Path null_err_rate_path:
-    :return:
-    """
-    with gzip.open(pileup_path, 'rb') as f:
-        base_frequencies = {}
-        avg_error_rates = {}
-        marker_to_length = {}
-        for line in f:
-            bf = {}
-            m, bf['A'], bf['C'], bf['T'], bf['G'], er = line.strip().split(b'\t')
-            m = m.decode()
-            base_frequencies[m] = np.array([np.frombuffer(base64.decodebytes(bf[b]), dtype=np.uint16) for b in ACTG])
-            avg_error_rates[m] = np.frombuffer(base64.decodebytes(er), dtype=np.float64)
-            marker_to_length[m] = len(avg_error_rates[m])
-
-    with open(null_err_rate_path, 'r') as f:
-        desc, null_err_rate = next(f).rstrip('\n').split('\t')
-        assert desc == "null_err_rate"
-        if null_err_rate == "None":
-            null_err_rate = None
-        else:
-            null_err_rate = float(null_err_rate)
-
-        desc, subs = next(f).rstrip('\n').split('\t')
-        assert desc == "substitutions"
-        if subs == "None":
-            subs = None
-        else:
-            subs = {k: Counter(v) for k, v in json.loads(subs).items()}
-
-        desc, subs_pos = next(f).rstrip('\n').split('\t')
-        assert desc == "substitutions_per_position"
-        if subs_pos == "None":
-            subs_pos = None
-        else:
-            subs_pos = {k: {k2: Counter({int(k3): int(v3) for k3, v3 in v2.items()}) for k2, v2 in v.items()}
-                        for k, v in json.loads(subs_pos).items()}
-
-        desc, contexts = next(f).rstrip('\n').split('\t')
-        assert desc == "contexts"
-        if contexts == "None":
-            contexts = None
-        else:
-            contexts = {k: {k2: Counter(v2) for k2, v2 in v.items()} for k, v in json.loads(contexts).items()}
-
-    return PileupResult(base_frequencies, avg_error_rates, marker_to_length, None, null_err_rate, subs, subs_pos,
-                        contexts)
 
 
 def markers_and_species_filtering(base_frequencies, mp_db_info, config):
@@ -305,101 +216,148 @@ def step_reconstructed_markers(output_dir, config, sam_file, pr, read_lens, mp_d
 
 
         if not allele_counts_only:
-            loci_rows = []
-            for m in clade_markers_present:
-                for pos in range(pr.marker_to_length[m]):
-                    bfs_m = pr.base_frequencies[m][:, pos]
-                    base_coverage = bfs_m.sum()
-                    max_frequency = bfs_m.max()
-
-                    if base_coverage < config['min_output_base_coverage']:
-                        continue
-
-                    pos_err_rate = err_rates[m][pos]
-                    allelism = np.count_nonzero(bfs_m > 0)
-                    polyallelic_significant = polyallelic_significant_masks[m][pos]
-                    biallelic_significant = (allelism == 2) and polyallelic_significant
-                    filtered = position_mask[m][pos]
-
-                    loci_rows.append({
-                        'marker': m,
-                        'pos': pos + 1,
-                        'error_rate': pos_err_rate,
-                        'base_frequencies': bfs_m,
-                        'base_coverage': base_coverage,
-                        'max_frequency': max_frequency,
-                        'allelism': allelism,
-                        'filtered': filtered,
-                        'polyallelic_significant': polyallelic_significant,
-                        'biallelic_significant': biallelic_significant,
-                    })
-
-            df_loci_sgb = pd.DataFrame(loci_rows)
-            output_dir_per_sgb = output_dir / 'per_sgb_data'
-            if global_flags.debug:
-                info_debug(sgb_id, 'Saving debug files')
-                output_dir_per_sgb.mkdir(parents=True, exist_ok=True)
-                df_loci_sgb.to_csv(output_dir_per_sgb / f'df_loci_{sgb_id}.tsv', sep='\t', index=False)
-
-            df_loci_sgb_filtered = df_loci_sgb.query('filtered').copy()
-            del df_loci_sgb
-
-            if global_flags.debug:
-                result_row['est_err_rate'] = 1 - df_loci_sgb_filtered['max_frequency'].sum() / \
-                                             df_loci_sgb_filtered['base_coverage'].sum()
-
-
-            if len(df_loci_sgb_filtered) == 0:
-                warning(f'No loci left after filtering. Skipping SGB {sgb_id}, {output_dir.name}')
-                continue
-
-            if result_row['multi_strain']:
-                info_debug(sgb_id, 'Creating and merging linkage')
-                df_loci_biallelic_significant = df_loci_sgb_filtered.query('biallelic_significant')
-                sgb_linkage = calculate_linkage(df_loci_biallelic_significant, sam_file,
-                                                config)  # (m1, p1, m2, p2) => (b1 + b2) => count
-                merging_results_before, merging_results = linkage_merging(df_loci_biallelic_significant, sgb_linkage,
-                                                                          config)
-                sgb_nps = merging_results[0]
-                info_debug(sgb_id, 'Fitting model')
-                fit_model(sgb_id, df_loci_sgb_filtered, result_row, config)
-            else:
-                sgb_nps = []
-                merging_results_before = ([], None)
-
-
-            info_debug(sgb_id, 'Generating genotype by maximizing per-position probabilities')
-            consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch = \
-                compute_genotypes(df_loci_sgb_filtered, sgb_nps, result_row, marker_to_length_sgb)
-
-            strain_resolved_markers_sgb = [{
-                'marker': m,
-                'sequence_maj': consensuses_major[m].decode(),
-                'sequence_min': consensuses_minor[m].decode(),
-                'log_p_maj': qualities_major[m],
-                'log_p_min': qualities_minor[m],
-                'polyallelic_significant': polyallelic_significant_masks[m],
-                'log_probas_switch': log_probas_switch[m],
-            } for m in consensuses_major.keys()]
-
-            if global_flags.debug:
-                info_debug('Saving strain resolved markers')
-                with open(output_dir_per_sgb / f'strain_resolved_markers_{sgb_id}.pic', 'wb') as f:
-                    pickle.dump(strain_resolved_markers_sgb, f)
-
-            consensuses_maj_sgb, consensuses_min_sgb = get_strainphlan_markers(strain_resolved_markers_sgb, result_row,
-                                                                               merging_results_before, avg_read_len,
-                                                                               config)
-            
-            result_row['n_markers_reconstructed_major'] = len(consensuses_maj_sgb)
-            result_row['n_markers_reconstructed_minor'] = len(consensuses_min_sgb)
-
-            consensuses_maj.update(consensuses_maj_sgb)
-            consensuses_min.update(consensuses_min_sgb)
+            _reconstruct_sgb(sgb_id, clade_markers_present, pr, err_rates, position_mask, polyallelic_significant_masks,
+                             marker_to_length_sgb, result_row, sam_file, avg_read_len, config, output_dir,
+                             consensuses_maj, consensuses_min)
 
     df_results = pd.DataFrame.from_dict(result_rows, orient='index')
 
     return df_results, bfs_filtered, consensuses_maj, consensuses_min
+
+
+# ==============================================================================================
+# Per-position table of an SGB's markers, as numpy columns
+# ==============================================================================================
+class Loci:
+    """Column store of the per-position rows of an SGB (marker, position, counts, coverage, error rate, flags)."""
+
+    def __init__(self, markers, mk, pos, bf, cov, maxf, err, allelism, poly_sig, filtered):
+        self.markers = markers  # marker names (row 'marker' = markers[mk])
+        self.mk = mk
+        self.pos = pos  # 1-based
+        self.bf = bf  # (N, 4) uint16, ACTG
+        self.cov = cov  # uint64 like bfs_m.sum()
+        self.maxf = maxf  # uint16 like bfs_m.max()
+        self.err = err
+        self.allelism = allelism
+        self.poly_sig = poly_sig
+        self.bi_sig = (allelism == 2) & poly_sig
+        self.filtered = filtered
+
+    def subset(self, mask):
+        return Loci(self.markers, self.mk[mask], self.pos[mask], self.bf[mask], self.cov[mask], self.maxf[mask],
+                    self.err[mask], self.allelism[mask], self.poly_sig[mask], self.filtered[mask])
+
+    def __len__(self):
+        return len(self.pos)
+
+    def marker_col(self):
+        return np.array(self.markers, dtype=object)[self.mk]
+
+    def fit_frame(self):
+        """The columns fit_model reads."""
+        return pd.DataFrame({
+            'max_frequency': self.maxf,
+            'base_coverage': self.cov,
+            'error_rate': self.err,
+            'polyallelic_significant': self.poly_sig,
+        })
+
+    def frame(self, with_bf=True):
+        """Full DataFrame (used for the small biallelic-significant subset)."""
+        d = {
+            'marker': self.marker_col(),
+            'pos': self.pos,
+            'error_rate': self.err,
+        }
+        if with_bf:
+            col = np.empty(len(self.pos), dtype=object)
+            for i in range(len(self.pos)):
+                col[i] = self.bf[i]
+            d['base_frequencies'] = col
+        d.update({
+            'base_coverage': self.cov,
+            'max_frequency': self.maxf,
+            'allelism': self.allelism,
+            'filtered': self.filtered,
+            'polyallelic_significant': self.poly_sig,
+            'biallelic_significant': self.bi_sig,
+        })
+        return pd.DataFrame(d)
+
+
+def build_loci(clade_markers_present, base_frequencies, err_rates, position_mask, polyallelic_significant_masks,
+               marker_to_length, min_output_base_coverage):
+    mks, poss, bfs, errs, pms, fms = [], [], [], [], [], []
+    for i, m in enumerate(clade_markers_present):
+        bfm = base_frequencies[m]  # (4, L) uint16
+        L = marker_to_length[m]
+        cov = bfm.sum(axis=0, dtype=np.uint64)
+        keep = ~(cov < min_output_base_coverage)  # NaN keeps all
+        idx = np.nonzero(keep)[0]
+        mks.append(np.full(len(idx), i, dtype=np.int64))
+        poss.append(idx + 1)
+        bfs.append(bfm[:, idx].T)
+        errs.append(np.asarray(err_rates[m])[idx])
+        pms.append(polyallelic_significant_masks[m][idx])
+        fms.append(position_mask[m][idx])
+    if not mks:
+        z = np.zeros(0, dtype=np.int64)
+        return Loci(list(clade_markers_present), z, z, np.zeros((0, 4), np.uint16), z.astype(np.uint64),
+                    z.astype(np.uint16), z.astype(float), z, z.astype(bool), z.astype(bool))
+    bf = np.ascontiguousarray(np.concatenate(bfs))
+    cov = bf.sum(axis=1, dtype=np.uint64)
+    maxf = bf.max(axis=1)
+    allelism = (bf > 0).sum(axis=1).astype(np.int64)
+    return Loci(list(clade_markers_present), np.concatenate(mks), np.concatenate(poss).astype(np.int64), bf, cov, maxf,
+                np.concatenate(errs).astype(np.float64), allelism, np.concatenate(pms).astype(bool),
+                np.concatenate(fms).astype(bool))
+
+def _reconstruct_sgb(sgb_id, clade_markers_present, pr, err_rates, position_mask, polyallelic_significant_masks,
+                     marker_to_length_sgb, result_row, sam_file, avg_read_len, config, output_dir,
+                     consensuses_maj, consensuses_min):
+    """Linkage, model fit, genotypes and output markers of one SGB."""
+    loci_all = build_loci(clade_markers_present, pr.base_frequencies, err_rates, position_mask,
+                          polyallelic_significant_masks, pr.marker_to_length, config['min_output_base_coverage'])
+    loci = loci_all.subset(loci_all.filtered)
+    del loci_all
+
+    if len(loci) == 0:
+        warning(f'No loci left after filtering. Skipping SGB {sgb_id}, {output_dir.name}')
+        return
+
+    if result_row['multi_strain']:
+        info_debug(sgb_id, 'Creating and merging linkage')
+        df_loci_biallelic_significant = loci.subset(loci.bi_sig).frame()
+        sgb_linkage = calculate_linkage(df_loci_biallelic_significant, sam_file, config)
+        merging_results_before, merging_results = linkage_merging(df_loci_biallelic_significant, sgb_linkage, config)
+        sgb_nps = merging_results[0]
+        info_debug(sgb_id, 'Fitting model')
+        fit_model(sgb_id, loci.fit_frame(), result_row, config)
+    else:
+        sgb_nps = []
+        merging_results_before = ([], None)
+
+    info_debug(sgb_id, 'Generating genotype by maximizing per-position probabilities')
+    consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch = \
+        compute_genotypes(loci, sgb_nps, result_row, marker_to_length_sgb)
+
+    strain_resolved_markers_sgb = [{
+        'marker': m,
+        'sequence_maj': consensuses_major[m].decode(),
+        'sequence_min': consensuses_minor[m].decode(),
+        'log_p_maj': qualities_major[m],
+        'log_p_min': qualities_minor[m],
+        'polyallelic_significant': polyallelic_significant_masks[m],
+        'log_probas_switch': log_probas_switch[m],
+    } for m in consensuses_major.keys()]
+
+    consensuses_maj_sgb, consensuses_min_sgb = get_strainphlan_markers(strain_resolved_markers_sgb, result_row,
+                                                                       merging_results_before, avg_read_len, config)
+    result_row['n_markers_reconstructed_major'] = len(consensuses_maj_sgb)
+    result_row['n_markers_reconstructed_minor'] = len(consensuses_min_sgb)
+    consensuses_maj.update(consensuses_maj_sgb)
+    consensuses_min.update(consensuses_min_sgb)
 
 
 def save_reconstructed_markers(output_results, output_major, output_minor, db_name, df_results, consensuses_maj,
@@ -466,7 +424,7 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, al
     :param pathlib.Path output_dir:
     :param dict config:
     :param bool save_bam_file:
-    :param str reuse:
+    :param str reuse: 'bam' to reuse the preprocessed BAM of an earlier run if present, 'none' to redo everything
     :param str output_suffix:
     :param bool allele_counts_only:
     :param MetaphlanDBInfo mp_db_info:
@@ -490,55 +448,47 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, al
     output_minor_path = output_dir / f'{sample_name}.minor{output_suffix}.json.bz2'
     output_allele_counts_path = output_dir / f'{sample_name}.allele_counts.zip'
 
-    # Debug outputs
-    pileup_path_before = output_dir / 'full_pileup_nonfilt.tsv.gz'
-    pileup_path_after = output_dir / 'full_pileup_filt.tsv.gz'
-    null_err_rate_path_before = output_dir / 'null_err_rate_nonfilt.txt'
-    null_err_rate_path_after = output_dir / 'null_err_rate.txt'
-    seq_error_path_before = output_dir / 'seq_error_profile_nonfilt.csv'
-    seq_error_path_after = output_dir / 'seq_error_profile.csv'
-
-
     info(f'Starting sample {sample_name}')
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if global_flags.debug or save_bam_file:
+    if save_bam_file:
         files_to_remove = []
     else:
         files_to_remove = [bam_path, bai_path, read_lens_path]
-    dirs_to_remove = []
-
 
     bam_target_files = [bam_path, bai_path]
-    pileup_target_files = [pileup_path_before, pileup_path_after, null_err_rate_path_before, null_err_rate_path_after] \
-                          + bam_target_files
 
-    if reuse in ['bam', 'pileup', 'all'] and all(map(pathlib.Path.is_file, bam_target_files)):
+    def empty_outputs(reason):
+        warning(f'Sample {sample_name}: {reason}. Writing empty outputs (no markers in the major and minor JSONs)')
+        save_reconstructed_markers(results_path, output_major_path, output_minor_path, mp_db_info.db_name,
+                                   pd.DataFrame(), {}, {}, {}, output_allele_counts_path, allele_counts_only, config)
+        for f in files_to_remove:
+            f.unlink(missing_ok=True)
+        info(f'Finished sample {sample_name}')
+        return True
+
+    if reuse == 'bam' and all(map(pathlib.Path.is_file, bam_target_files)):
         info(f'Loading existing preprocessed BAM file for sample {sample_name}')
         sam_file = load_bam(bam_path)
+        if sam_file is None:
+            return empty_outputs('the preprocessed BAM has no reads')
         if read_lens_path.is_file():
             read_lens = load_read_lens(read_lens_path)
         else:
             info('Getting read lengths from BAM file')
             read_lens = get_read_lens_from_bam(sam_file)
     else:
-        info(f'Preprocessing the intput SAM file for sample {sample_name}')
-        sam_file, read_lens = step_bam(sample_path, bam_path, bai_path, output_dir, mp_db_info.db_name, config)
+        info(f'Preprocessing the input file of sample {sample_name}')
+        try:
+            sam_file, read_lens = step_bam(sample_path, bam_path, bai_path, output_dir, mp_db_info.db_name, config)
+        except NoAlignments as e:
+            return empty_outputs(str(e))
+        if sam_file is None:
+            return empty_outputs('the preprocessed BAM has no reads')
         save_bam(read_lens_path, read_lens)
 
-    if sam_file is None:
-        return False
-
-    if reuse in ['pileup', 'all'] and all(map(pathlib.Path.is_file, pileup_target_files)):
-        info(f'Loading existing pileup for sample {sample_name}')
-        pr_after = load_pileup(pileup_path_after, null_err_rate_path_after)
-    else:
-        info(f'Calculating pileup for sample {sample_name}')
-        pr_before, pr_after = run_pileup(sam_file, config)
-        if global_flags.debug:
-            info_debug('Saving pileup')
-            save_pileup(pr_before, pileup_path_before, seq_error_path_before, null_err_rate_path_before)
-            save_pileup(pr_after, pileup_path_after, seq_error_path_after, null_err_rate_path_after)
+    info(f'Calculating pileup for sample {sample_name}')
+    pr_before, pr_after = run_pileup(sam_file, config)
 
 
     info(f'Running marker reconstruction for sample {sample_name}')
@@ -548,16 +498,14 @@ def run(sample_path, output_dir, config, save_bam_file, reuse, output_suffix, al
     save_reconstructed_markers(results_path, output_major_path, output_minor_path, mp_db_info.db_name, df_results,
                                consensuses_maj, consensuses_min, bfs_filtered, output_allele_counts_path,
                                allele_counts_only, config)
+    if not allele_counts_only and not consensuses_maj:
+        warning(f'Sample {sample_name}: no marker was reconstructed ({len(df_results)} species processed); the major '
+                f'and minor JSONs are empty')
 
 
     info(f'Cleaning intermediate files for sample {sample_name}')
     for f in files_to_remove:
         f.unlink(missing_ok=True)
-
-    for d in dirs_to_remove:
-        if d.exists():
-            d.rmdir()
-
 
 
     info(f'Finished sample {sample_name}')

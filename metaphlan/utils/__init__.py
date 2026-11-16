@@ -1,4 +1,4 @@
-from .util_fun import info, warning, error, create_folder, read_and_split, read_and_split_line, plain_read_and_split, \
+from .util_fun import fix_hash_seed, info, warning, error, create_folder, read_and_split, read_and_split_line, plain_read_and_split, \
     plain_read_and_split_line, mybytes, byte_to_megabyte, openrt, info_debug, global_flags
 from .parallelisation import execute_pool
 from .external_exec import decompress_bz2, run_command

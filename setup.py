@@ -26,7 +26,7 @@ setuptools.setup(
             'utils/treeshrink/R_scripts/*',
             'utils/treeshrink/Rlib/BMS/*',
             'utils/treeshrink/Rlib/BMS/*/*',
-            'utils/multistrain/config-default.toml',
+            'utils/multistrain/*.toml',
         ]
     },
     entry_points={
@@ -40,7 +40,6 @@ setuptools.setup(
             'plot_tree_graphlan.py = metaphlan.utils.plot_tree_graphlan:main',
             'read_fastx.py = metaphlan.utils.read_fastx:main',
             'sample2markers.py = metaphlan.utils.sample2markers:main',
-            'sample2markers_multistrain.py = metaphlan.utils.sample2markers_multistrain:main',
             'strain_transmission.py = metaphlan.utils.strain_transmission:main',
             'sgb_to_gtdb_profile.py = metaphlan.utils.sgb_to_gtdb_profile:main',
             'metaphlan2krona.py = metaphlan.utils.metaphlan2krona:main',

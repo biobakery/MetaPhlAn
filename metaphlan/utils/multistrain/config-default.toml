@@ -1,87 +1,75 @@
 # TOML configuration file
 # see https://toml.io/en/v1.0.0 for syntax
 
-fix_pairend = true  # whether to fix pair end information from metaphlan output, requires SAM in input
-dedup_stats = false  # whether to run samtools rmdup to mark and count duplicate reads. Needs to have fix_paired set to true
-remove_viral_hits = true  # strain reconstruction and tracking of viral SGBs is not tested
+fix_pairend = true  # Whether to fix paired-end information from MetaPhlAn output; requires SAM input.
+dedup_stats = false  # Whether to run samtools markdup to mark and count duplicate reads; requires fix_pairend = true.
+remove_viral_hits = true  # Strain reconstruction and tracking of viral SGBs have not been tested.
 
 # read mapping filtering
-min_mapping_quality = 5  # minimum mapQ
-filter_indels = true  # remove indel alignments
-filter_duplicates = false  # works only if dedup stats is set to true
-min_read_pident = 90  # minimum percentage of identity to keep a read
+min_mapping_quality = 5  # Minimum MAPQ.
+filter_indels = true  # Remove indel and clipped alignments.
+filter_duplicates = false  # Works only if dedup_stats is set to true.
+min_read_pident = 90  # Minimum percentage identity required to keep a read.
 
 # base filtering
-min_base_coverage = 1  # minimum base coverage
-min_base_quality = 30  # minimum PHRED base quality
+min_base_coverage = 1  # Minimum base coverage.
+min_base_quality = 30  # Minimum Phred base quality.
 
-seq_error_stats_min_cov = 5
-null_err_rate_pseudocount = 1
-null_err_rate_excess_pseudocount = 1
-max_null_err_rate = 0.1  # set 0 to turn of null_err rate and use the PHRED qualities from the sequencing
-discard_read_ends = true  # whether to check for excess error rate at the ends of the reads
-discard_read_ends_support = 10
+seq_error_stats_min_cov = 5  # Minimum coverage of a marker position for its bases to contribute to sequencing-error statistics.
+null_err_rate_pseudocount = 1  # Pseudocount added to the sample-wide null error estimate.
+null_err_rate_excess_pseudocount = 1  # Pseudocount added to the error-excess estimate for each read position.
+max_null_err_rate = 0.1  # Set to 0 to turn off the null error estimate and use the Phred sequencing qualities.
+discard_read_ends = true  # Whether to check for an excess error rate at the ends of reads.
+discard_read_ends_support = 10  # Threshold for the number of counted bases at a read position to enter the error-excess outlier test.
 
-error_rate = 'phred'  # expected sequencing error rate of bases with qualities >= min_base_quality. [phred, estimate, float]
-#error_rate_estimation_positions = 100000   # min positions to take the estimate otherwise...
-#error_rate_fallback = 'phred'  # use the fallback value
-
+error_rate = 'phred'  # Expected sequencing error rate of bases with qualities >= min_base_quality; options: phred, estimate, or a float.
 
 # species presence calling
-min_marker_breadth = 0.1  # minimum breadth of coverage (at coverage depth >= 1x) for the marker to be kept
-quasi_marker_frac = 0.33
-min_markers_abs = 1   # minimum absolute number of markers for the SGB to keep, combined as AND with the following
-min_markers_rel = 0.2  # minimum fraction of available markers in DB to keep the SGB, combined as AND with previous
+min_marker_breadth = 0.1  # Minimum breadth of coverage (at coverage depth >= 1x) for the marker to be kept.
+quasi_marker_frac = 0.33  # Exclude a quasi-marker if any other SGB associated with it has at least this fraction of its database markers represented in the pileup.
+min_markers_abs = 1  # Minimum absolute number of markers required to retain an SGB; combined with min_markers_rel using AND.
+min_markers_rel = 0.2  # Minimum fraction of available database markers required to retain an SGB; combined with min_markers_abs using AND.
 
 
 # Loci filtering
-#outlier_coverage_overdispersion = 1.5  # ratio of variance to mean
-outlier_coverage_p = 1e-3
-trim_marker_ends = 0  # how many positions to trim from the end of the markers
-outlier_coverage_marker = 0.2  # the fraction of positions with outlier coverage to discard the whole marker
-q_uniformity_alpha = 0.05  # the alpha q value for the uniformity test for the marker to be reported (note that it's still kept)
+outlier_coverage_p = 1e-3  # Tail probability for the negative-binomial coverage filter; exclude positions outside the model's lower/upper coverage bounds.
+trim_marker_ends = 0  # Number of positions to trim from each end of a marker.
+outlier_coverage_marker = 0.2  # Threshold for the fraction of positions with outlier coverage above which the whole marker is discarded.
+# q_uniformity_alpha = 0.05  # Unused in this version; commented out of the active configuration.
 
 
 # SNP calling
-polymorphism_q_alpha = 1e-5  # the maximum FDR-corrected p-value (q-value) in the polymorphism test
+polymorphism_q_alpha = 1e-5  # The maximum FDR-corrected p-value (q-value) in the polymorphism test.
 
 
 # multistrain calling
-multistrain_min_markers_abs = 1
-multistrain_min_markers_rel = 0.2
+multistrain_min_markers_abs = 1  # Minimum number of markers containing a significantly polyallelic position required to classify an SGB as multi-strain.
+multistrain_min_markers_rel = 0.2  # Minimum fraction of all database markers for the SGB that must contain a significantly polyallelic position for multi-strain classification.
 
 # linkage graph merging
-linkage_graph_merging = false # whether to force physically linked (from reads) polyallelic alleles to stay together in the genotype reconstruction model. Recommended off by default
-max_w_across = 0
-min_w_along = 1
+linkage_graph_merging = false  # Whether to force physically linked polyallelic alleles (linked by reads) to stay together in the genotype reconstruction model; recommended off by default.
+max_w_across = 0  # Maximum summed read/read-pair support contradicting a proposed merge.
+min_w_along = 1  # Minimum summed read/read-pair support for a proposed merge.
 
 # model fitting
-max_iter = 100  # maximum iterations to give to the optimizer
-init_r_min = 0.51  # minimum r to use as an initial guess (to avoid boundary problems)
-init_r_max = 0.99  # maximum r to use as an initial guess (to avoid boundary problems)
-acceptable_tol = 1e-3 # acceptable convergence error tolerance (norm of gradient)
-negative_variance_tol = 1e-6  # if the calculated variance is negative but close to zero within this tolerance, accept it
-init_snp_rate_min = 0.0001  # minimum snp_rate to use as an initial guess for the optimization (to avoid boundary problems)
-snp_rate_fallback = 0.01  # the snp rate to use when fitting fails
-r_fallback = 0.5  # the major/minor ratio to use when fitting fails
+max_iter = 100  # Maximum number of optimizer iterations.
+init_r_min = 0.51  # Minimum r to use as an initial guess (to avoid boundary problems).
+init_r_max = 0.99  # Maximum r to use as an initial guess (to avoid boundary problems).
+acceptable_tol = 1e-3  # Acceptable convergence error tolerance (gradient norm).
+negative_variance_tol = 1e-6  # If the calculated variance is negative but close to zero within this tolerance, accept it.
+init_snp_rate_min = 0.0001  # Minimum snp_rate to use as an initial guess for the optimization (to avoid boundary problems).
+snp_rate_fallback = 0.01  # SNP rate to use when fitting fails.
+r_fallback = 0.5  # The major strain fraction to use when fitting fails.
 
 
 # Reconstructed markers output
-min_output_quality = 25  # Minimum PHRED base quality to consider the base as called, otherwise place a gap. [e.g. 10 ~ 90%, 20 ~ 99%, 30 ~ 99.9% confidence]
-min_output_base_coverage = 1
+min_output_quality = 25  # Minimum Phred base quality required to call a base; otherwise, insert a gap (e.g. 10 ~ 90%, 20 ~ 99%, 30 ~ 99.9% confidence).
+min_output_base_coverage = 1  # Minimum counted coverage for a position to enter model fitting and genotype reconstruction.
 
-min_output_breadth = 80  # Minimum breadth of coverage to output the marker [%]
-min_output_snp_rate = 0.5  # Minimum SNP rate to report the second strain [%]
-min_recall = 20  # Minimum recall to report the second strain [%]
-min_precision = 90  # Minimum precision to report the second strain [%]
-min_precision_support = 100  # Minimum precision support to report the second strain
-max_r_var = nan  # Maximum variance of the strain ratio to consider reliable fit and report the second strain, nan to turn off filtering
-max_snp_rate_var = nan  # Maximum variance of the snp rate to consider reliable fit and report the second strain, nan to turn off filtering
-
-#min_output_breadth = 0
-#min_output_snp_rate = 0
-#min_recall = 0
-#min_precision = 0
-#min_precision_support = 0
-#max_r_var = nan
-#max_snp_rate_var = nan
+min_output_breadth = 80  # Minimum breadth of coverage required to output a marker [%].
+min_output_snp_rate = 0  # Minimum SNP rate required to report the second strain [%].
+min_recall = 80  # Minimum recall required to report the second strain [%].
+min_precision = 95  # Minimum precision required to report the second strain [%].
+min_precision_support = 20  # Minimum precision support required to report the second strain.
+max_r_var = nan  # Maximum variance of the strain ratio for the fit to be considered reliable and the second strain to be reported; nan turns off this filter.
+max_snp_rate_var = nan  # Maximum variance of the SNP rate for the fit to be considered reliable and the second strain to be reported; nan turns off this filter.

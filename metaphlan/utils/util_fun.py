@@ -29,6 +29,17 @@ def message(*args, outw):
     outw.flush()
 
 
+def fix_hash_seed():
+    """Restarts the program once with PYTHONHASHSEED=0 when it is not set, so that outputs whose order goes through
+    Python sets (JSON marker order, PhyloPhlAn's sample order and hence the RAxML tree) are the same in every run.
+    A value set by the user is kept. Call it first thing in main()."""
+    if os.environ.get('PYTHONHASHSEED') is None:
+        os.environ['PYTHONHASHSEED'] = '0'
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os.execv(sys.executable, getattr(sys, 'orig_argv', [sys.executable] + sys.argv))
+
+
 def info_debug(*args):
     if not global_flags.debug:
         return

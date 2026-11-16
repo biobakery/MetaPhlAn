@@ -134,148 +134,123 @@ def get_probas_switch_multistrain_vect(max_f, cov, eps, r):
     return log_p_switch
 
 
-def invert_dict(x):
-    return pd.DataFrame(x).to_dict('records')
+# ==============================================================================================
+# Genotypes of the major and minor strain at every position (vectorised over positions)
+# ==============================================================================================
+ACTG_B = np.frombuffer(b'ACTG', dtype=np.uint8)
 
 
-def invert_double_dict(x):
-    return pd.DataFrame({(b1, b2): x for b1, v1 in x.items() for b2, x in v1.items()}).to_dict('records')
+def compute_genotypes(loci, node_pairs, result_row, marker_to_length):
+    """Major/minor consensus, their per-position log probabilities and the switch probabilities, per marker.
+    loci: pipeline.Loci of the SGB's filtered positions."""
+    consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch = {}, {}, {}, {}, {}
 
-
-def compute_genotypes(df_loci_sgb_filtered, node_pairs, result_row, marker_to_length):
-    """
-    Calculates per-position probabilities of each base for both major and minor in the multi-strain case or
-        single-strain case. Then maximize those probabilities to generate genotypes
-
-    :param pd.DataFrame df_loci_sgb_filtered:
-    :param Iterable[NodePair] node_pairs:
-    :param dict result_row:
-    :param dict marker_to_length:
-    :return:
-    """
-
-
-    consensuses_major = {}
-    consensuses_minor = {}
-    qualities_major = {}
-    qualities_minor = {}
-    log_probas_switch = {}
-
-    markers = set(df_loci_sgb_filtered['marker'].unique())
-
+    marker_col = loci.marker_col()
+    # set built from the unique markers in row order (its iteration order is the marker order of the output)
+    markers = set(pd.unique(marker_col))
     for consensuses in [consensuses_major, consensuses_minor]:
         consensuses.update({m: bytearray(b'-' * marker_to_length[m]) for m in markers})
     for qualities in [qualities_major, qualities_minor]:
         qualities.update({m: np.zeros(marker_to_length[m]) for m in markers})
     log_probas_switch.update({m: np.full(marker_to_length[m], -np.inf) for m in markers})
 
+    n = len(loci)
+    if n == 0:
+        return consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch
 
-    base_frequencies = np.array(list(df_loci_sgb_filtered['base_frequencies'].map(list).values))
-    covs = df_loci_sgb_filtered['base_coverage'].values
-    epss = df_loci_sgb_filtered['error_rate'].values
+    base_frequencies = loci.bf  # uint16, like np.array(list(df['base_frequencies'].map(list).values))
+    covs = loci.cov
+    epss = loci.err
 
-
-    log_margin_mono, log_facts_mono = get_probas_1_mono_vect(base_frequencies, covs, epss)
+    maj_code = np.zeros(n, dtype=np.int64)
+    min_code = np.zeros(n, dtype=np.int64)
+    maj_lp = np.zeros(n)
+    min_lp = np.zeros(n)
+    has_minor = False
 
     if result_row['multi_strain']:
+        has_minor = True
         r = result_row['r_fit']
         snp_rate = result_row['snp_rate']
-
-
+        log_margin_mono, log_facts_mono = get_probas_1_mono_vect(base_frequencies, covs, epss)
         log_facts_bi, log_margin_bi = get_probas_1_bi_vect(base_frequencies, covs, r, epss)
-        df_loci_sgb_filtered['log_facts_bi'] = invert_double_dict(log_facts_bi)
-
         log_p_maj_min, log_p_maj, log_p_min = get_probas_2_vect(log_margin_mono, log_facts_mono, log_facts_bi,
-                                                                log_margin_bi, base_frequencies, covs, epss, snp_rate,
-                                                                r)
+                                                                log_margin_bi, base_frequencies, covs, epss,
+                                                                snp_rate, r)
+        lsw = get_probas_switch_multistrain_vect(loci.maxf, covs, epss, r)
 
-        df_loci_sgb_filtered['log_p_maj_min'] = invert_double_dict(log_p_maj_min)
-        df_loci_sgb_filtered['log_p_maj'] = invert_dict(log_p_maj)
-        df_loci_sgb_filtered['log_p_min'] = invert_dict(log_p_min)
+        # 16-state choice with max() semantics over the states in order (bmaj in ACTG, then bmin in ACTG): the first
+        # entry is kept unless a later one is strictly greater, so ties go to the first maximum and NaN never wins
+        # unless it is the first entry
+        best = np.zeros(n, dtype=np.int64)
+        best_val = np.array(np.broadcast_to(log_p_maj_min[ACTG[0]][ACTG[0]], (n,)), dtype=np.float64)
+        for k in range(1, 16):
+            v = np.broadcast_to(log_p_maj_min[ACTG[k // 4]][ACTG[k % 4]], (n,))
+            gt = v > best_val
+            best[gt] = k
+            best_val[gt] = v[gt]
+        maj_code = best // 4
+        min_code = best % 4
+        lpm = np.stack([np.broadcast_to(log_p_maj[b], (n,)) for b in ACTG], axis=1)
+        lpn = np.stack([np.broadcast_to(log_p_min[b], (n,)) for b in ACTG], axis=1)
+        maj_lp = lpm[np.arange(n), maj_code]
+        min_lp = lpn[np.arange(n), min_code]
 
+        # linked node pairs (singletons with phaser 'none', blocks with graph merging)
+        if node_pairs:
+            key_to_row = {(marker_col[i], int(loci.pos[i])): i for i in range(n)}
+            for node_pair in node_pairs:
+                marker_pos = node_pair.marker_pos
+                gt_a = node_pair.genotype_maj
+                gt_b = node_pair.genotype_min
+                rows = [key_to_row[(m, p)] for m, p in marker_pos]
+                log_p_ab = 0
+                log_p_ba = 0
+                for row, ba, bb in zip(rows, gt_a, gt_b):
+                    f_ab = log_facts_bi[ba][bb][row]
+                    f_ba = log_facts_bi[bb][ba][row]
+                    log_margin = np.logaddexp(f_ab, f_ba)
+                    log_p_ab += f_ab - log_margin
+                    log_p_ba += f_ba - log_margin
+                log_p_ab /= len(marker_pos)
+                log_p_ba /= len(marker_pos)
+                for row, ba, bb in zip(rows, gt_a, gt_b):
+                    # max({ba: log_p_ab, bb: log_p_ba}.items()) for the major and
+                    # max(reversed({ba: log_p_ba, bb: log_p_ab}.items())) for the minor; in both the first item is
+                    # kept unless the second is strictly greater (ties and NaN keep major = ba, minor = bb)
+                    if log_p_ba > log_p_ab:
+                        maj_code[row], maj_lp[row] = ACTG.index(bb), log_p_ba
+                        min_code[row], min_lp[row] = ACTG.index(ba), log_p_ba
+                    else:
+                        maj_code[row], maj_lp[row] = ACTG.index(ba), log_p_ab
+                        min_code[row], min_lp[row] = ACTG.index(bb), log_p_ab
+    else:
+        # single strain: quality from unique (max_frequency, base_coverage) pairs
+        pairs = np.stack([loci.maxf.astype(np.uint64), covs.astype(np.uint64)], axis=1)
+        uniq, inv = np.unique(pairs, axis=0, return_inverse=True)
+        lp_u = get_probas_switch_vect(uniq[:, 0], uniq[:, 1])
+        maj_lp = np.asarray(lp_u)[inv.ravel()]
+        maj_code = base_frequencies.argmax(axis=1)
+        lsw = None
 
-        df_loci_sgb_filtered['log_p_switch'] = get_probas_switch_multistrain_vect(df_loci_sgb_filtered['max_frequency'].values, covs, epss, r)
-
-
-
-        df_loci_idx = df_loci_sgb_filtered.set_index(['marker', 'pos']).sort_index()
-        df_loci_idx['log_p_maj_linked'] = pd.NA
-        df_loci_idx['log_p_min_linked'] = pd.NA
-
-        # link the probabilities across genotypes
-
-        for node_pair in node_pairs:
-            marker_pos = node_pair.marker_pos
-            gt_a = node_pair.genotype_maj
-            gt_b = node_pair.genotype_min
-
-            log_p_ab = 0
-            log_p_ba = 0
-            for mp, ba, bb in zip(marker_pos, gt_a, gt_b):
-                log_facts_bi = df_loci_idx.loc[mp, 'log_facts_bi']
-                # use odds (coditioned on those two options) => renormalize to 1
-                log_margin_bi = np.logaddexp(log_facts_bi[(ba, bb)], log_facts_bi[(bb,ba)])
-                log_p_ab += log_facts_bi[(ba, bb)] - log_margin_bi
-                log_p_ba += log_facts_bi[(bb, ba)] - log_margin_bi
-
-            # geometric mean of probabilities to make sure all the positions are assigned together
-            log_p_ab /= len(marker_pos)
-            log_p_ba /= len(marker_pos)
-
-            log_p_majs = []
-            log_p_mins = []
-            for mp, ba, bb in zip(marker_pos, gt_a, gt_b):
-                log_p_maj = {ba: log_p_ab, bb: log_p_ba}
-                log_p_min = {ba: log_p_ba, bb: log_p_ab}
-                log_p_majs.append(log_p_maj)
-                log_p_mins.append(log_p_min)
-
-            df_loci_idx.loc[marker_pos, 'log_p_maj_linked'] = log_p_majs
-            df_loci_idx.loc[marker_pos, 'log_p_min_linked'] = log_p_mins
-
-        df_loci_sgb_filtered = df_loci_idx.reset_index()
-
-        for _, row in df_loci_sgb_filtered.iterrows():
-            pos = row['pos'] - 1
-            marker = row['marker']
-
-            if not pd.isna(row['log_p_maj_linked']):
-                log_p_maj = row['log_p_maj_linked']
-                log_p_min = row['log_p_min_linked']
-                maj_b, maj_log_p = max(log_p_maj.items(), key=lambda x: x[1])
-                # if 50:50, make sure to pick the other bas
-                min_b, min_log_p = max(reversed(log_p_min.items()), key=lambda x: x[1])
-            else:
-                # Take the most probable combination of b_maj, b_min, then the quality will be marginalized probability
-                log_p_maj_min = row['log_p_maj_min']
-                maj_b, min_b, _ = max(((bmaj, bmin, logp) for (bmaj, bmin), logp in log_p_maj_min.items()),
-                                      key=lambda x: x[2])
-                maj_log_p = row['log_p_maj'][maj_b]
-                min_log_p = row['log_p_min'][min_b]
-
-            consensuses_major[marker][pos] = ord(maj_b)
-            qualities_major[marker][pos] = maj_log_p
-            consensuses_minor[marker][pos] = ord(min_b)
-            qualities_minor[marker][pos] = min_log_p
-            log_probas_switch[marker][pos] = row['log_p_switch']
-
-    else:  # single strain
-        # use a groupby to run the computation only on unique values
-        idx = df_loci_sgb_filtered.groupby(['max_frequency', 'base_coverage']).indices
-        log_p_grouped = get_probas_switch_vect(*np.array(list(idx.keys())).T)
-        log_p = np.zeros(len(df_loci_sgb_filtered))
-        for k, v in zip(idx.values(), log_p_grouped):
-            log_p[k] = v
-
-        df_loci_sgb_filtered['log_p'] = log_p
-
-        for _, row in df_loci_sgb_filtered.iterrows():
-            pos = row['pos'] - 1
-            marker = row['marker']
-            # maj_b, maj_log_p = max(row['log_p'].items(), key=lambda x: x[1])
-            maj_b = ACTG[np.argmax(row['base_frequencies'])]
-            maj_log_p = row['log_p']
-            consensuses_major[marker][pos] = ord(maj_b)
-            qualities_major[marker][pos] = maj_log_p
+    # scatter into per-marker arrays
+    order = np.argsort(loci.mk, kind='stable')
+    mk_sorted = loci.mk[order]
+    bounds = np.flatnonzero(np.diff(mk_sorted)) + 1
+    for seg in np.split(order, bounds):
+        if len(seg) == 0:
+            continue
+        m = loci.markers[loci.mk[seg[0]]]
+        p = loci.pos[seg] - 1
+        cm = np.frombuffer(consensuses_major[m], dtype=np.uint8).copy()
+        cm[p] = ACTG_B[maj_code[seg]]
+        consensuses_major[m] = bytearray(cm.tobytes())
+        qualities_major[m][p] = maj_lp[seg]
+        if has_minor:
+            cn = np.frombuffer(consensuses_minor[m], dtype=np.uint8).copy()
+            cn[p] = ACTG_B[min_code[seg]]
+            consensuses_minor[m] = bytearray(cn.tobytes())
+            qualities_minor[m][p] = min_lp[seg]
+            log_probas_switch[m][p] = lsw[seg]
 
     return consensuses_major, consensuses_minor, qualities_major, qualities_minor, log_probas_switch
