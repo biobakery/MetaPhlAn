@@ -1,3 +1,36 @@
+## Version 4.3 (Nov 26th, 2026)
+### Database updates
+A new MetaPhlAn database (`mpa_vJan26_CHOCOPhlAnSGB_202611`) has been released with MetaPhlAn 4.3. It introduces a new strategy for eukaryotic profiling, which replaces the previous eukaryotic (EUK) markers:
+* Eukaryotes are now organized in Eukaryotic Genome Bins (EGBs), the eukaryotic counterpart of SGBs, and reported in the profiles as `t__EGB<id>`
+* 6,035 EGBs (5,348 fungal and 687 protist) built from 20,304 genomes: 15,029 NCBI isolate genomes, 2,830 JGI MycoCosm/PhycoCosm genomes, 389 NCBI MAGs and 2,056 newly assembled MAGs from food, marine and human skin metagenomes
+* Genomes clustered into EGBs at 95% ANI (fungi) and 98% ANI (protists); 5,807 known EGBs (with at least one isolate genome) and 228 unknown EGBs (MAGs only)
+* 29 phyla (10 fungal, 19 protist); 5,760 EGBs assigned at species level (5,340 distinct species), 275 EGBs without a species-level assignment
+* 1,188,304 eukaryotic markers, up to 200 markers per EGB (5,823 EGBs have 200 markers)
+* Eukaryotic taxonomy updated to the NCBI taxonomy of November 2026, with special characters removed from taxon names
+* Bacterial and archaeal markers are unchanged from vJan26 (71,511 SGBs)
+
+### New features
+* [MetaPhlAn] Add: support for EGB markers in the profiling [#8d8cd50](https://github.com/biobakery/MetaPhlAn/commit/8d8cd505be657727ef251f23b30c86b26f305b7d)
+* [MetaPhlAn] Add: `--stat_q_egb` to set the quantile of the robust average used only for EGBs (default: same as `--stat_q`). On synthetic metagenomes, `--stat_q_egb 0.1` gave a good trade-off between precision and recall and can be used when the focus is on eukaryotic profiling [#64c6d23](https://github.com/biobakery/MetaPhlAn/commit/64c6d2344b6e87791eac5a9b384e74f9d08cca58)
+* [MetaPhlAn] Add: the minimap2 index for `--long_reads` is now built once with `metaphlan --install --long_reads` instead of during the first profiling run, so parallel jobs no longer compete to build it. If the index is missing, profiling stops and prints the command to build it [#beefd5f](https://github.com/biobakery/MetaPhlAn/commit/beefd5f3b767cb45808938baf8e424c74464a3eb)
+
+### Improvements
+* [MetaPhlAn] Re-add: `#Average read length` header in the `rel_ab_w_read_stats` output [#8d8cd50](https://github.com/biobakery/MetaPhlAn/commit/8d8cd505be657727ef251f23b30c86b26f305b7d)
+* [MetaPhlAn] Optimize: when an external tool fails (e.g. killed for out of memory), MetaPhlAn now stops and reports the exit code and the command instead of continuing [#25f5d96](https://github.com/biobakery/MetaPhlAn/commit/25f5d966c6a1dec7d2bc1fa82367e3bd61eab6e7)
+* [MetaPhlAn] Optimize: lower memory use when counting reads in parallel, as the database is no longer copied to each worker [#25f5d96](https://github.com/biobakery/MetaPhlAn/commit/25f5d966c6a1dec7d2bc1fa82367e3bd61eab6e7)
+* [MetaPhlAn] Optimize: `merge_metaphlan_tables.py` skips empty profiles with a warning and exits with an error on malformed inputs [#424f3e6](https://github.com/biobakery/MetaPhlAn/commit/424f3e6e30618266404353e1083c6405a9f02f48)
+
+### Fixes
+* [MetaPhlAn] Fix: qualities of forward-strand viral reads were reversed before the viral remapping with `--profile_vsc` [#25f5d96](https://github.com/biobakery/MetaPhlAn/commit/25f5d966c6a1dec7d2bc1fa82367e3bd61eab6e7)
+* [MetaPhlAn] Fix: crash when writing the viral report with no viral clusters detected [#25f5d96](https://github.com/biobakery/MetaPhlAn/commit/25f5d966c6a1dec7d2bc1fa82367e3bd61eab6e7)
+* [MetaPhlAn] Fix: crash of `--profile_vsc` with `--long_reads` (missing `@SQ` header lines in the viral SAM) [#25f5d96](https://github.com/biobakery/MetaPhlAn/commit/25f5d966c6a1dec7d2bc1fa82367e3bd61eab6e7)
+* [MetaPhlAn] Fix: without `--mapout`, the mapping output is written next to the input (`<input>.mapout.txt`) instead of a shared `fifo_map.mapout.txt` in the working directory, which parallel runs could overwrite [#25f5d96](https://github.com/biobakery/MetaPhlAn/commit/25f5d966c6a1dec7d2bc1fa82367e3bd61eab6e7)
+* [MetaPhlAn] Fix: crash of `-1`/`-2` `--subsampling_paired` when `--mapout` is not provided [#25f5d96](https://github.com/biobakery/MetaPhlAn/commit/25f5d966c6a1dec7d2bc1fa82367e3bd61eab6e7)
+* [MetaPhlAn] Fix: `sgb_to_gtdb_profile.py` rounding correction for low abundance values [#c3ad75a](https://github.com/biobakery/MetaPhlAn/commit/c3ad75a601e091b33708f5ace98323fe044cb61f)
+* [MetaPhlAn] Fix: `merge_metaphlan_tables.py` error when a sample has no `additional_species` [#424f3e6](https://github.com/biobakery/MetaPhlAn/commit/424f3e6e30618266404353e1083c6405a9f02f48)
+
+
+
 ## Version 4.2.5 (Jul 13th, 2026)
 ### Fixes
 * [MetaPhlAn] Fix: formatting bug when unclassified estimation is used [#26f2b8a](https://github.com/biobakery/MetaPhlAn/commit/26f2b8a4d96fd2923a7de0b00947ed61e9f8029b)
