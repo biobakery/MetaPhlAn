@@ -318,7 +318,7 @@ class MetaphlanDatabaseController():
         # write to a temporary name and rename at the end: an interrupted or failed
         # build never leaves a partial .mmi that later runs would accept
         tmp_index = '{}.tmp.{}'.format(mmi_index, os.getpid())
-        mm2_cmd = [self.minimap2_exe] + self.mm2_ps_list + ["-v", "0", "-I", "20G", "-d", tmp_index, fna_file]
+        mm2_cmd = [self.minimap2_exe] + self.mm2_ps_list + ["-v", "0", "-I", "30G", "-d", tmp_index, fna_file]
         info('Building minimap2 index {} (presets: {})\n Please note due to the size this might take a while.'.format(mmi_index, ' '.join(self.mm2_ps_list)), init_new_line = True)
         try:
             subp.run(mm2_cmd, check=True)

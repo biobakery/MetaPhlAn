@@ -6,8 +6,8 @@ __author__ = ('Aitor Blanco-Miguez (aitor.blancomiguez@unitn.it), '
               'Francesco Asnicar (f.asnicar@unitn.it), '
               'Claudia Mengoni (claudia.mengoni@unitn.it), '
               'Linda Cova (linda.cova@unitn.it)')
-__version__ = '4.2.5'
-__date__    = '13 Jul 2026'
+__version__ = '4.3'
+__date__    = '24 Nov 2026'
 
 
 import time

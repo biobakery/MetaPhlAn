@@ -1,7 +1,7 @@
 __author__ = 'Aitor Blanco Miguez (aitor.blancomiguez@unitn.it),' \
              'Michal Puncochar (michal.puncochar@unitn.it)'
-__version__ = '4.2.5'
-__date__    = '13 Jul 2026'
+__version__ = '4.3'
+__date__    = '24 Nov 2026'
 
 import abc
 import os
