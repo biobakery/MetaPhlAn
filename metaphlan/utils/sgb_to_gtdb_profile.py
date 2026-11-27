@@ -123,7 +123,7 @@ def normalize_abundances(abundances, merged_profiles, unclassified_fraction=0):
 
     if merged_profiles:
         if unclassified_fraction in (None, 0):
-            first_taxon = next(iter(abundances['s'].values()), None)
+            first_taxon = next(iter(abundances.values()), None)
             if first_taxon is None:
                 return abundances
             unclassified_fraction = [0.0] * len(first_taxon)
